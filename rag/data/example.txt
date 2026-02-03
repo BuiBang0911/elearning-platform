@@ -1,0 +1,7 @@
+Công ty An Phát Plastic là doanh nghiệp chuyên sản xuất tấm nhựa PVC và PP phục vụ ngành xây dựng và nội thất. Nhà máy đặt tại Khu công nghiệp Long Hậu, Long An, chính thức đi vào hoạt động từ tháng 3 năm 2019.
+
+Hệ thống quản lý kho của An Phát Plastic được triển khai từ quý II năm 2021, với mục tiêu theo dõi nhập – xuất – tồn theo từng lô sản xuất (batch). Mỗi lô được gắn một mã định danh duy nhất, ví dụ: PVC-0424-L03, trong đó “0424” thể hiện tháng 4 năm 2024, còn “L03” là dây chuyền sản xuất số 3.
+
+Tính đến tháng 12 năm 2024, kho nguyên vật liệu của nhà máy bao gồm ba nhóm chính: hạt nhựa PVC, hạt nhựa PP, và phụ gia ổn định nhiệt. Số lượng tồn kho trung bình mỗi tháng lần lượt là 120 tấn PVC, 85 tấn PP và 15 tấn phụ gia. Nguyên vật liệu được nhập chủ yếu từ Nhật Bản và Hàn Quốc, với thời gian giao hàng trung bình là 18–25 ngày.
+
+Trong năm 2023, công ty ghi nhận hai lần chênh lệch tồn kho do sai sót trong khâu kiểm kê thủ công. Sau sự cố này, ban giám đốc yêu cầu tích hợp thêm chức năng cảnh báo tồn kho âm và truy vết lịch sử điều chỉnh trong hệ thống. Từ tháng 1 năm 2024, mọi thao tác điều chỉnh tồn kho đều phải có lý do, người thực hiện, và thời điểm cụ thể.
