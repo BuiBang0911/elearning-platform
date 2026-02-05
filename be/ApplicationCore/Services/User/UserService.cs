@@ -4,10 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace ApplicationCore
+namespace ApplicationCore.Services.User
 {
-    public abstract class BaseEntity
+    public class UserService
     {
-        public virtual int Id { get; set; }
     }
 }
