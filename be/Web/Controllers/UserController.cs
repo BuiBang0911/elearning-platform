@@ -36,7 +36,7 @@ namespace Web.Controllers
 
         [HttpPost]
         [ApiExplorerSettings(IgnoreApi = true)]
-        public override async Task<ActionResult<UserResponse>> Create([FromBody] UserRequest rq)
+        public override async Task<ActionResult<UserResponse>> Create([FromBody] UserUpdateRequest rq)
         {
             return await base.Create(rq);
         }

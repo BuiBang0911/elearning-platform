@@ -24,7 +24,7 @@ namespace Web.Controllers
         #region CRUD
 
         [HttpPost]
-        public virtual async Task<ActionResult<TResponse>> Create([FromBody] TRequest rq)
+        public virtual async Task<ActionResult<TResponse>> Create([FromBody] TUpdateRequest rq)
         {
             var entity = _mapper.Map<TEntity>(rq);
             var result = await _baseService.AddAndReturnAsync(entity);
