@@ -1,24 +1,45 @@
 ﻿using ApplicationCore.Services;
+using ApplicationCore.Services.Users;
+using Ardalis.Specification;
+using AutoMapper;
+using Infrastructure.Entities;
 using Microsoft.AspNetCore.Mvc;
+using Web.DTO;
 
 namespace Web.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class UserController
+    public class UserController : BaseEntityController<User, UserRequest, UserUpdateRequest, UserResponse>
     {
-        /*private readonly IBaseService<User> _userService;
+        private readonly IUserService _userService;
+        private readonly IMapper _mapper;
 
-        public UserController(IBaseService<User> userService)
-        {
+        public UserController(IUserService userService, IMapper mapper) : base(userService, mapper) {
             _userService = userService;
         }
-        
-        [HttpGet]
-        public async Task<IActionResult> GetAll([FromQuery] PaginationRequestDto paginationRequestDto)
+
+        [HttpDelete("{id}")]
+        public override async Task<IActionResult> Delete(int id)
         {
-            var users = await _userService.GetAsync()
-            return Ok(employees);
-        }*/
+            var entity = await _userService.FirstOrDefaultAsync(x => x.Id == id);
+            if (entity == null)
+                return NotFound();
+
+            if (entity.IsDelete == true) return BadRequest( new {message = "User is deleted ago!"});
+
+            entity.IsDelete = true;
+
+            await _userService.UpdateAsync(entity);
+            return NoContent();
+        }
+
+        [HttpPost]
+        [ApiExplorerSettings(IgnoreApi = true)]
+        public override async Task<ActionResult<UserResponse>> Create([FromBody] UserRequest rq)
+        {
+            return await base.Create(rq);
+        }
+
     }
 }

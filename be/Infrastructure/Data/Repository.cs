@@ -341,7 +341,7 @@ namespace Infrastructure.Data
                 .Take(count)
                 .ToListAsync();
 
-            return new PagedList<T>(items, totalCount, page, count);
+            return new PagedList<T>(items, page, count, totalCount);
         }
 
         #endregion

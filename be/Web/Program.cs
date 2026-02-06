@@ -1,6 +1,13 @@
 using Microsoft.EntityFrameworkCore;
 using Infrastructure;
 using Infrastructure.Data;
+using ApplicationCore.Data;
+using ApplicationCore.Services.Users;
+using Infrastructure.Entities;
+using ApplicationCore.Services.Courses;
+using Web.Mapping;
+using Microsoft.Extensions.DependencyInjection;
+using AutoMapper;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,6 +21,19 @@ builder.Services.AddDbContext<DatabaseContext>(options =>
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+// 1. Kh?i t?o c?u hình và quét các Profile trong Assembly c?a UserMapping
+builder.Services.AddAutoMapper(cfg =>
+{
+    cfg.AddProfile<UserMapping>();
+    cfg.AddProfile<CourseMapping>();
+}, AppDomain.CurrentDomain.GetAssemblies());
+
+
+builder.Services.AddScoped<IRepository<User>, Repository<User>>();
+builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IRepository<Course>, Repository<Course>>();
+builder.Services.AddScoped<ICourseService, CourseService>();
 
 var app = builder.Build();
 
