@@ -8,6 +8,10 @@ using ApplicationCore.Services.Courses;
 using Web.Mapping;
 using Microsoft.Extensions.DependencyInjection;
 using AutoMapper;
+using ApplicationCore.Services.Documents;
+using ApplicationCore.Services.Lessons;
+using ApplicationCore.Services.ChatSessions;
+using ApplicationCore.Services.ChatMessages;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -27,6 +31,7 @@ builder.Services.AddAutoMapper(cfg =>
 {
     cfg.AddProfile<UserMapping>();
     cfg.AddProfile<CourseMapping>();
+    cfg.AddProfile<LessonMapping>();
 }, AppDomain.CurrentDomain.GetAssemblies());
 
 
@@ -34,6 +39,17 @@ builder.Services.AddScoped<IRepository<User>, Repository<User>>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IRepository<Course>, Repository<Course>>();
 builder.Services.AddScoped<ICourseService, CourseService>();
+builder.Services.AddScoped<ILessonService, LessonService>();
+builder.Services.AddScoped<IRepository<Lesson>, Repository<Lesson>>();
+
+builder.Services.AddScoped<IDocumentService, DocumentService>();
+builder.Services.AddScoped<IRepository<Document>, Repository<Document>>();
+
+// --- CHAT AI Services & Repositories ---
+builder.Services.AddScoped<IChatSessionService, ChatSessionService>();
+builder.Services.AddScoped<IRepository<ChatSession>, Repository<ChatSession>>();
+builder.Services.AddScoped<IChatMessageService, ChatMessageService>();
+builder.Services.AddScoped<IRepository<ChatMessage>, Repository<ChatMessage>>();
 
 var app = builder.Build();
 

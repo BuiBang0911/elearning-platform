@@ -37,6 +37,7 @@ pip-delete-this-directory.txt
 fe/node_modules
 npm-debug.log
 yarn-error.log
+fe/edumind/node_modules
 
 # IDEs and editors
 .idea/
