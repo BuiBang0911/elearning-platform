@@ -11,12 +11,20 @@ namespace Infrastructure.Entities
         public string Email { get; set; }
         public string Password { get; set; }
         public string FullName { get; set; }
-        public string Role { get; set; } // student | lecturer | admin
+        public UserRole Role { get; set; } // student | lecturer | admin
         public string RefreshToken { get; set; }
+        public bool IsDelete { get; set; } = false;
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         // Relationships
         public virtual ICollection<Course> TeachesCourses { get; set; }
         public virtual ICollection<Enrollment> Enrollments { get; set; }
+    }
+
+    public enum UserRole
+    {
+        Student = 1,
+        Lecturer = 2,
+        Admin = 3
     }
 }
