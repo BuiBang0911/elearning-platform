@@ -10,7 +10,7 @@ namespace Web.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class CourseController : BaseEntityController<Course, CourseRequest, UserUpdateRequest, UserResponse>
+    public class CourseController : BaseEntityController<Course, CourseRequest, CourseUpdateRequest, CourseResponse>
     {
         private readonly ICourseService _courseService;
         private readonly IMapper _mapper;

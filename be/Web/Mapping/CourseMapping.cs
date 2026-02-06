@@ -3,7 +3,7 @@ using Web.DTO;
 
 namespace Web.Mapping
 {
-    public class CourseMapping : BaseMapping<Course, CourseRequest, UserUpdateRequest, UserResponse>
+    public class CourseMapping : BaseMapping<Course, CourseRequest, CourseUpdateRequest, CourseResponse>
     {
     }
 }
