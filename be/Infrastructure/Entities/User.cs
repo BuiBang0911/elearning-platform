@@ -15,6 +15,7 @@ namespace Infrastructure.Entities
         public string? RefreshToken { get; set; }
         public bool IsDelete { get; set; } = false;
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime? RefreshTokenExpiry { get; set; }
 
         // Relationships
         public virtual ICollection<Course> TeachesCourses { get; set; }
