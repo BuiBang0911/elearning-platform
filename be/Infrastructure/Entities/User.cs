@@ -12,7 +12,7 @@ namespace Infrastructure.Entities
         public string Password { get; set; }
         public string FullName { get; set; }
         public UserRole Role { get; set; } // student | lecturer | admin
-        public string RefreshToken { get; set; }
+        public string? RefreshToken { get; set; }
         public bool IsDelete { get; set; } = false;
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
