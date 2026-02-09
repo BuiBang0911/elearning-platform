@@ -3,6 +3,8 @@ using System.Security.Claims;
 using System.Text;
 using System.IdentityModel.Tokens.Jwt;
 using Microsoft.IdentityModel.Tokens;
+using System.Data;
+using Infrastructure.Entities;
 
 
 namespace ApplicationCore.Services.Token
@@ -16,12 +18,14 @@ namespace ApplicationCore.Services.Token
             _config = config;
         }
 
-        public string GenerateToken(string userId)
+        public string GenerateToken(string userId, string role, string email)
         {
             var claims = new[]
             {
                 new Claim(JwtRegisteredClaimNames.Sub, userId),
-                new Claim(ClaimTypes.NameIdentifier, userId)
+                new Claim(ClaimTypes.NameIdentifier, userId),
+                new Claim(ClaimTypes.Role, role),
+                new Claim(ClaimTypes.Email, email),
             };
 
             var key = new SymmetricSecurityKey(

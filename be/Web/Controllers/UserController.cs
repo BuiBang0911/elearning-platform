@@ -3,6 +3,7 @@ using ApplicationCore.Services.Users;
 using Ardalis.Specification;
 using AutoMapper;
 using Infrastructure.Entities;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Web.DTO;
 
@@ -10,6 +11,7 @@ namespace Web.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(Policy = nameof(UserRole.Admin))]
     public class UserController : BaseEntityController<User, UserRequest, UserUpdateRequest, UserResponse>
     {
         private readonly IUserService _userService;

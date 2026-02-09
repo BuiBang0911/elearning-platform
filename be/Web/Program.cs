@@ -15,6 +15,8 @@ using ApplicationCore.Services.ChatMessages;
 using ApplicationCore.Services.Token;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using Web.Services.WorkContext;
+using System.Security.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -46,9 +48,24 @@ builder.Services.AddAuthentication("Bearer")
 
             IssuerSigningKey = new SymmetricSecurityKey(
                 Encoding.UTF8.GetBytes(jwtKey)
-            )
+            ),
+
+            RoleClaimType = ClaimTypes.Role,
+            NameClaimType = ClaimTypes.NameIdentifier
         };
     });
+
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy(UserRole.Admin.ToString(),
+        p => p.RequireRole("Admin"));
+
+    options.AddPolicy(UserRole.Lecturer.ToString(),
+        p => p.RequireRole("Lecture"));
+
+    options.AddPolicy(UserRole.Student.ToString(),
+        p => p.RequireRole("Student"));
+});
 
 builder.Services.AddScoped<JwtService>();
 
@@ -76,6 +93,9 @@ builder.Services.AddScoped<IChatSessionService, ChatSessionService>();
 builder.Services.AddScoped<IRepository<ChatSession>, Repository<ChatSession>>();
 builder.Services.AddScoped<IChatMessageService, ChatMessageService>();
 builder.Services.AddScoped<IRepository<ChatMessage>, Repository<ChatMessage>>();
+
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<IWorkContextService, WorkContextService>();
 
 var app = builder.Build();
 

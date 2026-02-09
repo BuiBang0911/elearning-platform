@@ -1,8 +1,10 @@
 ﻿using ApplicationCore.Services.Token;
 using ApplicationCore.Services.Users;
 using Infrastructure.Entities;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 using Web.DTO;
 
 namespace Web.Controllers
@@ -37,7 +39,7 @@ namespace Web.Controllers
             if (!isValid)
                 return Unauthorized("Sai tài khoản hoặc mật khẩu");
 
-            var accessToken = _jwtService.GenerateToken(user.Id.ToString());
+            var accessToken = _jwtService.GenerateToken(user.Id.ToString(), user.Role.ToString(), user.Email);
 
             var refreshToken = _jwtService.GenerateRefreshToken();
 
@@ -53,6 +55,19 @@ namespace Web.Controllers
                 RefreshToken = refreshToken
             });
 
+        }
+
+        [Authorize]
+        public async Task<IActionResult> Logout()
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (userId == null) return BadRequest();
+            var user = await _userService.FirstOrDefaultAsync(x => x.Id.ToString() == userId);
+            if (user == null) return BadRequest();
+            user.RefreshToken = null;
+            user.RefreshTokenExpiry = null;
+            await _userService.UpdateAsync(user);
+            return Ok();
         }
 
         [HttpPost("register")]
@@ -76,11 +91,24 @@ namespace Web.Controllers
                 FullName = request.FullName,
                 Email = request.Email,
                 Password = passwordHash,
-                Role = request.Role,
+                Role = UserRole.Student,
             };
 
             await _userService.AddAsync(userRequest);
 
+            return Ok();
+        }
+
+        [Authorize(Roles = nameof(UserRole.Student))]
+        [HttpPost("update-to-lecture")]
+        public async Task<IActionResult> UpdateToLecture()
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (userId == null) return BadRequest();
+            var user = await _userService.FirstOrDefaultAsync(x => x.Id.ToString() == userId); 
+            if (user == null) return BadRequest();
+            user.Role = UserRole.Lecturer;
+            await _userService.UpdateAsync(user);
             return Ok();
         }
     }

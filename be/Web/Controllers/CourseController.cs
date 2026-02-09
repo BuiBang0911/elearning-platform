@@ -4,6 +4,7 @@ using ApplicationCore.Services.Lessons;
 using ApplicationCore.Services.Users;
 using AutoMapper;
 using Infrastructure.Entities;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Web.Controllers;
 using Web.DTO;
@@ -27,6 +28,7 @@ namespace Web.Controllers
         }
 
         [HttpDelete("{id}")]
+        [Authorize(Roles = $"{nameof(UserRole.Admin)},{nameof(UserRole.Lecturer)}")]
         public override async Task<IActionResult> Delete(int id)
         {
             var entity = await _courseService.FirstOrDefaultAsync(x => x.Id == id);
