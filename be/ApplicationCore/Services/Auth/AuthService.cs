@@ -6,6 +6,7 @@ using System.Linq;
 using System.Security.Claims;
 using System.Text;
 using System.Threading.Tasks;
+using System.IdentityModel.Tokens.Jwt;
 
 namespace ApplicationCore.Services.Auth
 {
@@ -37,7 +38,12 @@ namespace ApplicationCore.Services.Auth
 
         public string? Email =>
             _httpContextAccessor.HttpContext?.User?
-            .FindFirst(System.Security.Claims.ClaimTypes.Email)?
+            .FindFirst(ClaimTypes.Email)?
+            .Value;
+
+        public string? Jti =>
+            _httpContextAccessor.HttpContext?.User?
+            .FindFirst(JwtRegisteredClaimNames.Jti)?
             .Value;
 
     }

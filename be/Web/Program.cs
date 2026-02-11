@@ -18,11 +18,15 @@ using System.Text;
 using Web.Services.WorkContext;
 using System.Security.Claims;
 using ApplicationCore.Services.Auth;
+using StackExchange.Redis;
+using ApplicationCore.Services.Cache;
+using System.IdentityModel.Tokens.Jwt;
 
 var builder = WebApplication.CreateBuilder(args);
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 var jwtKey = builder.Configuration["Jwt:Key"];
+var redisConnectionString = builder.Configuration.GetConnectionString("Redis");
 
 
 builder.Services.AddDbContext<DatabaseContext>(options =>
@@ -32,7 +36,39 @@ builder.Services.AddDbContext<DatabaseContext>(options =>
 // Add services to the container.
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new() { Title = "My API", Version = "v1" });
+
+    // ?? Add Bearer Auth
+    options.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = Microsoft.OpenApi.Models.SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+        Description = "token: Bearer {your_token}"
+    });
+
+    options.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
+    {
+        {
+            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+            {
+                Reference = new Microsoft.OpenApi.Models.OpenApiReference
+                {
+                    Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            Array.Empty<string>()
+        }
+    });
+});
+
+JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
 
 builder.Services.AddAuthentication("Bearer")
     .AddJwtBearer("Bearer", options =>
@@ -51,8 +87,8 @@ builder.Services.AddAuthentication("Bearer")
                 Encoding.UTF8.GetBytes(jwtKey)
             ),
 
-            RoleClaimType = ClaimTypes.Role,
-            NameClaimType = ClaimTypes.NameIdentifier
+            RoleClaimType = "role",
+            NameClaimType = "sub",
         };
     });
 
@@ -70,7 +106,8 @@ builder.Services.AddAuthorization(options =>
 
 builder.Services.AddScoped<JwtService>();
 
-// 1. Kh?i t?o c?u hình và quét các Profile trong Assembly c?a UserMapping
+builder.Services.AddSingleton<IConnectionMultiplexer>(ConnectionMultiplexer.Connect(redisConnectionString));
+
 builder.Services.AddAutoMapper(cfg =>
 {
     cfg.AddProfile<UserMapping>();
@@ -99,6 +136,8 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IWorkContextService, WorkContextService>();
+
+builder.Services.AddScoped<ICacheService, CacheService>();
 
 var app = builder.Build();
 

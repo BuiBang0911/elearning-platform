@@ -10,5 +10,6 @@ namespace ApplicationCore.Services.Auth
     {
         int? UserId { get; }
         string? Email { get; }
+        string? Jti { get; }
     }
 }

@@ -23,9 +23,9 @@ namespace ApplicationCore.Services.Token
             var claims = new[]
             {
                 new Claim(JwtRegisteredClaimNames.Sub, userId),
-                new Claim(ClaimTypes.NameIdentifier, userId),
-                new Claim(ClaimTypes.Role, role),
-                new Claim(ClaimTypes.Email, email),
+                new Claim("role", role),
+                new Claim("email", email),
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
             };
 
             var key = new SymmetricSecurityKey(
