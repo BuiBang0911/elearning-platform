@@ -11,6 +11,25 @@ namespace ApplicationCore.Services.ChatMessages
     public class ChatMessageService : BaseService<ChatMessage>, IChatMessageService
     {
         private readonly IRepository<ChatMessage> _chatMessagesRepository;
-        public ChatMessageService(IRepository<ChatMessage> chatMessagesRepository) : base(chatMessagesRepository) { }
+        private readonly IRepository<ChatSession> _chatSessionRepository;
+        private readonly IRepository<User> _userRepository;
+        public ChatMessageService(IRepository<ChatMessage> chatMessagesRepository, IRepository<ChatSession> chatSessionRepository, IRepository<User> userRepository) : base(chatMessagesRepository) {
+            _chatMessagesRepository = chatMessagesRepository;
+            _userRepository = userRepository;
+            _chatSessionRepository = chatSessionRepository;
+        }
+
+        public async Task<List<ChatMessage>> GetChatSessionDetail(int sessionId, int userId)
+        {
+            var session = await _chatSessionRepository.FirstOrDefaultAsync(x=> x.Id == sessionId && x.UserId == userId);
+
+            if (session == null) throw new Exception("Not found!");
+
+            var li = await _chatMessagesRepository.GetAsync<ChatMessage>(x => x.SessionId == sessionId);
+
+            if (li == null) return new List<ChatMessage>();
+
+            return li.ToList();
+        }
     }
 }

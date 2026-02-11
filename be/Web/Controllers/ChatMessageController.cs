@@ -1,4 +1,5 @@
-﻿using ApplicationCore.Services.ChatMessages;
+﻿using ApplicationCore.Services.Auth;
+using ApplicationCore.Services.ChatMessages;
 using ApplicationCore.Services.Documents;
 using AutoMapper;
 using Infrastructure.Entities;
@@ -15,11 +16,24 @@ namespace Web.Controllers
     public class ChatMessageController : BaseEntityController<ChatMessage, ChatMessageRequest, ChatMessageUpdateRequest, ChatMessageResponse>
     {
         private readonly IChatMessageService _chatMessageService;
+        private readonly IAuthService _authService;
         private readonly IMapper _mapper;
 
-        public ChatMessageController(IChatMessageService chatMessageService, IMapper mapper) : base(chatMessageService, mapper)
+        public ChatMessageController(IChatMessageService chatMessageService, IAuthService authService, IMapper mapper) : base(chatMessageService, mapper)
         {
             _chatMessageService = chatMessageService;
+            _authService = authService;
+        }
+
+        [Authorize]
+        [HttpGet("session/{id}")]
+        public async Task<IActionResult> GetChatSessionDetail(int id)
+        {
+            var userId = _authService.UserId;
+            if (userId == null) return BadRequest();
+            var li = await _chatMessageService.GetChatSessionDetail(id, userId.Value);
+
+            return Ok(li);
         }
     }
 }

@@ -9,5 +9,6 @@ namespace ApplicationCore.Services.ChatMessages
 {
     public interface IChatMessageService : IBaseService<ChatMessage>
     {
+        Task<List<ChatMessage>> GetChatSessionDetail(int sessionId, int userId);
     }
 }

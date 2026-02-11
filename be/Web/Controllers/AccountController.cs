@@ -60,6 +60,7 @@ namespace Web.Controllers
         }
 
         [Authorize]
+        [HttpPost]
         public async Task<IActionResult> Logout()
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -107,7 +108,7 @@ namespace Web.Controllers
         {
             var userId = _authService.UserId;
             if (userId == null) return BadRequest();
-            var user = await _userService.FirstOrDefaultAsync(x => x.Id.ToString() == userId); 
+            var user = await _userService.FirstOrDefaultAsync(x => x.Id == userId); 
             if (user == null) return BadRequest();
             user.Role = UserRole.Lecturer;
             await _userService.UpdateAsync(user);
