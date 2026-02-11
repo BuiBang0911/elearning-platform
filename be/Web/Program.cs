@@ -150,6 +150,26 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseAuthentication();
+
+app.Use(async (context, next) =>
+{
+    var cacheService = context.RequestServices.GetRequiredService<ICacheService>();
+
+    var jti = context.User.FindFirst("jti")?.Value;
+
+    if (!string.IsNullOrEmpty(jti))
+    {
+        if (await cacheService.ExistsAsync(jti))
+        {
+            context.Response.StatusCode = 401; 
+            await context.Response.WriteAsync("Token da dang xuat.");
+            return; 
+        }
+    }
+
+    await next(); 
+});
+
 app.UseAuthorization();
 app.MapControllers();
 

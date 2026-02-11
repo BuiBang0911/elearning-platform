@@ -70,11 +70,6 @@ namespace Web.Controllers
         [HttpPost("logout")]
         public async Task<IActionResult> Logout()
         {
-
-            foreach (var c in User.Claims)
-            {
-                Console.WriteLine($"{c.Type} = {c.Value}");
-            }
             var userId = _authService.UserId;
             var jti = _authService.Jti;
 
