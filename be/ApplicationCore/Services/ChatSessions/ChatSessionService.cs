@@ -11,6 +11,17 @@ namespace ApplicationCore.Services.ChatSessions
     public class ChatSessionService : BaseService<ChatSession>, IChatSessionService
     {
         private readonly IRepository<ChatSession> _repository;
-        public ChatSessionService(IRepository<ChatSession> repository) : base(repository) { }
+        public ChatSessionService(IRepository<ChatSession> repository) : base(repository) { 
+            _repository = repository;
+        }
+
+        public async Task<List<ChatSession>> GetListChatSessionByUserId(int id)
+        {
+            var li = await _repository.GetAsync<ChatSession>(x => x.UserId == id);
+
+            if (li == null) return null;
+
+            return li.ToList();
+        }
     }
 }

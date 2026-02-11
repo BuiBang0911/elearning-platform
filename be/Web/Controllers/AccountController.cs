@@ -1,4 +1,5 @@
-﻿using ApplicationCore.Services.Token;
+﻿using ApplicationCore.Services.Auth;
+using ApplicationCore.Services.Token;
 using ApplicationCore.Services.Users;
 using Infrastructure.Entities;
 using Microsoft.AspNetCore.Authorization;
@@ -14,6 +15,7 @@ namespace Web.Controllers
     public class AccountController : ControllerBase
     {
         private readonly JwtService _jwtService;
+        private readonly IAuthService _authService;
         private readonly IUserService _userService;
 
         public AccountController(JwtService jwtService, IUserService userService)
@@ -103,7 +105,7 @@ namespace Web.Controllers
         [HttpPost("update-to-lecture")]
         public async Task<IActionResult> UpdateToLecture()
         {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var userId = _authService.UserId;
             if (userId == null) return BadRequest();
             var user = await _userService.FirstOrDefaultAsync(x => x.Id.ToString() == userId); 
             if (user == null) return BadRequest();

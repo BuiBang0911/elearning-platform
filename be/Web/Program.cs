@@ -17,6 +17,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Web.Services.WorkContext;
 using System.Security.Claims;
+using ApplicationCore.Services.Auth;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -93,6 +94,8 @@ builder.Services.AddScoped<IChatSessionService, ChatSessionService>();
 builder.Services.AddScoped<IRepository<ChatSession>, Repository<ChatSession>>();
 builder.Services.AddScoped<IChatMessageService, ChatMessageService>();
 builder.Services.AddScoped<IRepository<ChatMessage>, Repository<ChatMessage>>();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<IAuthService, AuthService>();
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IWorkContextService, WorkContextService>();

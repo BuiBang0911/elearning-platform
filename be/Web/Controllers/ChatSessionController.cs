@@ -1,9 +1,11 @@
-﻿using ApplicationCore.Services.ChatSessions;
+﻿using ApplicationCore.Services.Auth;
+using ApplicationCore.Services.ChatSessions;
 using ApplicationCore.Services.Documents;
 using AutoMapper;
 using Infrastructure.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 using Web.DTO;
 
 namespace Web.Controllers
@@ -15,10 +17,23 @@ namespace Web.Controllers
     {
         private readonly IChatSessionService _chatSessionService;
         private readonly IMapper _mapper;
+        private readonly IAuthService _authService;
 
-        public ChatSessionController(IChatSessionService chatSessionService, IMapper mapper) : base(chatSessionService, mapper)
+        public ChatSessionController(IChatSessionService chatSessionService, IMapper mapper, IAuthService authService) : base(chatSessionService, mapper)
         {
             _chatSessionService = chatSessionService;
+            _mapper = mapper;
+            _authService = authService;
+        }
+
+        [Authorize]
+        public async Task<IActionResult> GetListChatSessionByUserId()
+        {
+            var userId = _authService.UserId;
+            if (userId == null) return BadRequest();
+            var li = _chatSessionService.GetListChatSessionByUserId(userId.Value);
+
+            return Ok();
         }
     }
 }

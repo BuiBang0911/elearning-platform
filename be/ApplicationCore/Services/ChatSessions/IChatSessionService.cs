@@ -9,5 +9,6 @@ namespace ApplicationCore.Services.ChatSessions
 {
     public interface IChatSessionService : IBaseService<ChatSession>
     {
+        Task<List<ChatSession>> GetListChatSessionByUserId(int userId);
     }
 }

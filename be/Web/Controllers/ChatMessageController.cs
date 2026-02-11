@@ -4,6 +4,7 @@ using AutoMapper;
 using Infrastructure.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 using Web.DTO;
 
 namespace Web.Controllers
