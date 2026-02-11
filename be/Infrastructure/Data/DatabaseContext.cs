@@ -98,9 +98,9 @@ namespace Infrastructure.Data
                       .HasForeignKey(s => s.UserId);
 
                 // Quan hệ ngữ cảnh Course
-                entity.HasOne(s => s.Course)
+                /*entity.HasOne(s => s.Course)
                       .WithMany()
-                      .HasForeignKey(s => s.CourseId);
+                      .HasForeignKey(s => s.CourseId);*/
             });
 
             // 7. Cấu hình bảng ChatMessages

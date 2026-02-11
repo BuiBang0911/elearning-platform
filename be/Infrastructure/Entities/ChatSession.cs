@@ -9,7 +9,7 @@ namespace Infrastructure.Entities
     public class ChatSession : BaseEntity
     {
         public int UserId { get; set; }
-        public int CourseId { get; set; } // Context của session
+        // public int CourseId { get; set; } // Context của session
         public string Title { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
