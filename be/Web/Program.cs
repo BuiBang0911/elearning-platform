@@ -21,6 +21,7 @@ using ApplicationCore.Services.Auth;
 using StackExchange.Redis;
 using ApplicationCore.Services.Cache;
 using System.IdentityModel.Tokens.Jwt;
+using Microsoft.AspNetCore.Authorization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -153,6 +154,14 @@ app.UseAuthentication();
 
 app.Use(async (context, next) =>
 {
+    var endpoint = context.GetEndpoint();
+
+    var authorizeAttribute = endpoint?.Metadata.GetMetadata<IAuthorizeData>();
+    if (authorizeAttribute == null)
+    {
+        await next();
+        return;
+    }
     var cacheService = context.RequestServices.GetRequiredService<ICacheService>();
 
     var jti = context.User.FindFirst("jti")?.Value;
@@ -162,7 +171,7 @@ app.Use(async (context, next) =>
         if (await cacheService.ExistsAsync(jti))
         {
             context.Response.StatusCode = 401; 
-            await context.Response.WriteAsync("Token da dang xuat.");
+            await context.Response.WriteAsync("Log out success");
             return; 
         }
     }
