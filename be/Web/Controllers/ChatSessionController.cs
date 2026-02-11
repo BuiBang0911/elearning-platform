@@ -27,14 +27,14 @@ namespace Web.Controllers
         }
 
         [Authorize]
-        [HttpGet("get-list-by-userId")]
+        [HttpGet("get-list-by-current-user")]
         public async Task<IActionResult> GetListChatSessionByUserId()
         {
             var userId = _authService.UserId;
             if (userId == null) return BadRequest();
-            var li = _chatSessionService.GetListChatSessionByUserId(userId.Value);
-
-            return Ok(li);
+            var li = await _chatSessionService.GetListChatSessionByUserId(userId.Value);
+            var res = _mapper.Map<List<ChatSessionResponse>>(li);
+            return Ok(res);
         }
     }
 }

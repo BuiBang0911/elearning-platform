@@ -88,8 +88,8 @@ builder.Services.AddAuthentication("Bearer")
                 Encoding.UTF8.GetBytes(jwtKey)
             ),
 
-            RoleClaimType = "role",
-            NameClaimType = "sub",
+            RoleClaimType = ClaimTypes.Role,
+            NameClaimType = ClaimTypes.NameIdentifier,
         };
     });
 

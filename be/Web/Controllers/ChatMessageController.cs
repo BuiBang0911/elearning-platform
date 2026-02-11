@@ -23,6 +23,7 @@ namespace Web.Controllers
         {
             _chatMessageService = chatMessageService;
             _authService = authService;
+            _mapper = mapper;
         }
 
         [Authorize]
@@ -33,7 +34,8 @@ namespace Web.Controllers
             if (userId == null) return BadRequest();
             var li = await _chatMessageService.GetChatSessionDetail(id, userId.Value);
 
-            return Ok(li);
+            var res = _mapper.Map<List<ChatMessageResponse>>(li);
+            return Ok(res);
         }
     }
 }

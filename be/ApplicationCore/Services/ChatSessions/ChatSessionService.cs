@@ -19,7 +19,7 @@ namespace ApplicationCore.Services.ChatSessions
         {
             var li = await _repository.GetAsync<ChatSession>(x => x.UserId == id);
 
-            if (li == null) return null;
+            if (li == null) return new List<ChatSession>();
 
             return li.ToList();
         }
