@@ -1,4 +1,4 @@
-import AuthHeader from "../../components/auth/AuthHeader";
+import AuthHeader from "../../components/Auth/AuthHeader";
 
 const Login = () => {
     return (
