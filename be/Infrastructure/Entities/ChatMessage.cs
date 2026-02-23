@@ -9,10 +9,16 @@ namespace Infrastructure.Entities
     public class ChatMessage : BaseEntity
     {
         public int SessionId { get; set; }
-        public string Role { get; set; } // user | assistant
+        public ChatbotRole Role { get; set; } // user | assistant
         public string Content { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         public virtual ChatSession Session { get; set; }
+    }
+
+    public enum ChatbotRole
+    {
+        User = 1,
+        AiAssistant = 2
     }
 }
