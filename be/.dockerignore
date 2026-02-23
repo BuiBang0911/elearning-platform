@@ -1,0 +1,24 @@
+# Bỏ qua các thư mục build cục bộ của .NET
+**/bin/
+**/obj/
+
+# Bỏ qua các tệp lưu cấu hình của Visual Studio và VS Code
+.vs/
+.vscode/
+*.user
+*.suo
+*.userosscache
+*.sln.doccache
+
+# Bỏ qua thư mục lưu trữ mã nguồn của Git
+.git/
+.gitignore
+
+# Bỏ qua các file Docker (vì không cần copy chính nó vào image)
+Dockerfile
+.dockerignore
+docker-compose*
+
+# Bỏ qua các file log và file tạm
+*.log
+.DS_Store
