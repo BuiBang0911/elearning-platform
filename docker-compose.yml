@@ -15,8 +15,11 @@ services:
     ports:
       - "5678:5432"              
     volumes:
-      - postgres_data:/var/lib/postgresql/data # Giữ dữ liệu không bị mất khi tắt máy
+      - postgres_data:/var/lib/postgresql/data
 
+  # ----------------------------------------------------------------
+  # 2. CACHE (Redis)
+  # ----------------------------------------------------------------
   redis:
     image: redis:latest
     container_name: redis_server
@@ -26,23 +29,43 @@ services:
       - redis_data:/data
 
   # ----------------------------------------------------------------
-  # 2. AI SERVICE (Python RAG)
+  # 3. AI SERVICE (Python RAG)
   # ----------------------------------------------------------------
   rag:
     build: ./rag          
     container_name: rag_python
     ports:
-      - "8000:8000"              # Mở cổng API cho bên ngoài test
+      - "8000:8000"
     environment:
-      - DATABASE_URL=postgresql+psycopg2://admin:admin@db:5432/elearning-platform_db
+      - DATABASE_URL=postgresql+psycopg2://neondb_owner:npg_BzcICYn5txG6@ep-muddy-bonus-aici7h5f-pooler.c-4.us-east-1.aws.neon.tech:5432/elearning-platform_db?sslmode=require
     env_file:
-      - ./rag/.env        # Lấy Google Key từ file .env
+      - ./rag/.env
     volumes:
       - ./rag:/app        
       - /app/venv
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
     depends_on:
       - db
+
+  # ----------------------------------------------------------------
+  # 4. WEB SERVICE (.NET 8 ASP.NET Core)
+  # ----------------------------------------------------------------
+  web:
+    build:
+      context: ./be
+      dockerfile: Dockerfile
+    container_name: edumind_web
+    ports:
+      - "5000:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Server=ep-muddy-bonus-aici7h5f-pooler.c-4.us-east-1.aws.neon.tech;Port=5432;Database=elearning-platform_db;User Id=neondb_owner;Password=npg_BzcICYn5txG6;SslMode=Require;
+      - Redis__ConnectionString=redis:6379
+      - AIService__Url=http://rag:8000
+    depends_on:
+      - db
+      - redis
+      - rag
 
 volumes:
   postgres_data:

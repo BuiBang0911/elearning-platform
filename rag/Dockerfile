@@ -1,23 +1,33 @@
-# Sử dụng Python 3.10
+# Python 3.10 slim
 FROM python:3.10-slim
 
-# Thiết lập thư mục làm việc
+# Không tạo .pyc + log realtime
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+# Tăng timeout pip + dùng mirror nhanh
+ENV PIP_DEFAULT_TIMEOUT=1000
+ENV PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
+
 WORKDIR /app
 
-# Cài đặt các gói cần thiết cho PostgreSQL driver
+# Cài lib cần cho psycopg2 / postgres
 RUN apt-get update && apt-get install -y \
     libpq-dev gcc \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy file requirements và cài đặt thư viện
+# Copy requirements trước để cache layer
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy toàn bộ code vào container
+# Update pip + install deps
+RUN pip install --upgrade pip \
+    && pip install --no-cache-dir -r requirements.txt
+
+# Copy source
 COPY . .
 
-# Mở cổng 8000
+# Expose FastAPI
 EXPOSE 8000
 
-# Lệnh chạy mặc định (đã được ghi đè trong docker-compose nhưng cứ để đây cho chuẩn)
+# Run app
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
