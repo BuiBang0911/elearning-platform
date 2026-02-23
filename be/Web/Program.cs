@@ -107,6 +107,12 @@ builder.Services.AddAuthorization(options =>
 
 builder.Services.AddScoped<JwtService>();
 
+builder.Services.AddHttpClient("AIService", client =>
+{
+    client.BaseAddress = new Uri("http://localhost:8000");
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+
 builder.Services.AddSingleton<IConnectionMultiplexer>(ConnectionMultiplexer.Connect(redisConnectionString));
 
 builder.Services.AddAutoMapper(cfg =>

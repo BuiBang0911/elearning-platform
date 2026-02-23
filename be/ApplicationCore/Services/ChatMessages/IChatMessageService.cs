@@ -9,6 +9,7 @@ namespace ApplicationCore.Services.ChatMessages
 {
     public interface IChatMessageService : IBaseService<ChatMessage>
     {
+        Task AddChatMessageAsync(int SessionId, ChatbotRole Role, string Content);
         Task<List<ChatMessage>> GetChatSessionDetail(int sessionId, int userId);
     }
 }

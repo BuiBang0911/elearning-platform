@@ -18,12 +18,14 @@ namespace Web.Controllers
         private readonly IChatMessageService _chatMessageService;
         private readonly IAuthService _authService;
         private readonly IMapper _mapper;
+        private readonly IHttpClientFactory _clientFactory;
 
-        public ChatMessageController(IChatMessageService chatMessageService, IAuthService authService, IMapper mapper) : base(chatMessageService, mapper)
+        public ChatMessageController(IChatMessageService chatMessageService, IAuthService authService, IMapper mapper, IHttpClientFactory clientFactory) : base(chatMessageService, mapper)
         {
             _chatMessageService = chatMessageService;
             _authService = authService;
             _mapper = mapper;
+            _clientFactory = clientFactory;
         }
 
         [Authorize]
@@ -36,6 +38,29 @@ namespace Web.Controllers
 
             var res = _mapper.Map<List<ChatMessageResponse>>(li);
             return Ok(res);
+        }
+
+        [Authorize]
+        [HttpPost("ask-ai")]
+        public async Task<IActionResult> AskAiAssistant(int sessionId, string message)
+        {
+            var userId = _authService.UserId;
+            if (userId == null) return BadRequest();
+
+            await _chatMessageService.AddChatMessageAsync(sessionId, ChatbotRole.User, message);
+
+            var client = _clientFactory.CreateClient();
+            var payload = new QueryRequest { Question = message };
+            var response = await client.PostAsJsonAsync("http://localhost:8000/api/chat", payload);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<QueryResponse>();
+                await _chatMessageService.AddChatMessageAsync(sessionId, ChatbotRole.AiAssistant, result.Answer);
+                return Ok(result);
+            }
+
+            return StatusCode(500, "AI Service error!");
         }
     }
 }
