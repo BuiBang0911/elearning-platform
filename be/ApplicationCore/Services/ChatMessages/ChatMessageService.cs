@@ -19,6 +19,18 @@ namespace ApplicationCore.Services.ChatMessages
             _chatSessionRepository = chatSessionRepository;
         }
 
+        public async Task AddChatMessageAsync(int SessionId, ChatbotRole Role, string Content)
+        {
+            var chatMessage = new ChatMessage
+            {
+                SessionId = SessionId,
+                Role = Role,
+                Content = Content
+            };
+
+            await _chatMessagesRepository.AddAsync(chatMessage);
+        }
+
         public async Task<List<ChatMessage>> GetChatSessionDetail(int sessionId, int userId)
         {
             var session = await _chatSessionRepository.FirstOrDefaultAsync(x=> x.Id == sessionId && x.UserId == userId);
