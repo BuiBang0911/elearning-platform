@@ -18,7 +18,7 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 if not GOOGLE_API_KEY:
     raise ValueError("Chưa điền GOOGLE_API_KEY trong file .env")
 
-embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004")
+embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001")
 
 vector_store = PGVector(
     embeddings=embeddings,
