@@ -1,6 +1,29 @@
-import AuthHeader from "../../components/Auth/AuthHeader";
+import { useState } from "react";
+import AuthHeader from "../../components/auth/AuthHeader";
+import { login } from "../../api/auth.api";
+import { useNavigate } from "react-router-dom";
+
+
 
 const Login = () => {
+    const navigate = useNavigate();
+    
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
+
+    const HandleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        console.log("Login data:", { email, password });
+        login({ email, password })
+            .then((res) => {
+                console.log("Login successful:", res);
+                navigate("/");
+            })
+            .catch((err) => {
+                console.error("Login failed:", err);
+            });
+    }
+
     return (
         <>
             <AuthHeader
@@ -20,6 +43,8 @@ const Login = () => {
                         type="email"
                         placeholder="Email address..."
                         className="w-full border border-[#E9EAF0] outline outline-[#E9EAF0] px-4 py-2 rounded mt-1"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
                     />
                 </div>
 
@@ -29,6 +54,8 @@ const Login = () => {
                         type="password"
                         placeholder="Password"
                         className="w-full border border-[#E9EAF0] outline outline-[#E9EAF0] px-4 py-2 rounded mt-1"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
                     />
                 </div>
 
@@ -40,6 +67,7 @@ const Login = () => {
                 <button
                     type="submit"
                     className="w-full bg-orange-500 text-white py-3 rounded-[10px] hover:bg-orange-600"
+                    onClick={(e) => HandleSubmit(e)}
                 >
                     Sign In →
                 </button>
