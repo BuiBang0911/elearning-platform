@@ -18,7 +18,7 @@ from rapidocr_onnxruntime import RapidOCR
 from langchain_core.documents import Document
 
 # --- CẤU HÌNH DEBUG ---
-DEBUG_MODE = True  # Chuyển sang False để tắt debug
+DEBUG_MODE = False  # Chuyển sang False để tắt debug
 DEBUG_FOLDER = "./debug_output"
 
 if DEBUG_MODE:
@@ -420,7 +420,7 @@ def run_ingest():
     docs = text_splitter.split_documents(raw_docs)
     print(f"✂️ Đã chia thành {len(docs)} đoạn nhỏ (chunks).")
 
-    embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004")
+    embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001")
     vector_store = PGVector(
         embeddings=embeddings,
         collection_name=COLLECTION_NAME,
