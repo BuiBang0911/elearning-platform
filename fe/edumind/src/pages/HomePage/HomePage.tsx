@@ -1,3 +1,4 @@
+import AiAssistant from "../../components/AiAssistant/AiAssistant";
 import Category from "../../components/Category/Category";
 import CourseList from "../../components/Course/CourseList";
 import Footer from "../../components/Footer/Footer";
@@ -47,6 +48,7 @@ export default function HomePage() {
             </div>
             {/* Footer */}
             <Footer />
+            <AiAssistant />
         </>
     );
 }
