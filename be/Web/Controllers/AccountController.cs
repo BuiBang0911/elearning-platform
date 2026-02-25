@@ -13,7 +13,7 @@ using Web.DTO;
 namespace Web.Controllers
 {
     [ApiController]
-    [Route("api")]
+    [Route("api/auth")]
     public class AccountController : ControllerBase
     {
         private readonly JwtService _jwtService;
@@ -57,13 +57,77 @@ namespace Web.Controllers
 
             await _userService.UpdateAsync(user);
 
-
-            return Ok(new
+            Response.Cookies.Append("accessToken", accessToken, new CookieOptions
             {
-                AccessToken = accessToken,
-                RefreshToken = refreshToken
+                HttpOnly = true,
+                Secure = true, 
+                SameSite = SameSiteMode.None,
+                Expires = DateTimeOffset.UtcNow.AddMinutes(15)
             });
 
+            Response.Cookies.Append("refreshToken", refreshToken, new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.None,
+                Expires = DateTimeOffset.UtcNow.AddDays(7)
+            });
+
+            return Ok(new {
+                accessToken,
+                refreshToken,
+            });
+
+        }
+
+        [HttpPost("refresh")]
+        public async Task<IActionResult> Refresh()
+        {
+            var refreshToken = Request.Cookies["refreshToken"];
+
+            if (string.IsNullOrEmpty(refreshToken))
+                return Unauthorized("Missing refresh token");
+
+            var user = await _userService.FirstOrDefaultAsync(
+                x => x.RefreshToken == refreshToken);
+
+            if (user == null)
+                return Unauthorized("Invalid refresh token");
+
+            if (user.RefreshTokenExpiry < DateTime.UtcNow)
+                return Unauthorized("Refresh token expired");
+
+            var newAccessToken = _jwtService.GenerateToken(
+                user.Id.ToString(),
+                user.Role.ToString(),
+                user.Email
+            );
+
+            var newRefreshToken = _jwtService.GenerateRefreshToken();
+
+            user.RefreshToken = newRefreshToken;
+            user.RefreshTokenExpiry = DateTime.UtcNow.AddDays(7);
+
+            await _userService.UpdateAsync(user);
+
+            Response.Cookies.Append("accessToken", newAccessToken, new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.None,
+                Expires = DateTimeOffset.UtcNow.AddMinutes(15)
+            });
+
+            // 7️⃣ Set refresh token cookie mới
+            Response.Cookies.Append("refreshToken", newRefreshToken, new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.Strict,
+                Expires = DateTimeOffset.UtcNow.AddDays(7)
+            });
+
+            return Ok();
         }
 
         [Authorize]
