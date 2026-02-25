@@ -1,10 +1,12 @@
-﻿using ApplicationCore.Services.Auth;
+﻿using ApplicationCore.Constants;
+using ApplicationCore.Services.Auth;
 using ApplicationCore.Services.ChatMessages;
 using ApplicationCore.Services.Documents;
 using AutoMapper;
 using Infrastructure.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using StackExchange.Redis;
 using System.Security.Claims;
 using Web.DTO;
 
@@ -49,8 +51,26 @@ namespace Web.Controllers
 
             await _chatMessageService.AddChatMessageAsync(sessionId, ChatbotRole.User, message);
 
+            var messageHistories = await _chatMessageService.GetAsync(x => x.SessionId == sessionId, x => x.CreatedAt, false, count: AppConstants.ChatHistoryCount);
+
+            var chatHistory = new List<ChatHistoryForAi>();
+
+            foreach(var chatMessage in messageHistories)
+            {
+                var chatHistoryForAi = new ChatHistoryForAi
+                {
+                    Role = chatMessage.Role.ToString(),
+                    Content = chatMessage.Content,
+                };
+
+                chatHistory.Add(chatHistoryForAi);
+            }
+
             var client = _clientFactory.CreateClient();
-            var payload = new QueryRequest { Question = message };
+            var payload = new QueryRequest { 
+                Question = message,
+                ChatHistory = chatHistory,
+            };
             var response = await client.PostAsJsonAsync("http://localhost:8000/api/chat", payload);
 
             if (response.IsSuccessStatusCode)

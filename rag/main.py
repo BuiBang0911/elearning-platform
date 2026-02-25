@@ -141,11 +141,11 @@ async def chat_endpoint(request: ChatRequest):
         langchain_history = []
 
         for msg in request.chat_history:
-            if msg.role == "user":
+            if msg.role == "User":
                 langchain_history.append(
                     HumanMessage(content=msg.content)
                 )
-            elif msg.role == "assistant":
+            elif msg.role == "AiAssistant":
                 langchain_history.append(
                     AIMessage(content=msg.content)
                 )
