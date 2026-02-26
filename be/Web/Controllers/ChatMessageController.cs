@@ -44,14 +44,14 @@ namespace Web.Controllers
 
         [Authorize]
         [HttpPost("ask-ai")]
-        public async Task<IActionResult> AskAiAssistant(int sessionId, string message)
+        public async Task<IActionResult> AskAiAssistant([FromBody] AskAiRequest askAiRequest)
         {
             var userId = _authService.UserId;
             if (userId == null) return BadRequest();
 
-            await _chatMessageService.AddChatMessageAsync(sessionId, ChatbotRole.User, message);
+            await _chatMessageService.AddChatMessageAsync(askAiRequest.SessionId, ChatbotRole.User, askAiRequest.Message);
 
-            var messageHistories = await _chatMessageService.GetAsync(x => x.SessionId == sessionId, x => x.CreatedAt, false, count: AppConstants.ChatHistoryCount);
+            var messageHistories = await _chatMessageService.GetAsync(x => x.SessionId == askAiRequest.SessionId, x => x.CreatedAt, false, count: AppConstants.ChatHistoryCount);
 
             var chatHistory = new List<ChatHistoryForAi>();
 
@@ -68,7 +68,7 @@ namespace Web.Controllers
 
             var client = _clientFactory.CreateClient();
             var payload = new QueryRequest { 
-                Question = message,
+                Question = askAiRequest.Message,
                 ChatHistory = chatHistory,
             };
             var response = await client.PostAsJsonAsync("http://localhost:8000/api/chat", payload);
@@ -76,8 +76,8 @@ namespace Web.Controllers
             if (response.IsSuccessStatusCode)
             {
                 var result = await response.Content.ReadFromJsonAsync<QueryResponse>();
-                await _chatMessageService.AddChatMessageAsync(sessionId, ChatbotRole.AiAssistant, result.Answer);
-                return Ok(result);
+                var chatMessage = await _chatMessageService.AddChatMessageAsync(askAiRequest.SessionId, ChatbotRole.AiAssistant, result.Answer);
+                return Ok(_mapper.Map<ChatMessageResponse>(chatMessage));
             }
 
             return StatusCode(500, "AI Service error!");

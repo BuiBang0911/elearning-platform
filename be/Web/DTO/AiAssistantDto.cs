@@ -22,4 +22,10 @@ namespace Web.DTO
         public string Role { get; set; }
         public string Content { get; set; }
     }
+
+    public class AskAiRequest
+    {
+        public int SessionId { get; set; }
+        public string Message { get; set; }
+    }
 }
