@@ -55,31 +55,37 @@ const Chatbot = ({ open, onClose }: ChatbotProps) => {
     }
   };
 
-  const handleSend = async (text: string) => {
-    const tempAssistantId = Date.now() + 1;
+  const handleSend = async () => {
+    const text = ref.current?.innerText.trim();
+
+    if (!text) return;
+
+    const tempAssistantId = Date.now();
 
     setLiChatMessages(prev => [
       ...prev,
       {
-        id: Date.now(),
+        id: tempAssistantId,
         role: "User",
         content: text,
         createdAt: new Date().toISOString()
       },
       {
-        id: tempAssistantId,
+        id: tempAssistantId + 1,
         role: "AiAssistant",
         content: "Đang suy nghĩ...",
         createdAt: new Date().toISOString()
       }
     ]);
 
+    console.log(liChatMessages);
+
     try {
       const res = await sendMessageToAskAi(currentSessionId!, text);
 
       setLiChatMessages(prev =>
         prev.map(msg =>
-          msg.id === tempAssistantId ? res : msg
+          msg.id === tempAssistantId + 1 ? res : msg
         )
       );
     } catch (err) {
@@ -87,15 +93,12 @@ const Chatbot = ({ open, onClose }: ChatbotProps) => {
     }
   };
 
+  console.log(liChatMessages);
   const handleKeyDown = (e: React.KeyboardEvent<HTMLParagraphElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault(); // ❗ chặn xuống dòng
-      const text = ref.current?.innerText.trim();
 
-      if (!text) return;
-
-      handleSend(text);
-
+      handleSend();
       // clear nội dung
       if (ref.current) {
         ref.current.innerText = "";
@@ -250,7 +253,7 @@ const Chatbot = ({ open, onClose }: ChatbotProps) => {
                 />
               </div>
               <div className="absolute right-1 bottom-1 flex items-center">
-                <button className="p-1.5 text-gray-400 hover:text-blue-600 transition-colors">
+                <button className="p-1.5 text-gray-400 hover:text-blue-600 transition-colors" onClick={() => handleSend()}>
                   <FiPaperclip size={16} />
                 </button>
                 <button className="p-1.5 bg-blue-600 text-white rounded-lg ml-1 hover:bg-blue-700 transition-colors">
