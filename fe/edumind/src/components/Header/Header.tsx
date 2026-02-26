@@ -30,7 +30,7 @@ export default function Header() {
                     <button className="p-2 rounded-lg cursor-pointer ml-5.5">
                         <FaShoppingCart className="w-5 h-5 text-[#1B1B1B]" />
                     </button>
-                    <button className="px-4 py-2 border border-[#1B1B1B] rounded-xl text-[#1B1B1B] ml-[17.5px] cursor-pointer hover:opacity-90 transition-all">
+                    <button className="px-4 py-2 border border-[#1B1B1B] rounded-xl text-[#1B1B1B] ml-[17.5px] cursor-pointer hover:opacity-90 transition-all" onClick={() => window.location.href = "/login"}>
                         <span>Login</span>
                     </button>
                     <button className="px-4 py-2 border-[none] bg-orange-500 rounded-xl text-white ml-[17.5px] cursor-pointer hover:opacity-90 transition-all">

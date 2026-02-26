@@ -13,10 +13,8 @@ const Login = () => {
 
     const HandleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        console.log("Login data:", { email, password });
         login({ email, password })
-            .then((res) => {
-                console.log("Login successful:", res);
+            .then(() => {
                 navigate("/");
             })
             .catch((err) => {

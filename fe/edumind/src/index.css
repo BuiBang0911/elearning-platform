@@ -42,3 +42,9 @@ body {
 .animate-fadeIn {
     animation: fadeIn 1.5s ease-out;
 }
+
+.editable-placeholder:empty:before {
+  content: attr(data-placeholder);
+  color: #9ca3af;
+  pointer-events: none;
+}

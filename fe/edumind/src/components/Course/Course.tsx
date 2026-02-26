@@ -16,7 +16,6 @@ export default function Course({ course }: { course: ICourse }) {
         sale,
         href,
     } = course;
-    console.log(bestseller);
     return (
         <>
             <div className="w-[calc((100%-60px)/4)]">

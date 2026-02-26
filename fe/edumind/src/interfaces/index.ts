@@ -36,3 +36,12 @@ export interface IInstructor {
     students?: number;
     courses?: ICourse[];
 }
+
+export interface PagingRequest {
+  pageNumber?: number;
+  pageSize?: number;
+}
+
+export interface BaseDto {
+  id: number;
+}
