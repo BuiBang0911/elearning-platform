@@ -80,13 +80,14 @@ namespace Web.Controllers
 
         }
 
+        [AllowAnonymous]
         [HttpPost("refresh")]
         public async Task<IActionResult> Refresh()
         {
             var refreshToken = Request.Cookies["refreshToken"];
 
             if (string.IsNullOrEmpty(refreshToken))
-                return Unauthorized("Missing refresh token");
+                return BadRequest("Missing refresh token");
 
             var user = await _userService.FirstOrDefaultAsync(
                 x => x.RefreshToken == refreshToken);
@@ -123,7 +124,7 @@ namespace Web.Controllers
             {
                 HttpOnly = true,
                 Secure = true,
-                SameSite = SameSiteMode.Strict,
+                SameSite = SameSiteMode.None,
                 Expires = DateTimeOffset.UtcNow.AddDays(7)
             });
 

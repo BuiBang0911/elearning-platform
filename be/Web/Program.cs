@@ -22,6 +22,7 @@ using StackExchange.Redis;
 using ApplicationCore.Services.Cache;
 using System.IdentityModel.Tokens.Jwt;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -103,6 +104,21 @@ builder.Services.AddAuthentication("Bearer")
             RoleClaimType = ClaimTypes.Role,
             NameClaimType = ClaimTypes.NameIdentifier,
         };
+
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var token = context.Request.Cookies["accessToken"];
+
+                if (!string.IsNullOrEmpty(token))
+                {
+                    context.Token = token;
+                }
+
+                return Task.CompletedTask;
+            }
+        };
     });
 
 builder.Services.AddAuthorization(options =>
@@ -167,6 +183,9 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+app.UseRouting();
+
+
 app.UseCors("AllowFrontend");
 
 app.UseHttpsRedirection();
@@ -175,6 +194,18 @@ app.UseAuthentication();
 app.Use(async (context, next) =>
 {
     var endpoint = context.GetEndpoint();
+
+    if (endpoint?.Metadata.GetMetadata<IAllowAnonymous>() != null)
+    {
+        await next();
+        return;
+    }
+
+    if (endpoint == null)
+    {
+        await next();
+        return;
+    }
 
     var authorizeAttribute = endpoint?.Metadata.GetMetadata<IAuthorizeData>();
     if (authorizeAttribute == null)
