@@ -1,11 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  FiMenu, FiX, FiSend, FiPaperclip, FiMaximize2, FiMinimize2
+  FiMenu, FiX, FiSend, FiPaperclip, FiMaximize2, FiMinimize2,
+  FiTrash2
 } from 'react-icons/fi';
 import { FaBookOpen, FaMagic } from 'react-icons/fa';
 import { HiSparkles } from 'react-icons/hi';
 import type { ChatSessionResponse } from '../../interfaces/ChatSession';
-import { getAll } from '../../api/ChatSession.api';
+import { createNewChat, DeleteChatSession, getAll } from '../../api/ChatSession.api';
 import { getBySessionId, sendMessageToAskAi } from '../../api/ChatMessage.api';
 import type { ChatMessageResponse } from '../../interfaces/ChatMessage';
 import FormatMarkdown from '../FormatString/FormatMarkdown';
@@ -23,6 +24,7 @@ const Chatbot = ({ open, onClose }: ChatbotProps) => {
   const [liChatSessions, setLiChatSessions] = useState<ChatSessionResponse[]>([]);
   const [liChatMessages, setLiChatMessages] = useState<ChatMessageResponse[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<number | null>(null);
+
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
 
@@ -55,8 +57,22 @@ const Chatbot = ({ open, onClose }: ChatbotProps) => {
     }
   };
 
+  const CreateNewChat = () => {
+    setCurrentSessionId(null);
+    setLiChatMessages([]);
+    setSidebarOpen(false);
+  }
+
   const handleSend = async () => {
+    let sessionId = currentSessionId;
     const text = ref.current?.innerText.trim();
+
+    if (!currentSessionId) {
+      const session = await createNewChat()
+      sessionId = session.id;
+      setCurrentSessionId(session.id)
+      setLiChatSessions(prev => [...prev, session])
+    }
 
     if (!text) return;
 
@@ -77,12 +93,8 @@ const Chatbot = ({ open, onClose }: ChatbotProps) => {
         createdAt: new Date().toISOString()
       }
     ]);
-
-    console.log(liChatMessages);
-
     try {
-      const res = await sendMessageToAskAi(currentSessionId!, text);
-
+      const res = await sendMessageToAskAi(sessionId!, text);
       setLiChatMessages(prev =>
         prev.map(msg =>
           msg.id === tempAssistantId + 1 ? res : msg
@@ -93,7 +105,19 @@ const Chatbot = ({ open, onClose }: ChatbotProps) => {
     }
   };
 
-  console.log(liChatMessages);
+  const onDeleteChatSession = async (id: number) => {
+    try {
+      await DeleteChatSession(id);
+      setLiChatSessions(prev => prev.filter(session => session.id !== id));
+      if (currentSessionId === id) {
+        setCurrentSessionId(null);
+        setLiChatMessages([]);
+      }
+    } catch (err) {
+      console.error("Failed to delete chat session:", err);
+    }
+  }
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLParagraphElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault(); // ❗ chặn xuống dòng
@@ -127,7 +151,7 @@ const Chatbot = ({ open, onClose }: ChatbotProps) => {
         <div className="flex items-center gap-3">
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="text-blue-100 hover:text-white transition-colors"
+            className="text-blue-100 hover:text-white hover:cursor-pointer transition-colors"
           >
             <FiMenu size={20} />
           </button>
@@ -169,20 +193,32 @@ const Chatbot = ({ open, onClose }: ChatbotProps) => {
             <button onClick={() => setSidebarOpen(false)} className="text-gray-400 hover:text-gray-600"><FiX size={16} /></button>
           </div>
 
+          {/* chat session list */}
           <div className="flex-1 overflow-y-auto p-2 space-y-1">
             {liChatSessions.map((session) => (
-              <button
+              <div 
                 key={session.id}
-                className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 hover:cursor-pointer rounded-lg transition-colors truncate"
-                onClick={() => OpenDetailChatSession(session.id)}
+                className="group relative flex items-center w-full px-3 py-2 rounded-lg hover:bg-blue-50 transition-colors"
               >
-                {session.title}
-              </button>
+                {/* Nút chính để mở chat */}
+                <button
+                  className="flex-1 text-left text-sm text-gray-700 group-hover:text-blue-600 truncate mr-6 cursor-pointer"
+                  onClick={() => OpenDetailChatSession(session.id)}
+                >
+                  {session.title}
+                </button>
+                <button
+                  onClick={() => onDeleteChatSession(session.id)}
+                  className="absolute right-2 p-1 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 hover:cursor-pointer transition-opacity"
+                >
+                  <FiTrash2 size={16} /> 
+                </button>
+              </div>
             ))}
           </div>
 
           <div className="p-3 border-t border-gray-100">
-            <button className="w-full flex items-center justify-center gap-2 bg-blue-50 text-blue-600 py-2 rounded-lg text-sm font-medium hover:bg-blue-100 transition-colors">
+            <button className="w-full flex items-center justify-center gap-2 bg-blue-50 text-blue-600 py-2 rounded-lg text-sm font-medium hover:bg-blue-100 transition-colors" onClick={() => CreateNewChat()}>
               <HiSparkles size={16} /> Chat mới
             </button>
           </div>
@@ -253,10 +289,10 @@ const Chatbot = ({ open, onClose }: ChatbotProps) => {
                 />
               </div>
               <div className="absolute right-1 bottom-1 flex items-center">
-                <button className="p-1.5 text-gray-400 hover:text-blue-600 transition-colors" onClick={() => handleSend()}>
+                <button className="p-1.5 text-gray-400 hover:text-blue-600 transition-colors" >
                   <FiPaperclip size={16} />
                 </button>
-                <button className="p-1.5 bg-blue-600 text-white rounded-lg ml-1 hover:bg-blue-700 transition-colors">
+                <button className="p-1.5 bg-blue-600 text-white rounded-lg ml-1 hover:bg-blue-700 transition-colors" onClick={() => handleSend()}>
                   <FiSend size={14} />
                 </button>
               </div>
