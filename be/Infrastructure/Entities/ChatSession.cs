@@ -14,7 +14,7 @@ namespace Infrastructure.Entities
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         public virtual User User { get; set; }
-        public virtual Course Course { get; set; }
+        public virtual Course? Course { get; set; }
         public virtual ICollection<ChatMessage> Messages { get; set; }
     }
 }
