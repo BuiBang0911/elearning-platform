@@ -66,18 +66,36 @@ namespace Web.Controllers
                 chatHistory.Add(chatHistoryForAi);
             }
 
-            var client = _clientFactory.CreateClient();
-            var payload = new QueryRequest { 
-                Question = askAiRequest.Message,
-                ChatHistory = chatHistory,
-            };
-            var response = await client.PostAsJsonAsync("http://localhost:8000/api/chat", payload);
-
-            if (response.IsSuccessStatusCode)
+            try
             {
-                var result = await response.Content.ReadFromJsonAsync<QueryResponse>();
-                var chatMessage = await _chatMessageService.AddChatMessageAsync(askAiRequest.SessionId, ChatbotRole.AiAssistant, result.Answer);
-                return Ok(_mapper.Map<ChatMessageResponse>(chatMessage));
+                var client = _clientFactory.CreateClient();
+
+                var payload = new QueryRequest
+                {
+                    Question = askAiRequest.Message,
+                    ChatHistory = chatHistory,
+                };
+
+                var response = await client.PostAsJsonAsync("http://localhost:8000/api/chat", payload);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var result = await response.Content.ReadFromJsonAsync<QueryResponse>();
+                    var chatMessage = await _chatMessageService.AddChatMessageAsync(askAiRequest.SessionId, ChatbotRole.AiAssistant, result.Answer);
+                    return Ok(_mapper.Map<ChatMessageResponse>(chatMessage));
+                }
+            }
+            catch (HttpRequestException ex)
+            {
+                return StatusCode(503, $"Cannot connect to AI service: {ex.Message}");
+            }
+            catch (TaskCanceledException ex)
+            {
+                return StatusCode(504, $"AI service timeout: {ex.Message}");
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
             }
 
             return StatusCode(500, "AI Service error!");

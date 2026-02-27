@@ -9,5 +9,6 @@ namespace ApplicationCore.Constants
     public static class AppConstants
     {
         public static int ChatHistoryCount = 6;
+        public static string DefaultChatSessionTitle = "Trợ lý học tập";
     }
 }
