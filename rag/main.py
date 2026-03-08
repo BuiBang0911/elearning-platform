@@ -1,5 +1,6 @@
 import os
 import time
+import itertools
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from dotenv import load_dotenv
@@ -16,29 +17,39 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_classic.chains.combine_documents import create_stuff_documents_chain
 
 # =========================
-# 1. LOAD ENV
+# 1. LOAD ENV & API KEYS
 # =========================
 
 load_dotenv()
 
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 DATABASE_URL = os.getenv("DATABASE_URL")
-
-if not GOOGLE_API_KEY:
-    raise ValueError("Thiếu GOOGLE_API_KEY")
-
 if not DATABASE_URL:
     raise ValueError("Thiếu DATABASE_URL")
+
+api_keys_str = os.getenv("GOOGLE_API_KEYS", "")
+API_KEYS = [k.strip() for k in api_keys_str.split(",") if k.strip()]
+
+if not API_KEYS:
+    single_key = os.getenv("GOOGLE_API_KEY")
+    if single_key:
+        API_KEYS = [single_key.strip()]
+    else:
+        raise ValueError("Thiếu cấu hình GOOGLE_API_KEYS trong file .env")
+
+key_iterator = itertools.cycle(API_KEYS)
+
+def get_next_key():
+    return next(key_iterator)
 
 app = FastAPI()
 
 # =========================
 # 2. EMBEDDING + VECTOR STORE
 # =========================
-
+# Dùng key đầu tiên cho Embedding (Embedding ít bị giới hạn rate limit hơn)
 embeddings = GoogleGenerativeAIEmbeddings(
     model="models/gemini-embedding-001",
-    google_api_key=GOOGLE_API_KEY,
+    google_api_key=API_KEYS[0],
 )
 
 vector_store = PGVector(
@@ -51,25 +62,7 @@ vector_store = PGVector(
 retriever = vector_store.as_retriever(search_kwargs={"k": 3})
 
 # =========================
-# 3. LLM MODELS
-# =========================
-
-# Model nhanh để rewrite
-llm_fast = ChatGoogleGenerativeAI(
-    model="models/gemini-2.5-flash",
-    temperature=0.3,
-    google_api_key=GOOGLE_API_KEY,
-)
-
-# Model trả lời chính
-llm_smart = ChatGoogleGenerativeAI(
-    model="models/gemini-2.5-flash",
-    temperature=0.3,
-    google_api_key=GOOGLE_API_KEY,
-)
-
-# =========================
-# 4. REWRITE CHAIN
+# 3. PROMPTS
 # =========================
 
 contextualize_q_system_prompt = """
@@ -84,23 +77,15 @@ contextualize_q_prompt = ChatPromptTemplate.from_messages([
     ("human", "{input}"),
 ])
 
-contextualize_chain = (
-    contextualize_q_prompt
-    | llm_fast
-    | StrOutputParser()   # QUAN TRỌNG: đảm bảo luôn là string
-)
-
-# =========================
-# 5. QA CHAIN
-# =========================
-
 qa_system_prompt = """
 Bạn là trợ lý AI chuyên nghiệp của hệ thống E-learning EduMind.
 
-Sử dụng các đoạn ngữ cảnh sau để trả lời câu hỏi.
+Sử dụng các đoạn ngữ cảnh sau để trả lời câu hỏi. Mỗi đoạn ngữ cảnh đều bắt đầu bằng thẻ [NGUỒN: <tên_file>].
 
-Nếu câu hỏi liên quan đến hình ảnh (thẻ [HÌNH ẢNH...]),
-hãy mô tả thật chi tiết dựa trên thông tin có sẵn.
+YÊU CẦU BẮT BUỘC CẦN TUÂN THỦ:
+1. Bạn BẮT BUỘC PHẢI GHI RÕ NGUỒN TÀI LIỆU khi đưa ra thông tin. Ví dụ: "Theo tài liệu [Tên file.pdf]..." hoặc thêm (Nguồn: Tên file.pdf) ở cuối câu.
+2. Nếu câu hỏi liên quan đến hình ảnh (thẻ [HÌNH ẢNH...]), hãy mô tả thật chi tiết dựa trên thông tin có sẵn.
+3. Nếu không tìm thấy thông tin để trả lời, hãy trung thực từ chối, KHÔNG tự bịa ra thông tin.
 
 <context>
 {context}
@@ -113,13 +98,8 @@ qa_prompt = ChatPromptTemplate.from_messages([
     ("human", "{input}"),
 ])
 
-question_answer_chain = create_stuff_documents_chain(
-    llm_smart,
-    qa_prompt
-)
-
 # =========================
-# 6. REQUEST MODELS
+# 4. REQUEST MODELS
 # =========================
 
 class ChatMessage(BaseModel):
@@ -131,30 +111,54 @@ class ChatRequest(BaseModel):
     chat_history: list[ChatMessage] = []
 
 # =========================
-# 7. CHAT ENDPOINT
+# 5. CHAT ENDPOINT
 # =========================
 
 @app.post("/api/chat")
 async def chat_endpoint(request: ChatRequest):
     try:
-        # Convert history sang LangChain format
-        langchain_history = []
+        # Lấy key tiếp theo cho request này để tránh Rate Limit
+        current_api_key = get_next_key()
+        print(f"🔑 Đang dùng API Key: {current_api_key[:10]}...")
 
+        # Khởi tạo model bên trong endpoint để dùng key mới
+        llm_fast = ChatGoogleGenerativeAI(
+            model="models/gemini-2.5-flash",
+            temperature=0.3,
+            google_api_key=current_api_key,
+        )
+        
+        llm_smart = ChatGoogleGenerativeAI(
+            model="models/gemini-2.5-flash",
+            temperature=0.3,
+            google_api_key=current_api_key,
+        )
+
+        # Khởi tạo lại các chain với LLM mới
+        contextualize_chain = (
+            contextualize_q_prompt
+            | llm_fast
+            | StrOutputParser()
+        )
+
+        question_answer_chain = create_stuff_documents_chain(
+            llm_smart,
+            qa_prompt
+        )
+
+        # Convert history sang định dạng của LangChain
+        langchain_history = []
         for msg in request.chat_history:
             if msg.role == "User":
-                langchain_history.append(
-                    HumanMessage(content=msg.content)
-                )
+                langchain_history.append(HumanMessage(content=msg.content))
             elif msg.role == "AiAssistant":
-                langchain_history.append(
-                    AIMessage(content=msg.content)
-                )
+                langchain_history.append(AIMessage(content=msg.content))
 
         print("👉 --- CHAT REQUEST ---")
         print("👉 History length:", len(langchain_history))
 
         # =====================
-        # STEP 1: REWRITE
+        # STEP 1: REWRITE CÂU HỎI
         # =====================
         rewritten_question = contextualize_chain.invoke({
             "input": request.question,
@@ -167,59 +171,46 @@ async def chat_endpoint(request: ChatRequest):
         print("✅ Rewritten:", rewritten_question)
 
         # =====================
-        # STEP 2: RETRIEVE (with retry)
+        # STEP 2: RETRIEVE TÀI LIỆU
         # =====================
-
-        print("🚀 Sending to retriever. Type:", type(rewritten_question))
-
         rewritten_question = str(rewritten_question)
-
         if not rewritten_question.strip():
             rewritten_question = request.question
 
-        print("✅ Final type:", type(rewritten_question))
-        print("✅ Final value:", rewritten_question)
-
         retrieved_docs = retriever.invoke(rewritten_question)
-
+        
         if not isinstance(retrieved_docs, list):
             raise TypeError(f"Retriever returned {type(retrieved_docs)}, expected list[Document]")
-
         print("✅ Retrieved docs:", len(retrieved_docs))
 
-        if retrieved_docs:
-            print("FIRST ELEMENT TYPE:", type(retrieved_docs[0]))
-
-
         # =====================
-        # STEP 3: BUILD CONTEXT
+        # STEP 3: BUILD CONTEXT & GẮN NGUỒN
         # =====================
-
-        context_parts = []
+        source_files = set() # Dùng set để lọc các tên file bị trùng
 
         for i, doc in enumerate(retrieved_docs):
             if hasattr(doc, "page_content"):
-                context_parts.append(doc.page_content)
+                # Lấy tên file từ metadata đã lưu lúc ingest
+                filename = doc.metadata.get("filename", "Tài liệu không tên")
+                source_files.add(filename)
+                
+                # BẮT BUỘC: Gắn thẻ nguồn lên đầu đoạn text để AI đọc và trích xuất
+                doc.page_content = f"[NGUỒN: {filename}]\n{doc.page_content}"
             else:
                 print(f"⚠️ Doc {i} is not Document. Type:", type(doc))
-                context_parts.append(str(doc))
 
-        context = "\n\n".join(context_parts)
-
-        print("✅ Context built. Length:", len(context))
-
+        print(f"✅ Context formatted with sources: {list(source_files)}")
 
         # =====================
-        # STEP 4: ANSWER
+        # STEP 4: GỌI AI TRẢ LỜI
         # =====================
-
         raw_answer = question_answer_chain.invoke({
             "input": request.question,
             "chat_history": langchain_history,
             "context": retrieved_docs,
         })
 
-        # 🔥 Normalize answer (LangChain đôi khi trả AIMessage)
+        # Chuẩn hóa kết quả trả về
         if hasattr(raw_answer, "content"):
             answer = raw_answer.content
         else:
@@ -227,12 +218,10 @@ async def chat_endpoint(request: ChatRequest):
 
         print("✅ Answer generated")
 
+        # Trả về câu trả lời và mảng chứa tên file
         return {
             "answer": answer,
-            "sources": [
-                doc.page_content[:200] + "..."
-                for doc in retrieved_docs
-            ]
+            "sources": list(source_files)
         }
 
     except Exception as e:

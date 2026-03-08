@@ -36,39 +36,30 @@ COLLECTION_NAME = "my_docs"
 # --- 1. KHỞI TẠO OCR ---
 ocr = RapidOCR()
 
-# --- HÀM LỌC HEADER RÁC CỦA PDF ---
-def remove_pdf_artifacts(text):
-    """
-    Hàm này loại bỏ các dòng header/footer lặp lại gây nhiễu.
-    Bạn có thể thêm các từ khóa header cụ thể của tài liệu vào đây.
-    """
-    lines = text.split('\n')
-    cleaned_lines = []
-    
-    for line in lines:
-        line_clean = line.strip()
-        # 1. Bỏ dòng trống
-        if not line_clean: continue
-        
-        # 2. Bỏ các Header/Footer cụ thể (Dựa trên tài liệu bạn gửi)
-        # Ví dụ: "AI VIETNAM (AIO2024)", "aivietnam.edu.vn"
-        if "AI VIETNAM" in line_clean: continue
-        if "aivietnam.edu.vn" in line_clean: continue
-        if "AI COURSE 2024" in line_clean: continue
-        
-        # 3. Bỏ số trang đơn lẻ (ví dụ dòng chỉ có số "1", "2")
-        if line_clean.isdigit() and len(line_clean) < 4: continue
-        
-        cleaned_lines.append(line) # Giữ nguyên format dòng để nối sau
-        
-    return "\n".join(cleaned_lines)
+# --- 2. CÁC HÀM XỬ LÝ TEXT & PDF ---
 
-# --- 2. CÁC HÀM XỬ LÝ TEXT ---
+def extract_text_without_margins(page, margin_percent=0.08):
+    """
+    Trích xuất chữ từ trang PDF nhưng bỏ qua lề trên và lề dưới để né Header/Footer.
+    margin_percent=0.08 nghĩa là cắt bỏ 8% ở đỉnh và 8% ở đáy trang.
+    """
+    rect = page.rect # Lấy kích thước trang: x0, y0, x1, y1
+    
+    # Tạo khung (Bounding Box) cắt lề
+    clip_rect = fitz.Rect(
+        rect.x0, 
+        rect.y0 + (rect.height * margin_percent), # Kéo trần xuống
+        rect.x1, 
+        rect.y1 - (rect.height * margin_percent)  # Kéo sàn lên
+    )
+    
+    # Chỉ lấy chữ nằm trong vùng an toàn này
+    return page.get_text("text", clip=clip_rect)
 
 def clean_and_merge_lines(text):
     """Làm sạch và nối dòng văn bản bị ngắt sai."""
     if not text: return ""
-    text = remove_pdf_artifacts(text)
+    # Đã bỏ hàm remove_pdf_artifacts() vì giờ cắt theo tọa độ ở hàm trên
     text = unicodedata.normalize('NFC', text)
     text = text.replace('\x00', '')
     text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', text)
@@ -105,25 +96,21 @@ def adaptive_text_sorting(ocr_result):
         max_x = max(max_x, x2)
 
     # 2. KIỂM TRA "KHE HỞ DỌC" (VERTICAL GAPS)
-    # Tạo một mảng đại diện cho trục X
     width = int(max_x - min_x) + 1
     if width <= 0: return ""
     
-    x_projection = [0] * width # 0 là trống, 1 là có chữ
+    x_projection = [0] * width 
     
     for b in boxes:
-        # Chiếu hộp chữ xuống trục X
         start = int(b['x1'] - min_x)
         end = int(b['x2'] - min_x)
         for k in range(max(0, start), min(width, end)):
             x_projection[k] = 1
 
-    # Tìm các khoảng trống lớn trên trục X (Gap > 20px)
     GAP_THRESHOLD = 30
     has_vertical_split = False
     current_gap = 0
     
-    # Chỉ xét vùng giữa (bỏ qua lề trái/phải)
     margin = int(width * 0.1) 
     for val in x_projection[margin : width - margin]:
         if val == 0:
@@ -134,21 +121,16 @@ def adaptive_text_sorting(ocr_result):
                 break
             current_gap = 0
             
-    # Check lần cuối nếu gap nằm ở cuối
     if current_gap > GAP_THRESHOLD: has_vertical_split = True
 
     # 3. QUYẾT ĐỊNH CHIẾN THUẬT
     if has_vertical_split:
-        # === CHẾ ĐỘ CỘT (COLUMN MODE) ===
-        # Dành cho Sơ đồ RAG, Bảng biểu
         print("         ⚡ Phát hiện bố cục CỘT -> Gom nhóm dọc.")
-        
-        # Gom nhóm dựa trên tâm X (Center X)
         boxes.sort(key=lambda k: k['cx'])
         columns = []
         current_col = [boxes[0]]
         
-        COL_MARGIN = 50 # Các chữ lệch nhau < 50px thì cùng cột
+        COL_MARGIN = 50 
         
         for i in range(1, len(boxes)):
             prev, curr = current_col[-1], boxes[i]
@@ -161,30 +143,18 @@ def adaptive_text_sorting(ocr_result):
 
         final_text = []
         for col in columns:
-            # Trong mỗi cột, sắp xếp từ trên xuống dưới
             col.sort(key=lambda k: k['cy'])
             col_text = " ".join([b['text'] for b in col])
             final_text.append(col_text)
             
         return "\n".join(final_text)
-
     else:
-        # === CHẾ ĐỘ DÒNG (ROW MODE) - MẶC ĐỊNH ===
-        # Dành cho văn bản thường, paragraph
         print("         📝 Phát hiện bố cục VĂN BẢN -> Đọc theo dòng.")
-        
-        # Sắp xếp theo Y trước (để gom dòng), sau đó theo X
-        # RapidOCR mặc định trả về khá chuẩn, ta chỉ cần sort nhẹ lại
-        
-        # Logic đơn giản: Sort theo Y top-down. 
-        # Nếu Y gần nhau (<10px) thì sort theo X left-right.
         boxes.sort(key=lambda k: (int(k['cy'] / 15), k['cx'])) 
-        
         return " ".join([b['text'] for b in boxes])
     
 def process_image_for_ocr(img_bytes, debug_name=None):
     """
-    Hàm xử lý ảnh toàn diện:
     1. Tiền xử lý (Nền trắng, Tương phản).
     2. Chạy OCR.
     3. Sắp xếp thông minh (Adaptive Sorting).
@@ -192,7 +162,7 @@ def process_image_for_ocr(img_bytes, debug_name=None):
     try:
         image = Image.open(io.BytesIO(img_bytes))
         print(f"      🖼️  Xử lý ảnh kích thước: {image.size}, mode: {image.mode}")
-        # 1. LÓT NỀN TRẮNG (Fix lỗi trong suốt)
+        
         if image.mode in ('RGBA', 'LA') or (image.mode == 'P' and 'transparency' in image.info):
             bg = Image.new('RGB', image.size, (255, 255, 255))
             if image.mode != 'RGBA': image = image.convert('RGBA')
@@ -201,13 +171,11 @@ def process_image_for_ocr(img_bytes, debug_name=None):
         else:
             image = image.convert('RGB')
 
-        # 2. TĂNG TƯƠNG PHẢN
         image = ImageOps.grayscale(image)
         enhancer = ImageEnhance.Contrast(image)
         image = enhancer.enhance(2.0) 
 
         print("         🔍 Ảnh đã được tiền xử lý cho OCR.")
-        # [Debug] Lưu ảnh xử lý
         if DEBUG_MODE and debug_name:
             try:
                 image.save(os.path.join(DEBUG_FOLDER, "proc_" + debug_name))
@@ -217,44 +185,25 @@ def process_image_for_ocr(img_bytes, debug_name=None):
             image.save(output, format="PNG")
             processed_bytes = output.getvalue()
         
-        # 3. CHẠY OCR
         result, _ = ocr(processed_bytes)
         
         if result:
-            # Thay vì join thô thiển, ta gọi hàm sắp xếp thông minh
             return adaptive_text_sorting(result)
             
     except Exception as e:
         print(f"      ⚠️ Lỗi xử lý ảnh: {e}")
     return ""
 
-    # --- HÀM MỚI: TÌM TÊN HÌNH (CAPTION) ---
 def get_image_caption(page, img_rect):
-    """
-    Quét vùng văn bản ngay bên dưới ảnh để tìm caption.
-    Ví dụ: "Hình 1: Kiến trúc RAG", "Figure 2. Data Flow"
-    """
+    """Quét vùng văn bản ngay bên dưới ảnh để tìm caption."""
     try:
-        # 1. Định nghĩa vùng quét: Ngay bên dưới ảnh, cao khoảng 60px
-        # (x0, y1, x1, y1 + 60) -> Quét từ chân ảnh xuống 60 đơn vị
         caption_rect = fitz.Rect(img_rect.x0, img_rect.y1, img_rect.x1, img_rect.y1 + 60)
-        
-        # 2. Lấy text trong vùng đó
-        # clip=caption_rect: Chỉ đọc chữ nằm trong vùng này
         raw_caption = page.get_text("text", clip=caption_rect)
-        
-        # 3. Làm sạch text
         clean_caption = clean_and_merge_lines(raw_caption)
         
-        if not clean_caption:
-            return None
+        if not clean_caption: return None
             
-        # 4. Kiểm tra xem có giống caption không?
-        # Thường caption sẽ bắt đầu bằng "Hình", "Figure", "Sơ đồ", "Fig"
-        # Hoặc đơn giản là một dòng text ngắn (< 150 ký tự) nằm ngay dưới ảnh
         keywords = ["Hình", "Figure", "Fig", "Sơ đồ", "Biểu đồ", "Bảng"]
-        
-        # Nếu bắt đầu bằng keyword HOẶC ngắn vừa phải thì lấy
         if any(k in clean_caption for k in keywords) or len(clean_caption) < 150:
             return clean_caption
             
@@ -275,14 +224,13 @@ def process_pdf(pdf_path):
     print(f"\n📄 Đang xử lý: {filename} ({len(doc)} trang)...")
 
     for i, page in enumerate(doc):
-        # KHAI BÁO PAGE_NUM Ở ĐÂY ĐỂ TRÁNH LỖI 'not defined'
         page_num = i + 1
         
-        # 1. Text gốc
-        raw_text = page.get_text()
+        # 1. Text gốc - SỬ DỤNG HÀM CẮT TỌA ĐỘ Ở ĐÂY
+        raw_text = extract_text_without_margins(page, margin_percent=0.08)
         clean_raw = clean_and_merge_lines(raw_text)
         
-        # 2. Xử lý Ảnh (Vòng lặp Debug chi tiết)
+        # 2. Xử lý Ảnh
         image_list = page.get_images(full=True)
         ocr_content = ""
         processed_any_image = False
@@ -296,7 +244,6 @@ def process_pdf(pdf_path):
                     rects = page.get_image_rects(xref)
                     
                     for rect_idx, rect in enumerate(rects):
-                        # In ra kích thước thật
                         w, h = rect.width, rect.height
                         print(f"      🖼️  Ảnh {img_index}.{rect_idx} ({w:.0f}x{h:.0f}): ", end="")
                         
@@ -309,22 +256,18 @@ def process_pdf(pdf_path):
                         try:
                             caption = get_image_caption(page, rect)
                         
-                            # Tạo tiêu đề header
                             if caption:
-                                header_title = f"HÌNH ẢNH: {caption}" # Ví dụ: HÌNH ẢNH: Hình 1. RAG
+                                header_title = f"HÌNH ẢNH: {caption}"
                                 print(f"      🏷️  Tìm thấy caption: '{caption[:30]}...'")
                             else:
                                 header_title = f"HÌNH ẢNH (Trang {page_num})"
+                                
                             clip_rect = rect + (-10, -10, 10, 10)
                             pix = page.get_pixmap(clip=clip_rect, matrix=fitz.Matrix(3, 3))
                             
-                            # Debug name chứa page_num
                             dbg_name = f"p{page_num}_img{img_index}_{rect_idx}.png"
-                            
-                            # Gọi hàm OCR
                             text_in_image = process_image_for_ocr(pix.tobytes("png"), debug_name=dbg_name)
                             
-                            # IN RA KẾT QUẢ ĐỂ KIỂM TRA
                             if not text_in_image:
                                 print("⚠️ RỖNG (Không đọc được chữ).")
                             elif len(text_in_image) <= 5:
@@ -345,7 +288,7 @@ def process_pdf(pdf_path):
                     print(f"\n      ❌ Lỗi vòng lặp ảnh: {e}")
                     continue
 
-        # 3. Fallback Snapshot (Nếu không bắt được ảnh nào mà trang ít chữ)
+        # 3. Fallback Snapshot
         if not processed_any_image and len(clean_raw) < 300:
             print(f"   📸 Trang {page_num} ít text -> Thử chụp toàn trang...")
             try:
@@ -374,7 +317,6 @@ def process_pdf(pdf_path):
         )]
             
     return []
-
 
 def load_all_documents():
     docs = []
@@ -419,6 +361,15 @@ def run_ingest():
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200, add_start_index=True)
     docs = text_splitter.split_documents(raw_docs)
     print(f"✂️ Đã chia thành {len(docs)} đoạn nhỏ (chunks).")
+
+    for doc in docs:
+        filename = doc.metadata.get("filename", "unknown")
+        # Nhồi thẳng Metadata vào nội dung trước khi tạo Vector
+        enriched_content = (
+            f"Tên tài liệu: {filename}\n"
+            f"Nội dung trích đoạn:\n{doc.page_content}"
+        )
+        doc.page_content = enriched_content
 
     embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001")
     vector_store = PGVector(
