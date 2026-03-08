@@ -10,6 +10,7 @@ import { createNewChat, DeleteChatSession, getAll } from '../../api/ChatSession.
 import { getBySessionId, sendMessageToAskAi } from '../../api/ChatMessage.api';
 import type { ChatMessageResponse } from '../../interfaces/ChatMessage';
 import FormatMarkdown from '../FormatString/FormatMarkdown';
+import FullPageLoader from '../PostLoading/FullPageLoader';
 
 interface ChatbotProps {
   open: boolean;
@@ -25,16 +26,22 @@ const Chatbot = ({ open, onClose }: ChatbotProps) => {
   const [liChatMessages, setLiChatMessages] = useState<ChatMessageResponse[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<number | null>(null);
 
+  const [isLoading, setIsLoading] = useState(false);
+
+
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
 
   useEffect(() => {
     const fetchData = async () => {
+      setIsLoading(true);
       try {
         const res = await getAll();
         setLiChatSessions(res);
+        setIsLoading(false);
       } catch (err) {
         console.error("Failed to fetch chat sessions:", err);
+        setIsLoading(false);
       }
     };
 
@@ -47,13 +54,16 @@ const Chatbot = ({ open, onClose }: ChatbotProps) => {
 
   const OpenDetailChatSession = async (id: number) => {
     try {
+      setIsLoading(true);
       setSidebarOpen(false);
       const res = await getBySessionId(id);
       setCurrentSessionId(id);
       setLiChatMessages(res);
+      setIsLoading(false);
 
     } catch (err) {
       console.error("Failed to fetch chat messages:", err);
+      setIsLoading(false);
     }
   };
 
@@ -145,7 +155,7 @@ const Chatbot = ({ open, onClose }: ChatbotProps) => {
         }
     `}
     >
-
+      {isLoading && <FullPageLoader message=''/>}
       {/* ================= HEADER ================= */}
       <header className="h-14 bg-blue-600 flex items-center justify-between px-4 shrink-0 shadow-sm z-20">
         <div className="flex items-center gap-3">

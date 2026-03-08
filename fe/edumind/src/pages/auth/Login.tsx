@@ -2,6 +2,7 @@ import { useState } from "react";
 import AuthHeader from "../../components/auth/AuthHeader";
 import { login } from "../../api/auth.api";
 import { useNavigate } from "react-router-dom";
+import FullPageLoader from "../../components/PostLoading/FullPageLoader";
 
 
 
@@ -10,17 +11,23 @@ const Login = () => {
     
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
+    const [isLoading, setIsLoading] = useState(false);
 
     const HandleSubmit = (e: React.FormEvent) => {
+        setIsLoading(true);
         e.preventDefault();
         login({ email, password })
             .then(() => {
+                setIsLoading(false);
                 navigate("/");
             })
             .catch((err) => {
                 console.error("Login failed:", err);
+                setIsLoading(false);
             });
     }
+
+    if (isLoading) return <FullPageLoader />;
 
     return (
         <>
