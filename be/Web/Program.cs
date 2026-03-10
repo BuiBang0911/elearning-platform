@@ -23,6 +23,7 @@ using ApplicationCore.Services.Cache;
 using System.IdentityModel.Tokens.Jwt;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using ApplicationCore.Services.Storage;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -173,6 +174,8 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IWorkContextService, WorkContextService>();
 
 builder.Services.AddScoped<ICacheService, CacheService>();
+
+builder.Services.AddScoped<IStorageService, AzureStorageService>();
 
 var app = builder.Build();
 
