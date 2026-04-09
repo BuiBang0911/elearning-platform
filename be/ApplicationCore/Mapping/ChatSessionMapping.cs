@@ -1,6 +1,6 @@
-﻿using Infrastructure.Entities;
-using Web.Controllers;
-using Web.DTO;
+﻿using ApplicationCore.DTO;
+using ApplicationCore.Mapping;
+using Infrastructure.Entities;
 
 namespace Web.Mapping
 {

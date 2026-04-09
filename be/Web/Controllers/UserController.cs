@@ -1,11 +1,11 @@
-﻿using ApplicationCore.Services;
+﻿using ApplicationCore.DTO;
+using ApplicationCore.Services;
 using ApplicationCore.Services.Users;
 using Ardalis.Specification;
 using AutoMapper;
 using Infrastructure.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Web.DTO;
 
 namespace Web.Controllers
 {

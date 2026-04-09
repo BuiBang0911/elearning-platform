@@ -1,4 +1,5 @@
-﻿using ApplicationCore.Services.Auth;
+﻿using ApplicationCore.DTO;
+using ApplicationCore.Services.Auth;
 using ApplicationCore.Services.Cache;
 using ApplicationCore.Services.Token;
 using ApplicationCore.Services.Users;
@@ -8,7 +9,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
-using Web.DTO;
 
 namespace Web.Controllers
 {
@@ -40,7 +40,7 @@ namespace Web.Controllers
                 return BadRequest("Validate error!");
             }
 
-            var user = await _userService.FirstOrDefaultAsync(x => x.Email == request.Email);
+            var user = await _userService.FirstOrDefaultAsync(x => x.Email == request.Email && x.Role == request.Role);
             if (user == null)
                 return Unauthorized("Sai tài khoản hoặc mật khẩu");
 
@@ -62,7 +62,8 @@ namespace Web.Controllers
                 HttpOnly = true,
                 Secure = true, 
                 SameSite = SameSiteMode.None,
-                Expires = DateTimeOffset.UtcNow.AddMinutes(15)
+                Expires = DateTimeOffset.UtcNow.AddMinutes(15),
+                Path = "/"
             });
 
             Response.Cookies.Append("refreshToken", refreshToken, new CookieOptions
@@ -70,7 +71,8 @@ namespace Web.Controllers
                 HttpOnly = true,
                 Secure = true,
                 SameSite = SameSiteMode.None,
-                Expires = DateTimeOffset.UtcNow.AddDays(7)
+                Expires = DateTimeOffset.UtcNow.AddDays(7),
+                Path = "/"
             });
 
             return Ok(new {
@@ -156,6 +158,19 @@ namespace Web.Controllers
                     await _cacheService.SetAsync(jti, "revoked", timeUntilExpiry);
                 }
             }
+
+            var cookieOptions = new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.None,
+                Path = "/"
+            };
+
+            // Xóa trên trình duyệt bằng cách ghi đè một cookie rỗng đã hết hạn
+            Response.Cookies.Delete("accessToken", cookieOptions);
+            Response.Cookies.Delete("refreshToken", cookieOptions);
+
             return Ok();
         }
 
@@ -180,7 +195,7 @@ namespace Web.Controllers
                 FullName = request.FullName,
                 Email = request.Email,
                 Password = passwordHash,
-                Role = UserRole.Student,
+                Role = request.Role,
             };
 
             await _userService.AddAsync(userRequest);
@@ -196,7 +211,7 @@ namespace Web.Controllers
             if (userId == null) return BadRequest();
             var user = await _userService.FirstOrDefaultAsync(x => x.Id == userId); 
             if (user == null) return BadRequest();
-            user.Role = UserRole.Lecturer;
+            user.Role = UserRole.Instructor;
             await _userService.UpdateAsync(user);
             return Ok();
         }

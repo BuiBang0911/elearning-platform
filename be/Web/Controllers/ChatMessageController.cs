@@ -1,4 +1,5 @@
 ﻿using ApplicationCore.Constants;
+using ApplicationCore.DTO;
 using ApplicationCore.Services.Auth;
 using ApplicationCore.Services.ChatMessages;
 using ApplicationCore.Services.Documents;
@@ -8,13 +9,12 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using StackExchange.Redis;
 using System.Security.Claims;
-using Web.DTO;
 
 namespace Web.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize(Roles = nameof(UserRole.Admin))]
+    // [Authorize(Roles = nameof(UserRole.Admin))]
     public class ChatMessageController : BaseEntityController<ChatMessage, ChatMessageRequest, ChatMessageUpdateRequest, ChatMessageResponse>
     {
         private readonly IChatMessageService _chatMessageService;

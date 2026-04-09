@@ -1,13 +1,18 @@
-﻿using ApplicationCore.Services.Courses;
+﻿using ApplicationCore.DTO;
+using ApplicationCore.Services.Auth;
+using ApplicationCore.Services.Courses;
 using ApplicationCore.Services.Documents;
 using ApplicationCore.Services.Lessons;
+using ApplicationCore.Services.Storage;
 using ApplicationCore.Services.Users;
 using AutoMapper;
+using Azure;
 using Infrastructure.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using System.Net.WebSockets;
 using Web.Controllers;
-using Web.DTO;
 
 namespace Web.Controllers
 {
@@ -19,16 +24,59 @@ namespace Web.Controllers
         private readonly ILessonService _lessonService;
         private readonly IDocumentService _documentService;
         private readonly IMapper _mapper;
+        private readonly IStorageService _storageService;
+        private readonly IAuthService _authService;
+        private readonly IUserService _userService;
 
-        public CourseController(ICourseService courseService, ILessonService lessonService, IDocumentService documentService, IMapper mapper) : base(courseService, mapper)
+        public CourseController(ICourseService courseService, ILessonService lessonService, IDocumentService documentService, IStorageService storageService, IAuthService authService, IUserService userService, IMapper mapper) : base(courseService, mapper)
         {
             _courseService = courseService;
             _lessonService = lessonService;
             _documentService = documentService;
+            _mapper = mapper;
+            _userService = userService;
+            _storageService = storageService;
+            _authService = authService;
+        }
+
+        public override  async Task<ActionResult<IEnumerable<CourseResponse>>> GetAll()
+        {
+            var list = await _courseService.GetAsync(earlyLoad: [x => x.Lecturer, x => x.Category]);
+            var res = _mapper.Map<IEnumerable<CourseResponse>>(list);
+            return Ok(res);
+        }
+
+        [HttpPost]
+        [Authorize(Roles = $"{nameof(UserRole.Instructor)}")]
+        public override async Task<ActionResult<CourseResponse>> Create([FromForm] CourseUpdateRequest request)
+        {
+            var userId = _authService.UserId;
+            if (userId == null) return Unauthorized("Invalid refresh token");
+
+            request.LecturerId = userId;
+
+            string? resultUrl = null;
+
+            if (request.Thumbnail != null)
+            {
+                resultUrl = await _storageService.UploadFileAsync(request.Thumbnail);
+                if (string.IsNullOrEmpty(resultUrl))
+                {
+                    return BadRequest("Cannot upload file.");
+                }
+            }
+
+            var couseR = _mapper.Map<Course>(request);
+            couseR.Thumbnail = resultUrl;
+            var res = await _courseService.AddAndReturnAsync(couseR);
+
+            var course = _mapper.Map<CourseResponse>(res);
+
+            return Ok(course);
         }
 
         [HttpDelete("{id}")]
-        [Authorize(Roles = $"{nameof(UserRole.Admin)},{nameof(UserRole.Lecturer)}")]
+        [Authorize(Roles = $"{nameof(UserRole.Admin)},{nameof(UserRole.Instructor)}")]
         public override async Task<IActionResult> Delete(int id)
         {
             var entity = await _courseService.FirstOrDefaultAsync(x => x.Id == id);
@@ -39,7 +87,7 @@ namespace Web.Controllers
 
             foreach (var lesson in liLesson) {
                 var liDocument = await _documentService.GetAsync(x => x.LessonId == id);
-                foreach (var document in liDocument) { 
+                foreach (var document in liDocument) {
                     await _documentService.DeleteAsync(document);
                 }
                 await _lessonService.DeleteAsync(lesson);
@@ -47,6 +95,92 @@ namespace Web.Controllers
 
             await _courseService.DeleteAsync(entity);
             return NoContent();
+        }
+
+        [HttpGet("get-course-dashboard")]
+        [Authorize(Roles = $"{nameof(UserRole.Instructor)}")]
+        public async Task<ActionResult<IEnumerable<CourseDashboardResponse>>> GetAllCourseForLecture()
+        {
+            var userId = _authService.UserId;
+
+            if (userId == null) return Unauthorized();
+
+            var list = await _courseService.GetAsync(x => x.LecturerId == userId, earlyLoad: [x => x.Enrollments, x => x.Category]);
+
+            var res = list.Select(x => new CourseDashboardResponse
+            {
+                Id = x.Id,
+                Title = x.Title,
+                Description = x.Description,
+                LecturerId = x.LecturerId,
+                CreatedAt = x.CreatedAt,
+                Thumbnail = x.Thumbnail,
+                Level = x.Level,
+                Rating = x.Rating,
+                CategoryName = x.Category?.Name,
+                Students = x.Enrollments.Count()
+            });
+            return Ok(res);
+        }
+
+        [HttpPost("course-by-student-dashboard/{studentId}")]
+        [Authorize(Roles = $"{nameof(UserRole.Instructor)}")]
+        public async Task<IActionResult> GetStudentDashboard(int studentId)
+        {
+            var userId = _authService?.UserId;
+            if (userId == null) return Unauthorized();
+
+            var result = await _courseService.CourseByStudentDashboard(
+                studentId,
+                null,
+                userId
+            );
+
+            return Ok(result);
+        }
+
+        [HttpGet("{courseId}/documents/search")]
+        public async Task<IActionResult> SearchDocuments(int courseId, [FromQuery] string? searchTerm)
+        {
+            var results = await _documentService.SearchDocumentsInCourseAsync(courseId, searchTerm);
+
+            if (results == null || !results.Any())
+            {
+                return NotFound();
+            }
+
+            return Ok(results);
+        }
+
+        [HttpGet("get-courses-for-student")]
+        [Authorize(Roles = $"{nameof(UserRole.Student)}")]
+        public async Task<IActionResult> GetCoursesForStudent()
+        {
+            var userId = _authService?.UserId;
+            if (userId == null) return Unauthorized();
+
+            var res = await _courseService.GetCoursesForStudentAsync(userId.Value);
+
+            return Ok(res);
+        }
+
+        [HttpPost("get-top-rated-courses")]
+        public async Task<IActionResult> GetTopRatedCoursesAsync([FromBody] PagingRequest pagingRequest)
+        {
+            var courses = await _courseService.GetTopRatedCoursesPagedAsync(pagingRequest.PageIndex, pagingRequest.PageSize);
+
+            return Ok(courses);
+        }
+
+        [HttpPost("get-all-course-for-student")]
+        [Authorize(Roles = $"{nameof(UserRole.Student)}")]
+        public async Task<IActionResult> GetAllCoursesForStudentAsync([FromBody] PagingRequest pagingRequest, [FromQuery] string? search)
+        {
+            var userId = _authService?.UserId;
+            if (userId == null) return Unauthorized();
+            var courses = await _courseService.GetAllCoursesForStudentAsync(userId, search, pagingRequest.PageIndex, pagingRequest.PageSize);
+
+            return Ok(courses);
         }
     }
 }

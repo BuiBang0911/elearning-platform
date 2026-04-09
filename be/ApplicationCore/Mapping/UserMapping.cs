@@ -1,6 +1,7 @@
-﻿using AutoMapper;
+﻿using ApplicationCore.DTO;
+using ApplicationCore.Mapping;
+using AutoMapper;
 using Infrastructure.Entities;
-using Web.DTO;
 
 namespace Web.Mapping
 {

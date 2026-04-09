@@ -1,11 +1,12 @@
 ﻿using Infrastructure.Entities;
 
-namespace Web.DTO
+namespace ApplicationCore.DTO
 {
     public class LoginRequest
     {
         public string Email { get; set; }
         public string Password { get; set; }
+        public UserRole Role { get; set; }
     }
 
     public class RegisterRequest

@@ -1,7 +1,7 @@
 ﻿using AutoMapper;
 using Infrastructure;
 
-namespace Web.Mapping
+namespace ApplicationCore.Mapping
 {
     public class BaseMapping<TEntity, TRequest, TUpdateRequest, TResponse> : Profile where TEntity : BaseEntity
     {

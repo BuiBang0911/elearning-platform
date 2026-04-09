@@ -1,6 +1,6 @@
 ﻿using Infrastructure.Entities;
 
-namespace Web.DTO
+namespace ApplicationCore.DTO
 {
     public class UserRequest : PagingRequest
     {

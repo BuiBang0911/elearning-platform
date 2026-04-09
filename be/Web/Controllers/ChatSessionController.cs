@@ -1,4 +1,5 @@
 ﻿using ApplicationCore.Constants;
+using ApplicationCore.DTO;
 using ApplicationCore.Services.Auth;
 using ApplicationCore.Services.ChatMessages;
 using ApplicationCore.Services.ChatSessions;
@@ -8,13 +9,11 @@ using Infrastructure.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
-using Web.DTO;
 
 namespace Web.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize(Roles = nameof(UserRole.Admin))]
     public class ChatSessionController : BaseEntityController<ChatSession, ChatSessionRequest, ChatSessionUpdateRequest, ChatSessionResponse>
     {
         private readonly IChatSessionService _chatSessionService;

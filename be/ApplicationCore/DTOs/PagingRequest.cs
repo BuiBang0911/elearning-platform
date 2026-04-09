@@ -1,4 +1,4 @@
-﻿namespace Web.DTO
+﻿namespace ApplicationCore.DTO
 {
     public class PagingRequest
     {
