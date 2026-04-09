@@ -6,8 +6,10 @@ using System.Threading.Tasks;
 
 namespace ApplicationCore.Data
 {
-    public interface IPagedList<T> : IList<T>
+    public interface IPagedList<T>
     {
+        List<T> Items { get; }
+
         /// <summary>
         /// Page index
         /// </summary>
@@ -37,5 +39,6 @@ namespace ApplicationCore.Data
         /// Has next age
         /// </summary>
         bool HasNextPage { get; }
+        T this[int index] { get; }
     }
 }

@@ -25,7 +25,7 @@ namespace Infrastructure.Entities
     public enum UserRole
     {
         Student = 1,
-        Lecturer = 2,
+        Instructor = 2,
         Admin = 3
     }
 }

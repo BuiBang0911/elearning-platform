@@ -26,6 +26,8 @@ namespace Infrastructure.Data
         public DbSet<Document> Documents { get; set; }
         public DbSet<ChatSession> ChatSessions { get; set; }
         public DbSet<ChatMessage> ChatMessages { get; set; }
+        public DbSet<UserLesson> UserLessons { get; set; }
+        public DbSet<Category> Categories { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -55,7 +57,8 @@ namespace Infrastructure.Data
             modelBuilder.Entity<Enrollment>(entity =>
             {
                 // Khóa chính phức hợp (Composite Key)
-                entity.HasKey(e => new { e.UserId, e.CourseId });
+                // entity.HasKey(e => new { e.UserId, e.CourseId });
+                entity.HasKey(c => c.Id);
 
                 entity.HasOne(e => e.User)
                       .WithMany(u => u.Enrollments)
@@ -113,6 +116,16 @@ namespace Infrastructure.Data
                       .HasForeignKey(m => m.SessionId)
                       .OnDelete(DeleteBehavior.Cascade);
             });
+
+            modelBuilder.Entity<UserLesson>()
+            .HasIndex(up => new { up.UserId, up.LessonId })
+            .IsUnique();
+
+            modelBuilder.Entity<Category>()
+                .HasMany(c => c.Courses)
+                .WithOne(c => c.Category)
+                .HasForeignKey(c => c.CategoryId)
+                .OnDelete(DeleteBehavior.SetNull);
         }
 
     }

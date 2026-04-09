@@ -11,6 +11,8 @@ namespace Infrastructure.Entities
     {
         public int CourseId { get; set; }
         public string Title { get; set; }
+        public string? Description { get; set; }
+        public string? Content { get; set; }
         public int LessonOrder { get; set; }
 
         public virtual Course Course { get; set; }

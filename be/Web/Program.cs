@@ -24,6 +24,9 @@ using System.IdentityModel.Tokens.Jwt;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using ApplicationCore.Services.Storage;
+using ApplicationCore.Services.Enrollments;
+using ApplicationCore.Services.UserLessons;
+using ApplicationCore.Services.Dashboard;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -127,7 +130,7 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy(UserRole.Admin.ToString(),
         p => p.RequireRole("Admin"));
 
-    options.AddPolicy(UserRole.Lecturer.ToString(),
+    options.AddPolicy(UserRole.Instructor.ToString(),
         p => p.RequireRole("Lecture"));
 
     options.AddPolicy(UserRole.Student.ToString(),
@@ -158,6 +161,13 @@ builder.Services.AddScoped<IRepository<Course>, Repository<Course>>();
 builder.Services.AddScoped<ICourseService, CourseService>();
 builder.Services.AddScoped<ILessonService, LessonService>();
 builder.Services.AddScoped<IRepository<Lesson>, Repository<Lesson>>();
+builder.Services.AddScoped<IEnrollmentService, EnrollmentService>();
+builder.Services.AddScoped<IRepository<Enrollment>, Repository<Enrollment>>();
+builder.Services.AddScoped<IRepository<UserLesson>, Repository<UserLesson>>();
+builder.Services.AddScoped<IUserLessonService, UserLessonService>();
+builder.Services.AddScoped<IRepository<Category>, Repository<Category>>();
+
+builder.Services.AddScoped<IDashboardService, DashboardService>();
 
 builder.Services.AddScoped<IDocumentService, DocumentService>();
 builder.Services.AddScoped<IRepository<Document>, Repository<Document>>();
@@ -186,10 +196,10 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseRouting();
-
 
 app.UseCors("AllowFrontend");
+
+app.UseRouting();
 
 app.UseHttpsRedirection();
 app.UseAuthentication();
