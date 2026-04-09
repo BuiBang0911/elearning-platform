@@ -1,16 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
-import {
-  FiMenu, FiX, FiSend, FiPaperclip, FiMaximize2, FiMinimize2,
-  FiTrash2
-} from 'react-icons/fi';
-import { FaBookOpen, FaMagic } from 'react-icons/fa';
-import { HiSparkles } from 'react-icons/hi';
 import type { ChatSessionResponse } from '../../interfaces/ChatSession';
-import { createNewChat, DeleteChatSession, getAll } from '../../api/ChatSession.api';
-import { getBySessionId, sendMessageToAskAi } from '../../api/ChatMessage.api';
 import type { ChatMessageResponse } from '../../interfaces/ChatMessage';
 import FormatMarkdown from '../FormatString/FormatMarkdown';
 import FullPageLoader from '../PostLoading/FullPageLoader';
+import ChatSessionApi from '../../api/ChatSession.api';
+import chatMessageApi from '../../api/ChatMessage.api';
+import { BookOpen, Maximize2, Menu, Minimize2, Paperclip, Send, Sparkles, Trash2, Wand2, X } from 'lucide-react';
 
 interface ChatbotProps {
   open: boolean;
@@ -36,7 +31,7 @@ const Chatbot = ({ open, onClose }: ChatbotProps) => {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const res = await getAll();
+        const res = await ChatSessionApi.getAll();
         setLiChatSessions(res);
         setIsLoading(false);
       } catch (err) {
@@ -56,7 +51,7 @@ const Chatbot = ({ open, onClose }: ChatbotProps) => {
     try {
       setIsLoading(true);
       setSidebarOpen(false);
-      const res = await getBySessionId(id);
+      const res = await chatMessageApi.getBySessionId(id);
       setCurrentSessionId(id);
       setLiChatMessages(res);
       setIsLoading(false);
@@ -78,10 +73,10 @@ const Chatbot = ({ open, onClose }: ChatbotProps) => {
     const text = ref.current?.innerText.trim();
 
     if (!currentSessionId) {
-      const session = await createNewChat()
+      const session = await ChatSessionApi.createNewChat();
       sessionId = session.id;
-      setCurrentSessionId(session.id)
-      setLiChatSessions(prev => [...prev, session])
+      setCurrentSessionId(session.id);
+      setLiChatSessions(prev => [...prev, session]);
     }
 
     if (!text) return;
@@ -104,7 +99,7 @@ const Chatbot = ({ open, onClose }: ChatbotProps) => {
       }
     ]);
     try {
-      const res = await sendMessageToAskAi(sessionId!, text);
+      const res = await chatMessageApi.sendMessageToAskAi(sessionId!, text);
       setLiChatMessages(prev =>
         prev.map(msg =>
           msg.id === tempAssistantId + 1 ? res : msg
@@ -117,7 +112,7 @@ const Chatbot = ({ open, onClose }: ChatbotProps) => {
 
   const onDeleteChatSession = async (id: number) => {
     try {
-      await DeleteChatSession(id);
+      await ChatSessionApi.DeleteChatSession(id);
       setLiChatSessions(prev => prev.filter(session => session.id !== id));
       if (currentSessionId === id) {
         setCurrentSessionId(null);
@@ -163,11 +158,11 @@ const Chatbot = ({ open, onClose }: ChatbotProps) => {
             onClick={() => setSidebarOpen(!sidebarOpen)}
             className="text-blue-100 hover:text-white hover:cursor-pointer transition-colors"
           >
-            <FiMenu size={20} />
+            <Menu size={20} />
           </button>
 
           <div className="flex items-center gap-2 text-white">
-            <FaBookOpen size={16} />
+            <BookOpen size={16} />
             <h1 className="font-bold text-sm">{
               currentSessionId ? liChatSessions.find(s => s.id === currentSessionId)?.title || "Cuộc trò chuyện"
                 : "Trợ lý học tập"
@@ -181,14 +176,14 @@ const Chatbot = ({ open, onClose }: ChatbotProps) => {
             className="p-1.5 text-blue-100 hover:text-white hover:bg-blue-500 rounded-lg transition-colors"
             title={isExpanded ? "Thu nhỏ" : "Mở rộng"}
           >
-            {isExpanded ? <FiMinimize2 size={16} /> : <FiMaximize2 size={16} />}
+            {isExpanded ? <Maximize2 size={16} /> : <Minimize2 size={16} />}
           </button>
 
           <button
             onClick={onClose}
             className="p-1.5 text-blue-100 hover:text-white hover:bg-blue-500 rounded-lg transition-colors"
           >
-            <FiX size={20} />
+            <X size={20} />
           </button>
         </div>
       </header>
@@ -200,7 +195,7 @@ const Chatbot = ({ open, onClose }: ChatbotProps) => {
         `}>
           <div className="p-3 border-b border-gray-100 flex justify-between items-center bg-gray-50">
             <span className="text-xs font-bold text-gray-500 uppercase">Lịch sử</span>
-            <button onClick={() => setSidebarOpen(false)} className="text-gray-400 hover:text-gray-600"><FiX size={16} /></button>
+            <button onClick={() => setSidebarOpen(false)} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
           </div>
 
           {/* chat session list */}
@@ -221,7 +216,7 @@ const Chatbot = ({ open, onClose }: ChatbotProps) => {
                   onClick={() => onDeleteChatSession(session.id)}
                   className="absolute right-2 p-1 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 hover:cursor-pointer transition-opacity"
                 >
-                  <FiTrash2 size={16} /> 
+                  <Trash2 size={16} /> 
                 </button>
               </div>
             ))}
@@ -229,7 +224,7 @@ const Chatbot = ({ open, onClose }: ChatbotProps) => {
 
           <div className="p-3 border-t border-gray-100">
             <button className="w-full flex items-center justify-center gap-2 bg-blue-50 text-blue-600 py-2 rounded-lg text-sm font-medium hover:bg-blue-100 transition-colors" onClick={() => CreateNewChat()}>
-              <HiSparkles size={16} /> Chat mới
+              <Sparkles size={16} /> Chat mới
             </button>
           </div>
         </aside>
@@ -246,7 +241,7 @@ const Chatbot = ({ open, onClose }: ChatbotProps) => {
           <div className="flex-1 overflow-y-auto p-4 space-y-4 scroll-smooth bg-gray-50/50">
             <div className="flex gap-2">
               <div className="w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center text-white shrink-0 mt-1">
-                <FaMagic size={10} />
+                <Wand2 size={10} />
               </div>
               <div className="max-w-[85%] bg-white border border-gray-200 px-3 py-2.5 rounded-2xl rounded-tl-none shadow-sm text-sm text-gray-800">
                 <p>Chào bạn! Mình là trợ lý học tập. Bạn cần giúp gì hôm nay?</p>
@@ -265,7 +260,7 @@ const Chatbot = ({ open, onClose }: ChatbotProps) => {
               else return (
                 <div key={message.id} className="flex gap-2">
                   <div className="w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center text-white shrink-0 mt-1">
-                    <FaMagic size={10} />
+                    <Wand2 size={10} />
                   </div>
                   <div className="max-w-[85%] bg-white border border-gray-200 px-3 py-2.5 rounded-2xl rounded-tl-none shadow-sm text-sm text-gray-800">
                     <div className="mb-2"><FormatMarkdown content={message.content} /></div>
@@ -300,10 +295,10 @@ const Chatbot = ({ open, onClose }: ChatbotProps) => {
               </div>
               <div className="absolute right-1 bottom-1 flex items-center">
                 <button className="p-1.5 text-gray-400 hover:text-blue-600 transition-colors" >
-                  <FiPaperclip size={16} />
+                  <Paperclip size={16} />
                 </button>
                 <button className="p-1.5 bg-blue-600 text-white rounded-lg ml-1 hover:bg-blue-700 transition-colors" onClick={() => handleSend()}>
-                  <FiSend size={14} />
+                  <Send size={14} />
                 </button>
               </div>
             </div>
