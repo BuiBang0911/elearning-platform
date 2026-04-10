@@ -3,31 +3,48 @@ import type { CourseForStudent } from "../../interfaces/Course";
 import { Card } from "../ui/card";
 import { Badge } from "../ui/badge";
 import { Progress } from "../ui/progress";
-import { Link, Play, Star } from "lucide-react";
+import { Link as LinkIcon, Play, Star } from "lucide-react";
 import { Button } from "../ui/button";
 import enrrollementApi from "../../api/Enrollment";
+import { Link } from "react-router-dom";
+
+import { useEffect, useState } from "react";
 
 type Props = {
     enrolledCourses: CourseForStudent[];
 }
 
 const CoursesEnrolled = ({ enrolledCourses }: Props) => {
+    const [localCourses, setLocalCourses] = useState<CourseForStudent[]>(enrolledCourses);
+
+    useEffect(() => {
+        setLocalCourses(enrolledCourses);
+    }, [enrolledCourses]);
+
     const handleRateCourse = async (courseId: number, rating: number) => {
+        // Optimistic update
+        const previousCourses = [...localCourses];
+        setLocalCourses(prev => prev.map(c => 
+            c.id === courseId ? { ...c, rating } : c
+        ));
+
         try {
             await enrrollementApi.updateRating({ courseId, rating });
         } catch (error) {
             console.error("Error updating course rating:", error);
+            // Rollback on error
+            setLocalCourses(previousCourses);
         }
         console.log(`Rated course ${courseId} with ${rating} stars`);
     };
 
     return (
         <TabsContent value="continue" className="space-y-4">
-            {enrolledCourses.map((course) => (
+            {localCourses.map((course) => (
                 <Card key={course.id} className="p-6 hover:shadow-lg transition-shadow">
                     <div className="flex gap-4">
                         <img
-                            src={course.thumbnail}
+                            src={course.thumbnail || '/assets/images/sample-thumnail-course.jpg'}
                             alt={course.title}
                             className="w-32 h-24 object-cover rounded-lg"
                         />
@@ -68,7 +85,7 @@ const CoursesEnrolled = ({ enrolledCourses }: Props) => {
                                     </span>
                                 )}
                             </div>
-                            <Link to={`/course/${course.id}`}>
+                            <Link to={`/student/course/${course.id}`}>
                                 <Button className="gap-2">
                                     <Play className="w-4 h-4" />
                                     Continue Learning

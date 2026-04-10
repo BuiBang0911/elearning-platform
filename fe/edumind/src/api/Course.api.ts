@@ -1,5 +1,5 @@
 import type { PagedList, PagingRequest } from "../interfaces";
-import type { CourseByStudentDashboard, CourseForStudent, CourseListDto, CourseResponse, CourseResponseInstructorDashboard, CourseUpdateRequest } from "../interfaces/Course"
+import type { CourseByStudentDashboard, CourseDetailForStudentDto, CourseForStudent, CourseListDto, CourseResponse, CourseResponseInstructorDashboard, CourseUpdateRequest } from "../interfaces/Course"
 import type { DocumentResponse } from "../interfaces/Document";
 import api from "./index.api"
 
@@ -25,7 +25,7 @@ const create = async (data: CourseUpdateRequest): Promise<CourseResponse> => {
     if (value !== null && value !== undefined) {
       if (key === 'thumbnail' && value instanceof File) {
         formData.append(key, value);
-      } 
+      }
       else {
         formData.append(key, value.toString());
       }
@@ -75,7 +75,7 @@ const GetCoursesForStudent = async (): Promise<CourseForStudent[]> => {
   return res.data;
 };
 
-const getTopRatedCourses = async (pagingRequest: PagingRequest): Promise<CourseResponse[]> => {
+const getTopRatedCourses = async (pagingRequest: PagingRequest): Promise<PagedList<CourseResponse>> => {
   const res = await api.post(`/Course/get-top-rated-courses`, pagingRequest);
   return res.data;
 };
@@ -85,8 +85,13 @@ const getAllCoursesForStudent = async (pagingRequest: PagingRequest, search: str
   return res.data;
 }
 
+const getCourseDetailForStudent = async (id: number | string): Promise<CourseDetailForStudentDto> => {
+  const res = await api.get(`/Course/student/detail/${id}`);
+  return res.data;
+}
 
-  
+
+
 const CourseApi = {
   getAll,
   getById,
@@ -101,6 +106,7 @@ const CourseApi = {
   GetCoursesForStudent,
   getTopRatedCourses,
   getAllCoursesForStudent,
+  getCourseDetailForStudent,
 };
 
 export default CourseApi;

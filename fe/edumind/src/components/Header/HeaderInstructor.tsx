@@ -2,15 +2,19 @@ import { Brain, LogOut } from "lucide-react";
 import { Button } from "../ui/button";
 import { Link, useNavigate } from "react-router-dom";
 import AuthApi from "../../api/auth.api";
+import { useAuth } from "../../context/AuthContext";
 
 const HeaderInstructor = () => {
+  const { user, logout: clearAuth } = useAuth();
   const navigate = useNavigate();
   const logout = async () => {
     try {
       await AuthApi.logout();
+      clearAuth();
+      navigate("/");
     } catch (error) {
       console.error("Error during logout:", error);
-    } finally {
+      clearAuth();
       navigate("/");
     }
   };
@@ -41,11 +45,11 @@ const HeaderInstructor = () => {
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-3">
               <div className="hidden sm:block text-right">
-                <p className="text-sm font-medium">Dr. Sarah Chen</p>
+                <p className="text-sm font-medium">{user?.fullName}</p>
                 <p className="text-xs text-gray-500">Instructor</p>
               </div>
               <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white font-medium">
-                S
+                {user?.fullName?.charAt(0)}
               </div>
             </div>
             <Button variant="ghost" size="icon" onClick={() => {

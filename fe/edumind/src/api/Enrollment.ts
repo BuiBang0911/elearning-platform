@@ -28,6 +28,11 @@ const enrrollementApi = {
         const res = await api.post(`/Enrollment/update-rating`, updateRatingRequest);
         return res.data;
     },
+
+    enrollCourse: async (courseId: number): Promise<void> => {
+        const res = await api.post(`/Enrollment/enroll/${courseId}`);
+        return res.data;
+    },
 }
 
 export default enrrollementApi;

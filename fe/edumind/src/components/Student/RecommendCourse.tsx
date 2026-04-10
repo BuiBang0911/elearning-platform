@@ -25,12 +25,12 @@ const RecommendCourse = () => {
     useEffect(() => {
         const fetchRecommended = async () => {
             setIsLoadingRecommended(true);
-            const res = await CourseApi.getTopRatedCourses({ pageIndex: 0, pageSize: 10 });
+            const res = await CourseApi.getTopRatedCourses({ pageIndex: currentPage - 1, pageSize: itemsPerPage });
             setPaginatedRecommended(res);
             setIsLoadingRecommended(false);
         }
         fetchRecommended();
-    }, [])
+    }, [currentPage, itemsPerPage])
 
     return (<TabsContent value="recommended" className="space-y-4">
         <div className="grid sm:grid-cols-3 gap-4">
@@ -42,7 +42,7 @@ const RecommendCourse = () => {
                 paginatedRecommended.items.map((course) => (
                     <Card key={course.id} className="overflow-hidden hover:shadow-lg transition-shadow">
                         <img
-                            src={course.thumbnail}
+                            src={course.thumbnail || '/assets/images/sample-thumnail-course.jpg'}
                             alt={course.title}
                             className="w-full h-60 object-contain bg-gray-100"
                         />
@@ -56,7 +56,7 @@ const RecommendCourse = () => {
                                 <span>{course.lectureName}</span>
                                 <span>⭐ {course.rating}</span>
                             </div>
-                            <Link to={`/course/${course.id}`}>
+                            <Link to={`/student/course/${course.id}`}>
                                 <Button variant="outline" className="w-full">
                                     View Course
                                 </Button>

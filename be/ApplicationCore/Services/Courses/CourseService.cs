@@ -1,4 +1,4 @@
-﻿using ApplicationCore.Data;
+using ApplicationCore.Data;
 using ApplicationCore.DTO;
 using AutoMapper;
 using Infrastructure.Data;
@@ -175,6 +175,85 @@ namespace ApplicationCore.Services.Courses
                 .ToListAsync();
 
             return new PagedList<CourseListDto>(items, totalCount, pageNumber, pageSize);
+        }
+
+        public async Task<CourseDetailForStudentDto?> GetCourseDetailForStudentAsync(int courseId, int? studentId)
+        {
+            var course = await _context.Courses
+                .Include(c => c.Category)
+                .Include(c => c.Lecturer)
+                .Include(c => c.Lessons.OrderBy(l => l.LessonOrder))
+                .FirstOrDefaultAsync(c => c.Id == courseId);
+
+            if (course == null) return null;
+
+            bool isEnrolled = false;
+            double progress = 0;
+            var completedLessonIds = new HashSet<int>();
+
+            if (studentId.HasValue)
+            {
+                isEnrolled = await _context.Enrollments.AnyAsync(e => e.CourseId == courseId && e.UserId == studentId.Value);
+                if (isEnrolled && course.Lessons.Any())
+                {
+                    completedLessonIds = (await _context.UserLessons
+                        .Where(ul => ul.UserId == studentId.Value && course.Lessons.Select(l => l.Id).Contains(ul.LessonId) && ul.IsCompleted)
+                        .Select(ul => ul.LessonId)
+                        .ToListAsync()).ToHashSet();
+
+                    progress = (double)completedLessonIds.Count / course.Lessons.Count * 100;
+                }
+            }
+
+            var totalStudents = await _context.Enrollments.CountAsync(e => e.CourseId == courseId);
+
+            var result = new CourseDetailForStudentDto
+            {
+                Id = course.Id,
+                Title = course.Title,
+                Description = course.Description,
+                LecturerId = course.LecturerId,
+                LectureName = course.Lecturer?.FullName,
+                CreatedAt = course.CreatedAt,
+                Thumbnail = course.Thumbnail,
+                Level = course.Level,
+                Rating = course.Rating,
+                CategoryName = course.Category?.Name,
+                IsEnrolled = isEnrolled,
+                Progress = progress,
+                TotalStudents = totalStudents,
+                Lessons = course.Lessons.Select(l => new LessonByStudent
+                {
+                    Id = l.Id,
+                    CourseId = l.CourseId,
+                    Title = l.Title,
+                    LessonOrder = l.LessonOrder,
+                    Description = l.Description,
+                    Content = l.Content,
+                    isCompleted = completedLessonIds.Contains(l.Id)
+                }).ToList()
+            };
+
+            return result;
+        }
+
+        public async Task UpdateCourseRatingAsync(int courseId)
+        {
+            var ratings = await _context.Enrollments
+                .Where(e => e.CourseId == courseId && e.rating > 0)
+                .Select(e => e.rating)
+                .ToListAsync();
+
+            if (ratings.Any())
+            {
+                var averageRating = ratings.Average();
+                var course = await _repository.FirstOrDefaultAsync(c => c.Id == courseId);
+                if (course != null)
+                {
+                    course.Rating = Math.Round(averageRating, 1);
+                    await _repository.UpdateAsync(course);
+                }
+            }
         }
     }
 }

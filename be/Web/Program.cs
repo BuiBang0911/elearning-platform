@@ -131,7 +131,7 @@ builder.Services.AddAuthorization(options =>
         p => p.RequireRole("Admin"));
 
     options.AddPolicy(UserRole.Instructor.ToString(),
-        p => p.RequireRole("Lecture"));
+        p => p.RequireRole("Instructor"));
 
     options.AddPolicy(UserRole.Student.ToString(),
         p => p.RequireRole("Student"));

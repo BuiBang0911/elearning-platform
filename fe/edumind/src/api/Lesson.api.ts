@@ -38,6 +38,16 @@ const lessonApi = {
   getByCourseId: async (courseId: number): Promise<LessonResponse[]> => {
     const res = await api.get(`/Lesson/get-lessons-in-course/${courseId}`);
     return res.data;
+  },
+
+  completeLesson: async (lessonId: number): Promise<void> => {
+    const res = await api.post(`/Lesson/${lessonId}/complete`);
+    return res.data;
+  },
+
+  uncompleteLesson: async (lessonId: number): Promise<void> => {
+    const res = await api.post(`/Lesson/${lessonId}/uncomplete`);
+    return res.data;
   }
 };
 

@@ -12,8 +12,11 @@ import AuthApi from "../../api/auth.api";
 
 
 
+import { useAuth } from "../../context/AuthContext";
+
 const Login = () => {
     const navigate = useNavigate();
+    const { refreshUser } = useAuth();
 
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -27,6 +30,7 @@ const Login = () => {
             setIsLoading(true);
 
             await AuthApi.login({ email, password, role });
+            await refreshUser();
 
             // navigate theo role sau khi login thành công
             if (role === UserRole.STUDENT) {

@@ -6,8 +6,6 @@ import {
     CheckCircle2,
     Award,
 } from "lucide-react";
-import type { UserResponse } from "../interfaces/auth";
-import authApi from "../api/auth.api";
 import HeaderStudent from "../components/Student/HeaderStudent";
 import CourseApi from "../api/Course.api";
 import CoursesEnrolled from "../components/Student/CoursesEnrolled";
@@ -19,10 +17,12 @@ import AiAssistant from "../components/AiAssistant/AiAssistant";
 import { DashboardApi } from "../api/Dashboard.api";
 import type { DashboardStats } from "../interfaces/dashboard";
 
+import { useAuth } from "../context/AuthContext";
+
 const StudentDashboard = () => {
-    const [currentUser, setCurrentUser] = useState<null | UserResponse>(null)
+    const { user: currentUser } = useAuth();
     const [coursesEnrolled, setCoursesEnrolled] = useState<CourseForStudent[]>([]);
-    const [isLoadingAll, setIsLoadingAll] = useState(false);
+    const [isLoadingData, setIsLoadingData] = useState(false);
     const [studentStats, setStudentStats] = useState<DashboardStats>({
         enrolledCount: 0,
         completedCount: 0,
@@ -30,33 +30,30 @@ const StudentDashboard = () => {
     });
 
     useEffect(() => {
-        const fetchCurrentUser = async () => {
+        const fetchDashboardData = async () => {
             try {
-                setIsLoadingAll(true);
-                const res = await authApi.getMe();
+                setIsLoadingData(true);
                 const [coursesRes, statsRes] = await Promise.all([
                     CourseApi.GetCoursesForStudent(),
                     DashboardApi.getStudentDashboardStats()
                 ]);
                 setStudentStats(statsRes);
-                
-                setCurrentUser(res);
                 setCoursesEnrolled(coursesRes);
             } catch (error) {
-                console.error("Error fetching current user:", error);
+                console.error("Error fetching dashboard data:", error);
             } finally {
-                setIsLoadingAll(false);
+                setIsLoadingData(false);
             }
         };
-        fetchCurrentUser();
+        fetchDashboardData();
     }, []);
 
-    if (isLoadingAll) return (<FullPageLoader />);
+    if (isLoadingData) return (<FullPageLoader />);
 
     return (
         <div className="min-h-screen bg-slate-50">
             {/* Header */}
-            <HeaderStudent currentUser={currentUser} />
+            <HeaderStudent />
 
             {/* Main Content */}
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -116,7 +113,7 @@ const StudentDashboard = () => {
                                 <TabsTrigger value="all">All Courses</TabsTrigger>
                             </TabsList>
 
-                            <CoursesEnrolled enrolledCourses={coursesEnrolled}/>
+                            <CoursesEnrolled enrolledCourses={coursesEnrolled} />
 
                             <RecommendCourse />
 

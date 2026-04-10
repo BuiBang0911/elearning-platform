@@ -63,7 +63,7 @@ const AllCourse = () => {
                     allCourses.items.map((course) => (
                         <Card key={course.id} className="overflow-hidden hover:shadow-lg transition-shadow">
                             <img
-                                src={course.thumbnail}
+                                src={course.thumbnail || '/assets/images/sample-thumnail-course.jpg'}
                                 alt={course.title}
                                 className="w-full h-60 object-contain bg-gray-100"
                             />
@@ -85,7 +85,7 @@ const AllCourse = () => {
                                     <span>{course.totalStudents.toLocaleString()} students</span>
                                     <span>⭐ {course.rating}</span>
                                 </div>
-                                <Link to={`/course/${course.id}`}>
+                                <Link to={`/student/course/${course.id}`}>
                                     <Button variant="outline" className="w-full">
                                         {course.isEnrolled ? "Continue" : "Start Course"}
                                     </Button>

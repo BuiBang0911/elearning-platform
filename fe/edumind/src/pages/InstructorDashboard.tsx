@@ -172,7 +172,7 @@ export default function InstructorDashboard() {
 							<Card key={course.id} className="p-6">
 								<div className="flex gap-6">
 									<img
-										src={course.thumbnail || undefined}
+										src={course.thumbnail || '/assets/images/sample-thumnail-course.jpg'}
 										alt={course.title}
 										className="w-48 h-32 object-cover rounded-lg"
 									/>

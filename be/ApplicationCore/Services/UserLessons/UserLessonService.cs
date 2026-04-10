@@ -14,8 +14,10 @@ namespace ApplicationCore.Services.UserLessons
         private readonly IRepository<UserLesson> _repository;
         private readonly IEnrollmentService _enrollmentService;
         private readonly IRepository<Lesson> _lessonRepo;
-        public UserLessonService(IRepository<UserLesson> repository) : base(repository) {
+        public UserLessonService(IRepository<UserLesson> repository, IEnrollmentService enrollmentService, IRepository<Lesson> lessonRepo) : base(repository) {
             _repository = repository;
+            _enrollmentService = enrollmentService;
+            _lessonRepo = lessonRepo;
         }
 
         public async Task CompleteLessonAsync(int userId, int lessonId)

@@ -1,4 +1,4 @@
-﻿using ApplicationCore.DTO;
+using ApplicationCore.DTO;
 using ApplicationCore.Services.Auth;
 using ApplicationCore.Services.Courses;
 using ApplicationCore.Services.Documents;
@@ -181,6 +181,18 @@ namespace Web.Controllers
             var courses = await _courseService.GetAllCoursesForStudentAsync(userId, search, pagingRequest.PageIndex, pagingRequest.PageSize);
 
             return Ok(courses);
+        }
+
+        [HttpGet("student/detail/{id}")]
+        public async Task<IActionResult> GetCourseDetailForStudent(int id)
+        {
+            var userId = _authService?.UserId;
+
+            var courseDetail = await _courseService.GetCourseDetailForStudentAsync(id, userId);
+
+            if (courseDetail == null) return NotFound();
+
+            return Ok(courseDetail);
         }
     }
 }

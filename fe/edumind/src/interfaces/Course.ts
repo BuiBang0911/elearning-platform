@@ -65,6 +65,13 @@ export interface CourseListDto extends CourseResponse {
 	totalStudents: number;
 }
 
+export interface CourseDetailForStudentDto extends CourseResponse {
+	isEnrolled: boolean;
+	progress: number;
+	totalStudents: number;
+	lessons: LessonByStudent[];
+}
+
 export const CourseLevel = {
 	BEGINNER: 1,
 	INTERMEDIATE: 2,

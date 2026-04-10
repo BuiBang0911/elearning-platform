@@ -1,4 +1,4 @@
-﻿using ApplicationCore.Data;
+using ApplicationCore.Data;
 using ApplicationCore.DTO;
 using ApplicationCore.Services.Auth;
 using ApplicationCore.Services.Enrollments;
@@ -20,13 +20,15 @@ namespace Web.Controllers
         private readonly IEnrollmentService _enrollmentService;
         private readonly IAuthService _authService;
         private readonly IUserService _userService;
+        private readonly ICourseService _courseService;
         private readonly IMapper _mapper;
 
-        public EnrollmentController(IEnrollmentService enrollmentService, IAuthService authService, IUserService userService, IMapper mapper)
+        public EnrollmentController(IEnrollmentService enrollmentService, IAuthService authService, IUserService userService, ICourseService courseService, IMapper mapper)
         {
             _enrollmentService = enrollmentService;
             _authService = authService;
             _userService = userService;
+            _courseService = courseService;
             _mapper = mapper;
         }
 
@@ -173,7 +175,7 @@ namespace Web.Controllers
         }
 
         [HttpPost("update-rating")]
-        [Authorize(Roles = $"{nameof(UserRole.Instructor)}")]
+        [Authorize(Roles = $"{nameof(UserRole.Student)}")]
         public async Task<IActionResult> UpdateRating([FromBody] UpdateRatingRequest request)
         {
             var userId = _authService.UserId;
@@ -190,6 +192,7 @@ namespace Web.Controllers
             enrollment.rating = request.Rating;
 
             await _enrollmentService.UpdateAsync(enrollment);
+            await _courseService.UpdateCourseRatingAsync(request.CourseId);
 
             return Ok();
         }

@@ -1,4 +1,4 @@
-﻿using Infrastructure.Entities;
+using Infrastructure.Entities;
 using Microsoft.AspNetCore.Http;
 
 namespace ApplicationCore.DTO
@@ -75,5 +75,13 @@ namespace ApplicationCore.DTO
         public bool IsEnrolled { get; set; }
         public double Progress { get; set; }
         public int TotalStudents { get; set; }
+    }
+
+    public class CourseDetailForStudentDto : CourseResponse
+    {
+        public bool IsEnrolled { get; set; }
+        public double Progress { get; set; }
+        public int TotalStudents { get; set; }
+        public List<LessonByStudent> Lessons { get; set; } = new List<LessonByStudent>();
     }
 }

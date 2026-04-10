@@ -1,21 +1,21 @@
 import { Brain, LogOut } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "../ui/button";
-import type { UserResponse } from "../../interfaces/auth";
 import authApi from "../../api/auth.api";
+import { useAuth } from "../../context/AuthContext";
 
-type Props = {
-  currentUser: UserResponse | null;
-};
-
-const HeaderStudent = ({ currentUser }: Props) => {
+const HeaderStudent = () => {
+    const { user, logout: clearAuth } = useAuth();
     const navigate = useNavigate();
     const logout = async () => {
         try {
             await authApi.logout();
+            clearAuth();
+            navigate("/");
         } catch (error) {
             console.error("Error during logout:", error);
-        } finally {
+            // Even if API fails, we should clear local state
+            clearAuth();
             navigate("/");
         }
     };
@@ -54,11 +54,11 @@ const HeaderStudent = ({ currentUser }: Props) => {
                         </Button> */}
                         <div className="flex items-center gap-3">
                             <div className="hidden sm:block text-right">
-                                <p className="text-sm font-medium">{currentUser?.fullName}</p>
+                                <p className="text-sm font-medium">{user?.fullName}</p>
                                 <p className="text-xs text-gray-500">Student</p>
                             </div>
                             <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-medium">
-                                {currentUser?.fullName?.charAt(0)}
+                                {user?.fullName?.charAt(0)}
                             </div>
                         </div>
                         <Button
@@ -66,7 +66,6 @@ const HeaderStudent = ({ currentUser }: Props) => {
                             size="icon"
                             onClick={() => {
                                 logout();
-                                navigate("/");
                             }}
                             className="hidden sm:flex"
                         >
