@@ -8,6 +8,10 @@ import InstructorDashboard from "../pages/InstructorDashboard";
 import StudentDashboard from "../pages/StudentDashboard";
 import CourseDetail from "../pages/student/CourseDetail";
 import LearningScreen from "../pages/student/LearningScreen";
+import AdminDashboard from "../pages/admin/AdminDashboard";
+import AdminUserManagement from "../pages/admin/AdminUserManagement";
+import AdminCourseManagement from "../pages/admin/AdminCourseManagement";
+import AdminLayout from "../components/Admin/AdminLayout";
 import ProtectedRoute from "../components/auth/ProtectedRoute";
 import { UserRole } from "../interfaces/auth";
 
@@ -19,6 +23,19 @@ export const router = createBrowserRouter([
       { index: true, Component: LandingPage },
       { path: "login", Component: Login },
       { path: "register", Component: Register },
+      { 
+        path: "admin", 
+        element: (
+          <ProtectedRoute allowedRoles={[UserRole.ADMIN]}>
+            <AdminLayout />
+          </ProtectedRoute>
+        ),
+        children: [
+          { index: true, element: <AdminDashboard /> },
+          { path: "users", element: <AdminUserManagement /> },
+          { path: "courses", element: <AdminCourseManagement /> },
+        ]
+      },
       { 
         path: "instructor", 
         element: (

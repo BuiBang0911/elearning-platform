@@ -1,4 +1,4 @@
-﻿using ApplicationCore.Constants;
+using ApplicationCore.Constants;
 using ApplicationCore.DTO;
 using ApplicationCore.Services.Auth;
 using ApplicationCore.Services.ChatMessages;
@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using StackExchange.Redis;
 using System.Security.Claims;
+using System.Net.Http.Json;
 
 namespace Web.Controllers
 {
@@ -85,20 +86,84 @@ namespace Web.Controllers
                     return Ok(_mapper.Map<ChatMessageResponse>(chatMessage));
                 }
             }
-            catch (HttpRequestException ex)
-            {
-                return StatusCode(503, $"Cannot connect to AI service: {ex.Message}");
-            }
-            catch (TaskCanceledException ex)
-            {
-                return StatusCode(504, $"AI service timeout: {ex.Message}");
-            }
             catch (Exception ex)
             {
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
 
             return StatusCode(500, "AI Service error!");
+        }
+
+        [Authorize]
+        [HttpPost("ask-ai-stream")]
+        public async Task AskAiAssistantStream([FromBody] AskAiRequest askAiRequest)
+        {
+            var userId = _authService.UserId;
+            if (userId == null) {
+                Response.StatusCode = 401;
+                return;
+            }
+
+            // 1. Lấy lịch sử (Trước khi lưu tin nhắn mới để tránh lặp ngữ cảnh)
+            var messageHistories = await _chatMessageService.GetAsync(x => x.SessionId == askAiRequest.SessionId, x => x.CreatedAt, false, count: AppConstants.ChatHistoryCount);
+            var chatHistory = messageHistories.Select(m => new ChatHistoryForAi { 
+                Role = m.Role.ToString(), 
+                Content = m.Content 
+            }).ToList();
+
+            // 2. Lưu tin nhắn người dùng mới
+            await _chatMessageService.AddChatMessageAsync(askAiRequest.SessionId, ChatbotRole.User, askAiRequest.Message);
+
+            try {
+                var client = _clientFactory.CreateClient();
+                var payload = new QueryRequest { 
+                    Question = askAiRequest.Message, 
+                    ChatHistory = chatHistory,
+                    LessonId = askAiRequest.LessonId
+                };
+
+                // Gọi Python Stream dùng HttpRequestMessage để hỗ trợ ResponseHeadersRead
+                var httpRequest = new HttpRequestMessage(HttpMethod.Post, "http://localhost:8000/api/chat/stream")
+                {
+                    Content = JsonContent.Create(payload)
+                };
+                var response = await client.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead);
+
+                if (!response.IsSuccessStatusCode) {
+                    Response.StatusCode = (int)response.StatusCode;
+                    return;
+                }
+
+                Response.ContentType = "text/event-stream";
+                var fullAnswer = new System.Text.StringBuilder();
+
+                using var stream = await response.Content.ReadAsStreamAsync();
+                var buffer = new byte[1024];
+                int bytesRead;
+
+                while ((bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length)) > 0)
+                {
+                    var chunk = System.Text.Encoding.UTF8.GetString(buffer, 0, bytesRead);
+                    
+                    // Lọc bỏ metadata khỏi nội dung lưu DB nhưng vẫn gửi về FE
+                    if (!chunk.Contains("SOURCES_METADATA:")) {
+                        fullAnswer.Append(chunk);
+                    }
+                    
+                    await Response.WriteAsync(chunk);
+                    await Response.Body.FlushAsync();
+                }
+
+                // 3. Lưu câu trả lời hoàn chỉnh của AI sau khi stream xong
+                var finalAnswer = fullAnswer.ToString();
+                if (!string.IsNullOrEmpty(finalAnswer)) {
+                    await _chatMessageService.AddChatMessageAsync(askAiRequest.SessionId, ChatbotRole.AiAssistant, finalAnswer);
+                }
+            }
+            catch (Exception ex) {
+                Console.WriteLine($"Streaming Error: {ex.Message}");
+                Response.StatusCode = 500;
+            }
         }
     }
 }

@@ -5,7 +5,14 @@ import FormatMarkdown from '../FormatString/FormatMarkdown';
 import FullPageLoader from '../PostLoading/FullPageLoader';
 import ChatSessionApi from '../../api/ChatSession.api';
 import chatMessageApi from '../../api/ChatMessage.api';
-import { BookOpen, Maximize2, Menu, Minimize2, Paperclip, Send, Sparkles, Trash2, Wand2, X } from 'lucide-react';
+import { BookOpen, ChevronDown, Maximize2, Menu, Minimize2, Paperclip, Send, Sparkles, Trash2, Wand2, X } from 'lucide-react';
+import enrrollementApi from '../../api/Enrollment';
+import lessonApi from '../../api/Lesson.api';
+import type { CourseResponse } from '../../interfaces/Course';
+import type { LessonResponse } from '../../interfaces/Lesson';
+import { useAuth } from '../../context/AuthContext';
+
+import { toast } from 'sonner';
 
 interface ChatbotProps {
   open: boolean;
@@ -22,10 +29,47 @@ const Chatbot = ({ open, onClose }: ChatbotProps) => {
   const [currentSessionId, setCurrentSessionId] = useState<number | null>(null);
 
   const [isLoading, setIsLoading] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false); // Trạng thái đang sinh câu trả lời
+
+  const { user } = useAuth();
+  const [enrolledCourses, setEnrolledCourses] = useState<CourseResponse[]>([]);
+  const [lessons, setLessons] = useState<LessonResponse[]>([]);
+  const [selectedCourseId, setSelectedCourseId] = useState<number | "all">("all");
+  const [selectedLessonId, setSelectedLessonId] = useState<number | "all">("all");
 
 
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
+
+  useEffect(() => {
+    const fetchCourses = async () => {
+      try {
+        const res = await enrrollementApi.getMyCourses();
+        setEnrolledCourses(res);
+      } catch (err) {
+        console.error("Failed to fetch enrolled courses:", err);
+      }
+    };
+    if (open) fetchCourses();
+  }, [open]);
+
+  useEffect(() => {
+    const fetchLessons = async () => {
+      if (typeof selectedCourseId === 'number') {
+        try {
+          const res = await lessonApi.getByCourseId(selectedCourseId);
+          setLessons(res);
+          setSelectedLessonId("all"); // Reset lesson khi đổi khóa học
+        } catch (err) {
+          console.error("Failed to fetch lessons:", err);
+        }
+      } else {
+        setLessons([]);
+        setSelectedLessonId("all");
+      }
+    };
+    fetchLessons();
+  }, [selectedCourseId]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -81,6 +125,11 @@ const Chatbot = ({ open, onClose }: ChatbotProps) => {
 
     if (!text) return;
 
+    if (selectedLessonId === "all") {
+      toast.error("Vui lòng chọn một bài học cụ thể để đặt câu hỏi!");
+      return;
+    }
+
     const tempAssistantId = Date.now();
 
     setLiChatMessages(prev => [
@@ -94,19 +143,49 @@ const Chatbot = ({ open, onClose }: ChatbotProps) => {
       {
         id: tempAssistantId + 1,
         role: "AiAssistant",
-        content: "Đang suy nghĩ...",
+        content: "", // Bắt đầu rỗng để stream
         createdAt: new Date().toISOString()
       }
     ]);
+    setIsGenerating(true);
+
+    // Cập nhật title cục bộ cho session mới nếu đây là câu hỏi đầu tiên
+    const currentSession = liChatSessions.find(s => s.id === sessionId);
+    if (currentSession && (!currentSession.title || currentSession.title === "New Chat")) {
+        const newTitle = text.length > 50 ? text.substring(0, 47) + "..." : text;
+        setLiChatSessions(prev => prev.map(s => 
+            s.id === sessionId ? { ...s, title: newTitle } : s
+        ));
+    }
+
     try {
-      const res = await chatMessageApi.sendMessageToAskAi(sessionId!, text);
-      setLiChatMessages(prev =>
-        prev.map(msg =>
-          msg.id === tempAssistantId + 1 ? res : msg
-        )
-      );
+      let accumulatedAnswer = "";
+      const lessonIdToPass = typeof selectedLessonId === 'number' ? selectedLessonId : undefined;
+      
+      await chatMessageApi.sendMessageToAskAiStream(sessionId!, text, (chunk) => {
+        // Kiểm tra nếu là metadata thì có thể xử lý riêng, ở đây ta lọc bỏ để hiển thị đẹp
+        if (chunk.includes("SOURCES_METADATA:")) {
+          // Xử lý hiển thị nguồn nếu muốn
+          return;
+        }
+
+        accumulatedAnswer += chunk;
+        setLiChatMessages(prev =>
+          prev.map(msg =>
+            msg.id === tempAssistantId + 1 ? { ...msg, content: accumulatedAnswer } : msg
+          )
+        );
+      }, lessonIdToPass);
+
     } catch (err) {
       console.error(err);
+      setLiChatMessages(prev =>
+        prev.map(msg =>
+          msg.id === tempAssistantId + 1 ? { ...msg, content: "Xin lỗi, đã có lỗi xảy ra khi kết nối tới AI." } : msg
+        )
+      );
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -127,6 +206,7 @@ const Chatbot = ({ open, onClose }: ChatbotProps) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault(); // ❗ chặn xuống dòng
 
+      if (isGenerating) return; // Không cho gửi khi đang gen
       handleSend();
       // clear nội dung
       if (ref.current) {
@@ -238,6 +318,36 @@ const Chatbot = ({ open, onClose }: ChatbotProps) => {
         )}
 
         <div className="flex-1 flex flex-col h-full w-full">
+          {/* Filter Selection Area */}
+          <div className="bg-white border-b border-gray-100 p-2 flex gap-2 overflow-x-auto">
+             <div className="relative shrink-0 min-w-[140px]">
+                <select 
+                  className="w-full h-8 pl-8 pr-6 text-xs bg-gray-50 border border-gray-200 rounded-lg appearance-none outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
+                  value={selectedCourseId}
+                  onChange={(e) => setSelectedCourseId(e.target.value === "all" ? "all" : Number(e.target.value))}
+                >
+                  <option value="all">Tất cả khóa học</option>
+                  {enrolledCourses.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
+                </select>
+                <BookOpen size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+             </div>
+
+             <div className="relative shrink-0 min-w-[140px]">
+                <select 
+                  className="w-full h-8 pl-8 pr-6 text-xs bg-gray-50 border border-gray-200 rounded-lg appearance-none outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer disabled:opacity-50"
+                  value={selectedLessonId}
+                  disabled={selectedCourseId === "all"}
+                  onChange={(e) => setSelectedLessonId(e.target.value === "all" ? "all" : Number(e.target.value))}
+                >
+                  <option value="all">Tất cả bài học</option>
+                  {lessons.map(l => <option key={l.id} value={l.id}>{l.title}</option>)}
+                </select>
+                <Sparkles size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+             </div>
+          </div>
+
           <div className="flex-1 overflow-y-auto p-4 space-y-4 scroll-smooth bg-gray-50/50">
             <div className="flex gap-2">
               <div className="w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center text-white shrink-0 mt-1">
@@ -250,23 +360,30 @@ const Chatbot = ({ open, onClose }: ChatbotProps) => {
             {liChatMessages.map((message) => {
               if (message.role === "User") {
                 return (
-                  <div key={message.id} className="flex justify-end">
-                    <div className="max-w-[85%] bg-blue-600 text-white px-3 py-2.5 rounded-2xl rounded-tr-none shadow-sm text-sm">
+                  <div key={message.id} className="flex justify-end animate-fadeIn">
+                    <div className="max-w-[85%] bg-blue-600 text-white px-4 py-2.5 rounded-2xl rounded-tr-none shadow-md text-sm leading-relaxed">
                       <p>{message.content}</p>
                     </div>
                   </div>
                 )
               }
               else return (
-                <div key={message.id} className="flex gap-2">
-                  <div className="w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center text-white shrink-0 mt-1">
-                    <Wand2 size={10} />
+                <div key={message.id} className="flex gap-3 animate-fadeIn">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white shrink-0 mt-1 shadow-sm border border-white">
+                    <Wand2 size={14} />
                   </div>
-                  <div className="max-w-[85%] bg-white border border-gray-200 px-3 py-2.5 rounded-2xl rounded-tl-none shadow-sm text-sm text-gray-800">
-                    <div className="mb-2"><FormatMarkdown content={message.content} /></div>
-                    {/* <div className="bg-gray-900 rounded-md p-2 overflow-x-auto">
-											<code className="font-mono text-xs text-green-400">const store = createStore(reducer);</code>
-										</div> */}
+                  <div className="max-w-[85%] bg-white border border-gray-100 px-4 py-3 rounded-2xl rounded-tl-none shadow-sm text-sm text-gray-800">
+                    <div className="">
+                      {message.content === "" ? (
+                        <div className="flex gap-1.5 items-center h-6">
+                           <span className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce"></span>
+                           <span className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce [animation-delay:0.2s]"></span>
+                           <span className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce [animation-delay:0.4s]"></span>
+                        </div>
+                      ) : (
+                        <FormatMarkdown content={message.content} />
+                      )}
+                    </div>
                   </div>
                 </div>
               )
@@ -276,11 +393,17 @@ const Chatbot = ({ open, onClose }: ChatbotProps) => {
 
           {/* Input Area */}
           <div className="p-3 bg-white border-t border-gray-200">
+            {selectedLessonId === "all" && (
+              <div className="text-[10px] text-red-500 mb-1.5 px-1 animate-pulse flex items-center gap-1">
+                <Sparkles size={10} />
+                Bạn cần chọn bài học trước khi đặt câu hỏi
+              </div>
+            )}
             <div className="relative">
-              <div className="w-full bg-gray-100 rounded-xl px-3 py-2 focus-within:ring-2 focus-within:ring-blue-200">
+              <div className={`w-full bg-gray-100 rounded-xl px-3 py-2 focus-within:ring-2 focus-within:ring-blue-200 ${(isGenerating || selectedLessonId === "all") ? 'opacity-50 pointer-events-none' : ''}`}>
                 <p
                   ref={ref}
-                  contentEditable
+                  contentEditable={!isGenerating && selectedLessonId !== "all"}
                   onKeyDown={handleKeyDown}
                   onInput={(e) => {
                     const el = e.currentTarget;
@@ -289,15 +412,22 @@ const Chatbot = ({ open, onClose }: ChatbotProps) => {
                     }
                   }}
                   className="editable-placeholder outline-none text-sm min-h-[24px] whitespace-pre-wrap break-words"
-                  data-placeholder="Nhập câu hỏi..."
+                  data-placeholder={selectedLessonId === "all" ? "Hãy chọn bài học phía trên..." : "Nhập câu hỏi về bài học này..."}
                   suppressContentEditableWarning
                 />
               </div>
               <div className="absolute right-1 bottom-1 flex items-center">
-                <button className="p-1.5 text-gray-400 hover:text-blue-600 transition-colors" >
+                <button 
+                  className="p-1.5 text-gray-400 hover:text-blue-600 transition-colors disabled:opacity-50" 
+                  disabled={isGenerating || selectedLessonId === "all"}
+                >
                   <Paperclip size={16} />
                 </button>
-                <button className="p-1.5 bg-blue-600 text-white rounded-lg ml-1 hover:bg-blue-700 transition-colors" onClick={() => handleSend()}>
+                <button 
+                  className="p-1.5 bg-blue-600 text-white rounded-lg ml-1 hover:bg-blue-700 transition-colors disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed" 
+                  onClick={() => handleSend()}
+                  disabled={isGenerating || selectedLessonId === "all"}
+                >
                   <Send size={14} />
                 </button>
               </div>

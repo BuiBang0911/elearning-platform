@@ -17,8 +17,7 @@ api.interceptors.response.use(
 
     if (error.response?.status === 401) {
       
-      if (originalRequest.url.includes("/auth/refresh")) {
-          window.location.href = "/"; 
+      if (originalRequest.url.includes("/auth/refresh") || originalRequest.url.includes("/auth/login") || originalRequest.url.includes("/auth/register")) {
         return Promise.reject(error);
       }
 
@@ -30,7 +29,10 @@ api.interceptors.response.use(
 
           return api(originalRequest);
         } catch (refreshError) {
-          window.location.href = "/login"; 
+          const publicPaths = ["/login", "/", "/register"];
+          if (!publicPaths.includes(window.location.pathname)) {
+              window.location.href = "/login"; 
+          }
           return Promise.reject(refreshError);
         }
       }

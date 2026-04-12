@@ -1,4 +1,4 @@
-﻿using System.Text.Json.Serialization;
+using System.Text.Json.Serialization;
 
 namespace ApplicationCore.DTO
 {
@@ -9,6 +9,9 @@ namespace ApplicationCore.DTO
 
         [JsonPropertyName("chat_history")]
         public List<ChatHistoryForAi> ChatHistory { get; set; }
+
+        [JsonPropertyName("lesson_id")]
+        public int? LessonId { get; set; }
     }
 
     public class QueryResponse
@@ -27,5 +30,6 @@ namespace ApplicationCore.DTO
     {
         public int SessionId { get; set; }
         public string Message { get; set; }
+        public int? LessonId { get; set; }
     }
 }

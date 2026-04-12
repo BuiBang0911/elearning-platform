@@ -1,4 +1,4 @@
-﻿using ApplicationCore.Data;
+using ApplicationCore.Data;
 using Infrastructure.Entities;
 using System;
 using System.Collections.Generic;
@@ -30,6 +30,20 @@ namespace ApplicationCore.Services.ChatMessages
             };
 
             await _chatMessagesRepository.AddAsync(chatMessage);
+
+            // Cập nhật Title cho ChatSession nếu chưa có
+            if (Role == ChatbotRole.User)
+            {
+                var session = await _chatSessionRepository.GetByIdAsync(SessionId);
+                if (session != null && (string.IsNullOrEmpty(session.Title) || session.Title == "New Chat"))
+                {
+                    // Lấy khoảng 50 ký tự đầu làm title
+                    string newTitle = Content.Length > 50 ? Content.Substring(0, 47) + "..." : Content;
+                    session.Title = newTitle;
+                    await _chatSessionRepository.UpdateAsync(session);
+                }
+            }
+
             return chatMessage;
         }
 

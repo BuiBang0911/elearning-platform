@@ -14,6 +14,11 @@ const enrrollementApi = {
         return res.data;
     },
 
+    getMyCourses: async (): Promise<CourseResponse[]> => {
+        const res = await api.get(`/Enrollment/get-my-courses`);
+        return res.data;
+    },
+
     getTotalStudents: async (): Promise<number> => {
         const res = await api.get(`/Enrollment/get-total-students`);
         return res.data;

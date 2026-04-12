@@ -27,6 +27,8 @@ using ApplicationCore.Services.Storage;
 using ApplicationCore.Services.Enrollments;
 using ApplicationCore.Services.UserLessons;
 using ApplicationCore.Services.Dashboard;
+using ApplicationCore.Services.Admin;
+using ApplicationCore.Services.Rag;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -168,6 +170,7 @@ builder.Services.AddScoped<IUserLessonService, UserLessonService>();
 builder.Services.AddScoped<IRepository<Category>, Repository<Category>>();
 
 builder.Services.AddScoped<IDashboardService, DashboardService>();
+builder.Services.AddScoped<IAdminService, AdminService>();
 
 builder.Services.AddScoped<IDocumentService, DocumentService>();
 builder.Services.AddScoped<IRepository<Document>, Repository<Document>>();
@@ -184,8 +187,9 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IWorkContextService, WorkContextService>();
 
 builder.Services.AddScoped<ICacheService, CacheService>();
-
+builder.Services.AddScoped<ICeleryService, CeleryService>();
 builder.Services.AddScoped<IStorageService, AzureStorageService>();
+builder.Services.AddHttpClient<IRagService, RagService>();
 
 var app = builder.Build();
 

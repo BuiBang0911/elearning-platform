@@ -66,7 +66,17 @@ namespace ApplicationCore.Services.Courses
                     Description = l.Description,
                     Content = l.Content,
 
-                    isCompleted = completedLessonIds.Contains(l.Id)
+                    isCompleted = completedLessonIds.Contains(l.Id),
+                    Documents = l.Documents.Select(d => new DocumentResponse
+                    {
+                        Id = d.Id,
+                        LessonId = d.LessonId,
+                        FileName = d.FileName,
+                        FilePath = d.FilePath,
+                        Size = d.Size,
+                        Status = d.Status,
+                        UploadedAt = d.UploadedAt
+                    }).ToList()
                 }).ToList()
 
 
@@ -91,7 +101,7 @@ namespace ApplicationCore.Services.Courses
                     CreatedAt = e.Course.CreatedAt,
                     Thumbnail = e.Course.Thumbnail,
                     Level = e.Course.Level,
-                    Rating = e.Course.Rating,
+                    Rating = e.rating,
                     CategoryName = e.Course.Category.Name,
 
                     Progress = e.Course.Lessons.Any()
@@ -183,6 +193,7 @@ namespace ApplicationCore.Services.Courses
                 .Include(c => c.Category)
                 .Include(c => c.Lecturer)
                 .Include(c => c.Lessons.OrderBy(l => l.LessonOrder))
+                    .ThenInclude(l => l.Documents)
                 .FirstOrDefaultAsync(c => c.Id == courseId);
 
             if (course == null) return null;
@@ -230,7 +241,18 @@ namespace ApplicationCore.Services.Courses
                     LessonOrder = l.LessonOrder,
                     Description = l.Description,
                     Content = l.Content,
-                    isCompleted = completedLessonIds.Contains(l.Id)
+                    VideoUrl = l.VideoUrl,
+                    isCompleted = completedLessonIds.Contains(l.Id),
+                    Documents = l.Documents.Select(d => new DocumentResponse
+                    {
+                        Id = d.Id,
+                        LessonId = d.LessonId,
+                        FileName = d.FileName,
+                        FilePath = d.FilePath,
+                        Size = d.Size,
+                        Status = d.Status,
+                        UploadedAt = d.UploadedAt
+                    }).ToList()
                 }).ToList()
             };
 

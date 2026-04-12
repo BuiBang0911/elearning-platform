@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../ui/dialog";
 import { Button } from "../ui/button";
-import { Plus } from "lucide-react";
+import { Plus, Loader2 } from "lucide-react";
 import { Label } from "../ui/label";
 import { Input } from "../ui/input";
 import { Textarea } from "../ui/textarea";
@@ -18,7 +18,7 @@ type CreateNewCourseProps = {
 };
 
 const CreateNewCourse = ({ createCourseOpen, setCreateCourseOpen, handleCoursesChanged, onSave }: CreateNewCourseProps) => {
-
+	const [isLoading, setIsLoading] = useState(false);
 	const [courseForm, setCourseForm] = useState({
 		title: "",
 		description: "",
@@ -28,6 +28,7 @@ const CreateNewCourse = ({ createCourseOpen, setCreateCourseOpen, handleCoursesC
 
 	const handleCreateCourse = async (e: React.FormEvent) => {
 		e.preventDefault();
+		setIsLoading(true);
 		try {
 			const newCourse = await CourseApi.create(courseForm);
 			toast.success(`Course "${courseForm.title}" created successfully!`);
@@ -38,6 +39,8 @@ const CreateNewCourse = ({ createCourseOpen, setCreateCourseOpen, handleCoursesC
 		} catch (error) {
 			console.error("Error creating course:", error);
 			toast.error("Failed to create course. Please try again.");
+		} finally {
+			setIsLoading(false);
 		}
 	};
 
@@ -55,7 +58,7 @@ const CreateNewCourse = ({ createCourseOpen, setCreateCourseOpen, handleCoursesC
 					Create New Course
 				</Button>
 			</DialogTrigger>
-			<DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+			<DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
 				<DialogHeader>
 					<DialogTitle>Create New Course</DialogTitle>
 				</DialogHeader>
@@ -67,6 +70,8 @@ const CreateNewCourse = ({ createCourseOpen, setCreateCourseOpen, handleCoursesC
 							placeholder="e.g., Introduction to Machine Learning"
 							value={courseForm.title}
 							onChange={(e) => setCourseForm({ ...courseForm, title: e.target.value })}
+							disabled={isLoading}
+							required
 						/>
 					</div>
 					<div>
@@ -77,31 +82,17 @@ const CreateNewCourse = ({ createCourseOpen, setCreateCourseOpen, handleCoursesC
 							rows={4}
 							value={courseForm.description}
 							onChange={(e) => setCourseForm({ ...courseForm, description: e.target.value })}
+							disabled={isLoading}
+							required
 						/>
 					</div>
 					<div className="grid sm:grid-cols-2 gap-4">
-						{/* <div>
-							<Label htmlFor="category">Category</Label>
-							<Select
-								value={courseForm.category}
-								onValueChange={(value) => setCourseForm({ ...courseForm, category: value })}
-							>
-								<SelectTrigger id="category">
-									<SelectValue placeholder="Select category" />
-								</SelectTrigger>
-								<SelectContent>
-									<SelectItem value="ai">AI & Machine Learning</SelectItem>
-									<SelectItem value="web">Web Development</SelectItem>
-									<SelectItem value="data">Data Science</SelectItem>
-									<SelectItem value="design">Design</SelectItem>
-								</SelectContent>
-							</Select>
-						</div> */}
 						<div>
-							<Label htmlFor="level">Level</Label>
+							<Label htmlFor="level" className="mb-2 block">Difficulty Level</Label>
 							<Select
 								value={courseForm.level?.toString()}
 								onValueChange={(value) => setCourseForm({ ...courseForm, level: Number(value) as CourseLevel })}
+								disabled={isLoading}
 							>
 								<SelectTrigger id="level">
 									<SelectValue placeholder="Select level" />
@@ -114,37 +105,38 @@ const CreateNewCourse = ({ createCourseOpen, setCreateCourseOpen, handleCoursesC
 							</Select>
 						</div>
 					</div>
-					{/* <div>
-						<Label htmlFor="duration">Duration</Label>
-						<Input
-							id="duration"
-							placeholder="e.g., 8 weeks"
-							value={courseForm.duration}
-							onChange={(e) => setCourseForm({ ...courseForm, duration: e.target.value })}
-						/>
-					</div> */}
 					<div>
-						<Label htmlFor="thumbnail">Course Thumbnail</Label>
+						<Label htmlFor="thumbnail" className="mb-2 block">Course Thumbnail</Label>
 						<div className="mt-2">
 							<Input
 								id="thumbnail"
 								type="file"
 								accept="image/*"
 								onChange={handleFileChange}
-								className="cursor-pointer"
+								className="cursor-pointer file:bg-blue-50 file:text-blue-700 file:border-0 file:rounded-md file:px-4 file:py-1 file:mr-4"
+								disabled={isLoading}
 							/>
 							{courseForm.thumbnail && (
-								<p className="text-sm text-gray-600 mt-2">
-									Selected: {courseForm.thumbnail.name}
+								<p className="text-xs text-blue-600 mt-2 font-medium">
+									✓ {courseForm.thumbnail.name} selected
 								</p>
 							)}
 						</div>
 					</div>
 					<div className="flex justify-end gap-2 pt-4">
-						<Button type="button" className="cursor-pointer" variant="outline" onClick={() => setCreateCourseOpen(false)}>
+						<Button type="button" variant="outline" onClick={() => setCreateCourseOpen(false)} disabled={isLoading}>
 							Cancel
 						</Button>
-						<Button type="submit" className="cursor-pointer">Create Course</Button>
+						<Button type="submit" disabled={isLoading} className="min-w-36 bg-blue-600 hover:bg-blue-700">
+							{isLoading ? (
+								<>
+									<Loader2 className="w-4 h-4 mr-2 animate-spin" />
+									Creating...
+								</>
+							) : (
+								"Create Course"
+							)}
+						</Button>
 					</div>
 				</form>
 			</DialogContent>

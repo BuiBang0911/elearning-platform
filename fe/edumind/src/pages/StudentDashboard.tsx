@@ -120,20 +120,6 @@ const StudentDashboard = () => {
                             <AllCourse />
                         </Tabs>
                     </div>
-
-                    {/* Right Column - AI Chat */}
-                    {/* {showAIChat && (
-                        <div className="lg:col-span-1">
-                            <div className="sticky top-24 h-[calc(100vh-8rem)]">
-                                <AIChatAssistant
-                                    initialMessages={sampleChatHistory}
-                                    availableCourses={enrolledCourses}
-                                    userRole="student"
-                                />
-                            </div>
-                        </div>
-                    )} */}
-                    <AiAssistant></AiAssistant>
                 </div>
             </div>
         </div>

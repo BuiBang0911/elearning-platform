@@ -15,6 +15,7 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.messages import HumanMessage, AIMessage
 from langchain_core.output_parsers import StrOutputParser
 from langchain_classic.chains.combine_documents import create_stuff_documents_chain
+from sqlalchemy import create_engine
 
 # =========================
 # 1. LOAD ENV & API KEYS
@@ -42,6 +43,30 @@ def get_next_key():
     return next(key_iterator)
 
 app = FastAPI()
+from ingest import ingest_file
+
+class IngestRequest(BaseModel):
+    file_path: str
+    lesson_id: int = None
+
+@app.post("/api/ingest")
+async def ingest_endpoint(request: IngestRequest):
+    try:
+        # Kiểm tra file tồn tại
+        if not os.path.exists(request.file_path):
+            # Nếu không tìm thấy, thử tìm trong data folder
+            alt_path = os.path.join("./data", os.path.basename(request.file_path))
+            if os.path.exists(alt_path):
+                request.file_path = alt_path
+            else:
+                raise HTTPException(status_code=404, detail=f"File not found: {request.file_path}")
+
+        result = ingest_file(request.file_path, lesson_id=request.lesson_id)
+        if result.get("status") == "error":
+            raise HTTPException(status_code=400, detail=result.get("message"))
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 # =========================
 # 2. EMBEDDING + VECTOR STORE
@@ -52,10 +77,17 @@ embeddings = GoogleGenerativeAIEmbeddings(
     google_api_key=API_KEYS[0],
 )
 
+# Tạo SQLAlchemy engine với pool_pre_ping để tránh lỗi SSL connection closed unexpectedly
+engine = create_engine(
+    DATABASE_URL,
+    pool_pre_ping=True,
+    pool_recycle=300
+)
+
 vector_store = PGVector(
     embeddings=embeddings,
     collection_name="my_docs",
-    connection=DATABASE_URL,
+    connection=engine,
     use_jsonb=True,
 )
 
@@ -109,10 +141,73 @@ class ChatMessage(BaseModel):
 class ChatRequest(BaseModel):
     question: str
     chat_history: list[ChatMessage] = []
+    lesson_id: int = None
 
 # =========================
 # 5. CHAT ENDPOINT
 # =========================
+
+from fastapi.responses import StreamingResponse
+import json
+
+@app.post("/api/chat/stream")
+async def chat_stream_endpoint(request: ChatRequest):
+    async def generate_chat_stream():
+        try:
+            current_api_key = get_next_key()
+            llm_fast = ChatGoogleGenerativeAI(model="models/gemini-2.5-flash", temperature=0.3, google_api_key=current_api_key)
+            llm_smart = ChatGoogleGenerativeAI(model="models/gemini-2.5-flash", temperature=0.3, google_api_key=current_api_key)
+
+            contextualize_chain = contextualize_q_prompt | llm_fast | StrOutputParser()
+            question_answer_chain = create_stuff_documents_chain(llm_smart, qa_prompt)
+
+            langchain_history = []
+            for msg in request.chat_history:
+                if msg.role == "User": langchain_history.append(HumanMessage(content=msg.content))
+                elif msg.role == "AiAssistant": langchain_history.append(AIMessage(content=msg.content))
+
+            # 1. Rewrite câu hỏi
+            rewritten_question = await contextualize_chain.ainvoke({
+                "input": request.question,
+                "chat_history": langchain_history
+            })
+            if not rewritten_question or not str(rewritten_question).strip():
+                rewritten_question = request.question
+
+            # 2. Retrieve tài liệu
+            # Cấu hình filter nếu có lesson_id
+            search_kwargs = {"k": 3}
+            if request.lesson_id:
+                search_kwargs["filter"] = {"lesson_id": request.lesson_id}
+
+            retrieved_docs = vector_store.as_retriever(search_kwargs=search_kwargs).invoke(str(rewritten_question))
+            
+            source_files = set()
+            for doc in retrieved_docs:
+                filename = doc.metadata.get("filename", "Tài liệu không tên")
+                source_files.add(filename)
+                doc.page_content = f"[NGUỒN: {filename}]\n{doc.page_content}"
+
+            # 3. Stream câu trả lời
+            # Note: create_stuff_documents_chain returns the final answer when called with astream
+            # but we can use LLM directly for better control if needed.
+            # Here we follow the existing chain logic.
+            async for chunk in question_answer_chain.astream({
+                "input": request.question,
+                "chat_history": langchain_history,
+                "context": retrieved_docs,
+            }):
+                # LangChain's stuff_documents_chain yields strings in astream
+                if chunk:
+                    yield chunk
+
+            # Gửi thông tin nguồn tài liệu ở cuối (định dạng đặc biệt)
+            yield f"\n\nSOURCES_METADATA:{json.dumps(list(source_files))}"
+
+        except Exception as e:
+            yield f"ERROR: {str(e)}"
+
+    return StreamingResponse(generate_chat_stream(), media_type="text/plain")
 
 @app.post("/api/chat")
 async def chat_endpoint(request: ChatRequest):

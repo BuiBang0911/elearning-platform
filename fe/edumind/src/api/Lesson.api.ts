@@ -12,13 +12,38 @@ const lessonApi = {
     return res.data;
   },
 
-  create: async (data: LessonUpdateRequest): Promise<LessonResponse> => {
-    const res = await api.post("/Lesson", data);
+  create: async (rq: LessonRequest): Promise<LessonResponse> => {
+    const formData = new FormData();
+    Object.entries(rq).forEach(([key, value]) => {
+        if (value !== null && value !== undefined) {
+            if (key === 'videoFile' && value instanceof File) {
+                formData.append('VideoFile', value);
+            } else {
+                formData.append(key, value.toString());
+            }
+        }
+    });
+    const res = await api.post("/Lesson", formData, {
+        headers: { "Content-Type": "multipart/form-data" }
+    });
     return res.data;
   },
 
-  update: async (id: string | number, data: LessonUpdateRequest): Promise<void> => {
-    await api.put(`/Lesson/${id}`, data);
+  update: async (id: number, rq: LessonUpdateRequest): Promise<LessonResponse> => {
+    const formData = new FormData();
+    Object.entries(rq).forEach(([key, value]) => {
+        if (value !== null && value !== undefined) {
+            if (key === 'videoFile' && value instanceof File) {
+                formData.append('VideoFile', value);
+            } else {
+                formData.append(key, value.toString());
+            }
+        }
+    });
+    const res = await api.put(`/Lesson/${id}`, formData, {
+        headers: { "Content-Type": "multipart/form-data" }
+    });
+    return res.data;
   },
 
   delete: async (id: string | number): Promise<void> => {

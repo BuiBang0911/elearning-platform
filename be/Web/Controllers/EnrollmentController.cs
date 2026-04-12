@@ -1,6 +1,7 @@
 using ApplicationCore.Data;
 using ApplicationCore.DTO;
 using ApplicationCore.Services.Auth;
+using ApplicationCore.Services.Courses;
 using ApplicationCore.Services.Enrollments;
 using ApplicationCore.Services.Users;
 using AutoMapper;
@@ -108,6 +109,26 @@ namespace Web.Controllers
 
             var courses = enrollments.Select(e => e.Course).ToList();
 
+            var response = _mapper.Map<IEnumerable<CourseResponse>>(courses);
+
+            return Ok(response);
+        }
+
+        [HttpGet("get-my-courses")]
+        [Authorize(Roles = $"{nameof(UserRole.Student)}")]
+        public async Task<ActionResult<IEnumerable<CourseResponse>>> GetMyCourses()
+        {
+            var studentId = _authService.UserId;
+            if (studentId == null) return Unauthorized("Invalid token");
+
+            var enrollments = await _enrollmentService.GetAsync(
+                where: e => e.UserId == studentId,
+                orderBy: e => e.JoinedAt,
+                ascending: false,
+                earlyLoad: x => x.Course
+            );
+
+            var courses = enrollments.Select(e => e.Course).ToList();
             var response = _mapper.Map<IEnumerable<CourseResponse>>(courses);
 
             return Ok(response);

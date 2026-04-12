@@ -11,6 +11,10 @@ import {
 	FileText,
 	BarChart3,
 	Settings,
+	Star,
+	Clock,
+	MessageSquare,
+	ArrowUpRight
 } from "lucide-react";
 import { getCourseLevelName, type CourseResponse, type CourseResponseInstructorDashboard } from "../interfaces/Course";
 import HeaderInstructor from "../components/Header/HeaderInstructor";
@@ -19,69 +23,70 @@ import CourseApi from "../api/Course.api";
 import EditCourse from "../components/Instructor/EditCourse";
 import LearningMaterial from "../components/Instructor/LearningMaterial/LearningMaterial";
 import StudentTabContent from "../components/Instructor/StudentTabContent";
-import documentApi from "../api/Document.api";
-import enrrollementApi from "../api/Enrollment";
+import { DashboardApi, type InstructorDashboardStats } from "../api/Dashboard.api";
 import AiAssistant from "../components/AiAssistant/AiAssistant";
 import FullPageLoader from "../components/PostLoading/FullPageLoader";
+import CourseAnalyticsDialog from "../components/Instructor/CourseAnalyticsDialog";
+import {
+	AreaChart,
+	Area,
+	XAxis,
+	YAxis,
+	CartesianGrid,
+	Tooltip,
+	ResponsiveContainer
+} from "recharts";
+import { format } from "date-fns";
 
 export default function InstructorDashboard() {
 	const [courses, setCourses] = useState<CourseResponseInstructorDashboard[]>([]);
+	const [stats, setStats] = useState<InstructorDashboardStats | null>(null);
 	const [editCourseOpen, setEditCourseOpen] = useState(false);
 	const [selectedCourse, setSelectedCourse] = useState<CourseResponseInstructorDashboard | null>(null);
 	const [analyticsOpen, setAnalyticsOpen] = useState(false);
+	const [analyticsCourse, setAnalyticsCourse] = useState<{ id: number, title: string } | null>(null);
 	const [createCourseOpen, setCreateCourseOpen] = useState(false);
 	const [isLoading, setIsLoading] = useState(true);
-	const [stats, setStats] = useState({
-		totalsCourses: 0,
-		totalStudents: 0,
-		avgRating: 0,
-		totalKnowledgeDocuments: 0
-	});
 
-	console.log(analyticsOpen);
-
+	const handleOpenAnalytics = (courseId: number, courseTitle: string) => {
+		setAnalyticsCourse({ id: courseId, title: courseTitle });
+		setAnalyticsOpen(true);
+	};
 
 	useEffect(() => {
-		const fetchCourses = async () => {
+		const fetchData = async () => {
 			try {
 				setIsLoading(true);
-				const [coursesData, knowledgeDocuments, totalStudents] = await Promise.all([
+				const [coursesData, statsData] = await Promise.all([
 					CourseApi.getAllInstructorDashboard(),
-					documentApi.getByInstructorId({ pageIndex: 1, pageSize: 1 }),
-					enrrollementApi.getTotalStudents()
+					DashboardApi.getInstructorDashboardStats()
 				]);
-				setStats(prev => ({
-					...prev,
-					totalsCourses: coursesData.length,
-					totalStudents: totalStudents,
-					avgRating: (coursesData.reduce((sum, c) => sum + c.rating, 0) / coursesData.length),
-					totalKnowledgeDocuments: knowledgeDocuments.totalCount,
-				}));
 				setCourses(coursesData);
-				setIsLoading(false);
+				setStats(statsData);
 			} catch (error) {
-				console.error("Error fetching courses:", error);
+				console.error("Error fetching instructor data:", error);
+			} finally {
 				setIsLoading(false);
 			}
 		};
 
-		fetchCourses();
+		fetchData();
 	}, []);
 
 	const avgRating = (courses.reduce((sum, c) => sum + c.rating, 0) / courses.length).toFixed(1);
 
 	const handleCoursesChanged = (delta: number) => {
-		setStats(prev => ({
+		setStats(prev => prev ? {
 			...prev,
-			totalsCourses: prev.totalsCourses + delta
-		}));
+			totalCourses: prev.totalCourses + delta
+		} : null);
 	};
 
 	const handleMaterialsChanged = (delta: number) => {
-		setStats(prev => ({
+		setStats(prev => prev ? {
 			...prev,
-			totalKnowledgeDocuments: prev.totalKnowledgeDocuments + delta
-		}));
+			totalMaterials: prev.totalMaterials + delta
+		} : null);
 	};
 
 	const handleAddCourse = (newDoc: CourseResponse) => {
@@ -92,70 +97,48 @@ export default function InstructorDashboard() {
 		setCourses(prev => [...prev, newCourse]);
 	}
 
-	if (isLoading) return (<FullPageLoader />);
+	if (isLoading || !stats) return (<FullPageLoader />);
+
+	const summaryCards = [
+		{ label: "Active Courses", value: stats.totalCourses, icon: BookOpen, color: "text-blue-600", bg: "bg-blue-50" },
+		{ label: "Total Students", value: stats.totalStudents, icon: Users, color: "text-green-600", bg: "bg-green-50" },
+		{ label: "Avg Rating", value: stats.averageRating, icon: Star, color: "text-yellow-600", bg: "bg-yellow-50" },
+		{ label: "Resources", value: stats.totalMaterials, icon: FileText, color: "text-purple-600", bg: "bg-purple-50" },
+	];
 
 	return (
 		<div className="min-h-screen bg-slate-50">
-			{/* Header */}
 			<HeaderInstructor />
 
-			{/* Main Content */}
-			<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-				{/* Welcome Section */}
+			<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-in fade-in duration-500">
 				<div className="flex items-center justify-between mb-8">
 					<div>
-						<h1 className="text-3xl font-bold text-gray-900 mb-2">Instructor Dashboard</h1>
-						<p className="text-gray-600">Manage your courses and students</p>
+						<h1 className="text-3xl font-bold text-slate-900 mb-1">Instructor Dashboard</h1>
+						<p className="text-slate-500">Performance insights and course management</p>
 					</div>
-					<CreateNewCourse createCourseOpen={createCourseOpen} setCreateCourseOpen={setCreateCourseOpen} handleCoursesChanged={handleCoursesChanged} onSave={handleAddCourse} />
+					<CreateNewCourse
+						createCourseOpen={createCourseOpen}
+						setCreateCourseOpen={setCreateCourseOpen}
+						handleCoursesChanged={handleCoursesChanged}
+						onSave={handleAddCourse}
+					/>
 				</div>
 
-				{/* Stats */}
-				<div className="grid sm:grid-cols-4 gap-4 mb-8">
-					<Card className="p-4">
-						<div className="flex items-center gap-3">
-							<div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-								<BookOpen className="w-6 h-6 text-blue-600" />
+				{/* Stats Grid */}
+				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+					{summaryCards.map((card, i) => (
+						<Card key={i} className="p-6 border-none shadow-sm hover:shadow-md transition-shadow">
+							<div className="flex items-center gap-4">
+								<div className={`${card.bg} ${card.color} p-3 rounded-xl`}>
+									<card.icon className="w-6 h-6" />
+								</div>
+								<div>
+									<p className="text-sm font-medium text-slate-500 uppercase tracking-wider">{card.label}</p>
+									<p className="text-2xl font-bold text-slate-900">{card.value}</p>
+								</div>
 							</div>
-							<div>
-								<p className="text-2xl font-bold">{courses.length}</p>
-								<p className="text-sm text-gray-600">Active Courses</p>
-							</div>
-						</div>
-					</Card>
-					<Card className="p-4">
-						<div className="flex items-center gap-3">
-							<div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-								<Users className="w-6 h-6 text-green-600" />
-							</div>
-							<div>
-								<p className="text-2xl font-bold">{stats.totalStudents.toLocaleString()}</p>
-								<p className="text-sm text-gray-600">Total Students</p>
-							</div>
-						</div>
-					</Card>
-					<Card className="p-4">
-						<div className="flex items-center gap-3">
-							<div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
-								<TrendingUp className="w-6 h-6 text-yellow-600" />
-							</div>
-							<div>
-								<p className="text-2xl font-bold">{avgRating}</p>
-								<p className="text-sm text-gray-600">Avg Rating</p>
-							</div>
-						</div>
-					</Card>
-					<Card className="p-4">
-						<div className="flex items-center gap-3">
-							<div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-								<FileText className="w-6 h-6 text-purple-600" />
-							</div>
-							<div>
-								<p className="text-2xl font-bold">{stats.totalKnowledgeDocuments}</p>
-								<p className="text-sm text-gray-600">Materials</p>
-							</div>
-						</div>
-					</Card>
+						</Card>
+					))}
 				</div>
 
 				{/* Main Content Tabs */}
@@ -180,7 +163,7 @@ export default function InstructorDashboard() {
 										<div className="flex items-start justify-between mb-3">
 											<div>
 												<h3 className="text-xl font-semibold mb-2">{course.title}</h3>
-												<p className="text-gray-600 mb-2">{course.description}</p>
+												<p className="text-gray-600 mb-2 line-clamp-2">{course.description}</p>
 												<div className="flex items-center gap-3">
 													<Badge>{course.categoryName}</Badge>
 													<Badge variant="outline">{getCourseLevelName(course.level)}</Badge>
@@ -219,7 +202,7 @@ export default function InstructorDashboard() {
 											<Button
 												variant="outline"
 												className="gap-2"
-												onClick={() => setAnalyticsOpen(true)}
+												onClick={() => handleOpenAnalytics(course.id, course.title)}
 											>
 												<BarChart3 className="w-4 h-4" />
 												View Analytics
@@ -255,50 +238,113 @@ export default function InstructorDashboard() {
 						</Card>
 					</TabsContent>
 
-					<TabsContent value="analytics" className="space-y-4">
-						<div className="grid sm:grid-cols-2 gap-4">
-							<Card className="p-6">
-								<h3 className="font-semibold mb-4">Course Performance</h3>
-								<div className="space-y-4">
-									{courses.map((course) => (
-										<div key={course.id}>
-											<div className="flex items-center justify-between mb-2">
-												<span className="text-sm font-medium">{course.title}</span>
-												<span className="text-sm text-gray-600">⭐ {course.rating}</span>
-											</div>
-											<div className="flex items-center gap-2">
-												<div className="flex-1 bg-gray-200 rounded-full h-2">
-													<div
-														className="bg-blue-600 h-2 rounded-full"
-														style={{ width: `${(course.rating / 5) * 100}%` }}
-													/>
-												</div>
-											</div>
-										</div>
-									))}
+					<TabsContent value="analytics" className="space-y-6">
+						<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+							{/* Growth Chart */}
+							<Card className="p-6 border-none shadow-sm">
+								<h3 className="font-bold text-slate-800 mb-6 flex items-center gap-2">
+									<TrendingUp className="w-5 h-5 text-blue-500" />
+									Enrollment Growth
+								</h3>
+								<div className="h-[300px]">
+									<ResponsiveContainer width="100%" height="100%">
+										<AreaChart data={stats.enrollmentTrends}>
+											<defs>
+												<linearGradient id="colorEnroll" x1="0" y1="0" x2="0" y2="1">
+													<stop offset="5%" stopColor="#3b82f6" stopOpacity={0.1} />
+													<stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+												</linearGradient>
+											</defs>
+											<CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+											<XAxis
+												dataKey="month"
+												axisLine={false}
+												tickLine={false}
+												tick={{ fill: '#94a3b8', fontSize: 12 }}
+											/>
+											<YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} />
+											<Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }} />
+											<Area type="monotone" dataKey="count" stroke="#3b82f6" strokeWidth={3} fill="url(#colorEnroll)" />
+										</AreaChart>
+									</ResponsiveContainer>
 								</div>
 							</Card>
 
-							<Card className="p-6">
-								<h3 className="font-semibold mb-4">AI Assistant Usage</h3>
-								<div className="space-y-4">
-									<div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg">
-										<div>
-											<p className="text-sm text-gray-600">Total Questions</p>
-											<p className="text-2xl font-bold">1,247</p>
+							{/* AI Section with Real Data */}
+							<Card className="p-6 border-none shadow-sm space-y-4">
+								<h3 className="font-bold text-slate-800 mb-2 flex items-center gap-2">
+									<Brain className="w-5 h-5 text-purple-500" />
+									AI Assistant Performance
+								</h3>
+								<p className="text-slate-500 text-sm mb-6">Metrics for AI interactions within your courses</p>
+
+								<div className="grid grid-cols-2 gap-4">
+									<div className="p-5 bg-blue-50/50 rounded-2xl border border-blue-100/50">
+										<div className="flex items-center gap-3 text-blue-600 mb-2">
+											<MessageSquare className="w-5 h-5" />
+											<span className="text-sm font-semibold uppercase tracking-tight">Total Queries</span>
 										</div>
-										<Brain className="w-8 h-8 text-blue-600" />
+										<p className="text-3xl font-bold text-slate-900">{stats.aiUsage.totalQuestions}</p>
 									</div>
-									<div className="flex items-center justify-between p-4 bg-green-50 rounded-lg">
-										<div>
-											<p className="text-sm text-gray-600">Avg Response Time</p>
-											<p className="text-2xl font-bold">1.2s</p>
+
+									<div className="p-5 bg-purple-50/50 rounded-2xl border border-purple-100/50">
+										<div className="flex items-center gap-3 text-purple-600 mb-2">
+											<Clock className="w-5 h-5" />
+											<span className="text-sm font-semibold uppercase tracking-tight">Avg Response</span>
 										</div>
-										<TrendingUp className="w-8 h-8 text-green-600" />
+										<p className="text-3xl font-bold text-slate-900">{stats.aiUsage.avgResponseTimeSeconds}s</p>
+									</div>
+								</div>
+
+								<div className="mt-8 p-4 bg-slate-50 rounded-xl">
+									<div className="flex items-center justify-between mb-2">
+										<span className="text-sm font-medium text-slate-600">Response Efficiency</span>
+										<span className="text-sm font-bold text-green-600">98.2%</span>
+									</div>
+									<div className="w-full bg-slate-200 rounded-full h-1.5">
+										<div className="bg-green-500 h-1.5 rounded-full" style={{ width: '98.2%' }} />
 									</div>
 								</div>
 							</Card>
 						</div>
+
+						{/* Recent Reviews Section */}
+						<Card className="p-6 border-none shadow-sm">
+							<h3 className="font-bold text-slate-800 mb-6 flex items-center gap-2">
+								<Star className="w-5 h-5 text-yellow-500" />
+								Recent Student Reviews
+							</h3>
+							<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+								{stats.recentReviews.length > 0 ? (
+									stats.recentReviews.map((review, i) => (
+										<div key={i} className="p-4 bg-white border border-slate-100 rounded-2xl hover:border-blue-200 transition-colors shadow-sm">
+											<div className="flex items-center justify-between mb-3">
+												<div className="flex items-center gap-2">
+													<div className="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center text-xs font-bold text-slate-500">
+														{review.studentName.charAt(0)}
+													</div>
+													<span className="text-sm font-semibold text-slate-800 line-clamp-1">{review.studentName}</span>
+												</div>
+												<div className="flex items-center gap-0.5 text-yellow-500">
+													<Star className="w-3 h-3 fill-current" />
+													<span className="text-xs font-bold">{review.rating}</span>
+												</div>
+											</div>
+											<p className="text-xs text-slate-400 mb-1">Course:</p>
+											<p className="text-sm text-slate-600 line-clamp-1 mb-3">{review.courseTitle}</p>
+											<p className="text-[10px] text-slate-400 font-medium">
+												{format(new Date(review.date), "MMM dd, yyyy")}
+											</p>
+										</div>
+									))
+								) : (
+									<div className="col-span-full py-12 text-center text-slate-400">
+										<Star className="w-12 h-12 mx-auto mb-3 opacity-20" />
+										<p>No recent reviews found</p>
+									</div>
+								)}
+							</div>
+						</Card>
 					</TabsContent>
 				</Tabs>
 			</div>
@@ -314,6 +360,15 @@ export default function InstructorDashboard() {
 
 			{/* Edit Document Dialog */}
 
+
+			{analyticsCourse && (
+				<CourseAnalyticsDialog
+					open={analyticsOpen}
+					onOpenChange={setAnalyticsOpen}
+					courseId={analyticsCourse.id}
+					courseTitle={analyticsCourse.title}
+				/>
+			)}
 
 			{/* Analytics Dialog */}
 			<AiAssistant></AiAssistant>

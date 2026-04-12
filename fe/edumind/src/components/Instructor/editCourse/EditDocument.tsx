@@ -5,6 +5,7 @@ import { Input } from "../../ui/input";
 import { Label } from "../../ui/label";
 import { type DocumentResponse } from "../../../interfaces/Document";
 import { toast } from "sonner";
+import { Loader2 } from "lucide-react";
 import documentApi from "../../../api/Document.api";
 
 type EditDocumentProps = {
@@ -14,6 +15,7 @@ type EditDocumentProps = {
 	onSave: (updatedDoc: DocumentResponse) => void; // You can replace 'any' with a more specific type if you have one for the document
 }
 const EditDocument = ({ editDocumentOpen, setEditDocumentOpen, document, onSave }: EditDocumentProps) => {
+	const [isLoading, setIsLoading] = useState(false);
 	const [documentForm, setDocumentForm] = useState({
 		lessonId: document.lessonId,
 		fileName: document.fileName,
@@ -23,28 +25,28 @@ const EditDocument = ({ editDocumentOpen, setEditDocumentOpen, document, onSave 
 
 	const handleSaveDocumentEdit = async (e: React.FormEvent) => {
 		e.preventDefault();
+		setIsLoading(true);
 		try {
 			await documentApi.update(document.id, {
 				lessonId: documentForm.lessonId,
 				fileName: documentForm.fileName,
 				status: documentForm.status,
-				file: documentForm.file
+				file: documentForm.file || undefined
 			});
 			onSave({
 				...document,
 				lessonId: documentForm.lessonId,
 				fileName: documentForm.fileName,
 				status: documentForm.status,
-				filePath: documentForm.file ? URL.createObjectURL(documentForm.file) : document.filePath // Update file path if a new file is selected
 			});
 			toast.success(`Document "${documentForm.fileName}" updated successfully!`);
 			setEditDocumentOpen(false);
 		} catch (error) {
 			console.error("Error updating document:", error);
 			toast.error("Failed to update document. Please try again.");
+		} finally {
+			setIsLoading(false);
 		}
-		toast.success(`Document "${documentForm.fileName}" updated successfully!`);
-		setEditDocumentOpen(false);
 	};
 
 	return (
@@ -61,6 +63,7 @@ const EditDocument = ({ editDocumentOpen, setEditDocumentOpen, document, onSave 
 							value={documentForm.fileName}
 							onChange={(e) => setDocumentForm({ ...documentForm, fileName: e.target.value })}
 							required
+							disabled={isLoading}
 						/>
 					</div>
 					{/* <div>
@@ -82,10 +85,19 @@ const EditDocument = ({ editDocumentOpen, setEditDocumentOpen, document, onSave 
 						</Select>
 					</div> */}
 					<div className="flex justify-end gap-2 pt-4">
-						<Button type="button" variant="outline" onClick={() => setEditDocumentOpen(false)}>
+						<Button type="button" variant="outline" onClick={() => setEditDocumentOpen(false)} disabled={isLoading}>
 							Cancel
 						</Button>
-						<Button type="submit">Save Changes</Button>
+						<Button type="submit" disabled={isLoading} className="min-w-32 bg-blue-600 hover:bg-blue-700">
+							{isLoading ? (
+								<>
+									<Loader2 className="w-4 h-4 mr-2 animate-spin" />
+									Saving...
+								</>
+							) : (
+								"Save Changes"
+							)}
+						</Button>
 					</div>
 				</form>
 			</DialogContent>

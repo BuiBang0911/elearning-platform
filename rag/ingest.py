@@ -12,10 +12,12 @@ from dotenv import load_dotenv
 from PIL import Image, ImageEnhance, ImageOps
 from langchain_community.document_loaders import TextLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_experimental.text_splitter import SemanticChunker
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_postgres import PGVector
 from rapidocr_onnxruntime import RapidOCR
 from langchain_core.documents import Document
+from sqlalchemy import create_engine
 
 # --- CẤU HÌNH DEBUG ---
 DEBUG_MODE = False  # Chuyển sang False để tắt debug
@@ -357,10 +359,11 @@ def run_ingest():
         print("⚠️ Không tìm thấy file nào hoặc file rỗng!")
         return 
 
-    print(f"\n📚 Đang chia nhỏ (Chunking) {len(raw_docs)} trang tài liệu...")
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200, add_start_index=True)
+    print(f"\n📚 Đang chia nhỏ (Chunking) {len(raw_docs)} trang tài liệu bằng Semantic Chunker...")
+    embeddings_for_chunking = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001")
+    text_splitter = SemanticChunker(embeddings_for_chunking, breakpoint_threshold_type="percentile")
     docs = text_splitter.split_documents(raw_docs)
-    print(f"✂️ Đã chia thành {len(docs)} đoạn nhỏ (chunks).")
+    print(f"✂️ Đã chia thành {len(docs)} đoạn nhỏ thuật toán ngữ nghĩa (chunks).")
 
     for doc in docs:
         filename = doc.metadata.get("filename", "unknown")
@@ -372,30 +375,46 @@ def run_ingest():
         doc.page_content = enriched_content
 
     embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001")
+    
+    # Tạo engine với pool_pre_ping để tránh lỗi SSL connection
+    engine = create_engine(DB_URL, pool_pre_ping=True, pool_recycle=300)
+
     vector_store = PGVector(
         embeddings=embeddings,
         collection_name=COLLECTION_NAME,
-        connection=DB_URL,
+        connection=engine,
         use_jsonb=True,
     )
     namespace = f"pgvector/{COLLECTION_NAME}"
 
-    def compute_checksum(text: str) -> str:
-        return hashlib.sha256(text.encode("utf-8")).hexdigest()
+    try:
+        clean_db_url = DB_URL.replace("postgresql+psycopg2://", "postgresql://")
+        pg_conn = psycopg2.connect(clean_db_url)
+    except Exception as e:
+        print("❌ Không thể kết nối tới DATABASE_URL:", e)
+        return
 
-    def ensure_table(conn):
-        with conn.cursor() as cur:
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS ingest_records (
-                    record_id TEXT PRIMARY KEY,
-                    namespace TEXT,
-                    source TEXT,
-                    checksum TEXT,
-                    updated_at TIMESTAMP
-                )
-            """)
-            conn.commit()
+    ensure_table(pg_conn)
+    sync_engine(pg_conn, docs, vector_store, namespace)
+    pg_conn.close()
 
+def compute_checksum(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+def ensure_table(conn):
+    with conn.cursor() as cur:
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS ingest_records (
+                record_id TEXT PRIMARY KEY,
+                namespace TEXT,
+                source TEXT,
+                checksum TEXT,
+                updated_at TIMESTAMP
+            )
+        """)
+        conn.commit()
+
+def sync_engine(pg_conn, docs, vector_store, namespace):
     def load_existing(conn, namespace):
         with conn.cursor() as cur:
             cur.execute("SELECT record_id, checksum FROM ingest_records WHERE namespace = %s", (namespace,))
@@ -415,15 +434,6 @@ def run_ingest():
         with conn.cursor() as cur:
             cur.execute("DELETE FROM ingest_records WHERE namespace = %s AND record_id = %s", (namespace, record_id))
             conn.commit()
-
-    try:
-        clean_db_url = DB_URL.replace("postgresql+psycopg2://", "postgresql://")
-        pg_conn = psycopg2.connect(clean_db_url)
-    except Exception as e:
-        print("❌ Không thể kết nối tới DATABASE_URL:", e)
-        return
-
-    ensure_table(pg_conn)
 
     print("\n🚀 Bắt đầu đồng bộ dữ liệu...")
 
@@ -460,28 +470,76 @@ def run_ingest():
 
     num_added = process_batch(to_add, is_update=False)
     num_updated = process_batch(to_update, is_update=True)
+    
+    # Logic for full sync deletion only works when processing the whole directory
+    # If we are doing a single file update, we might not want to delete everything else.
+    # For simplicity, we keep the deletion if run_ingest is called.
 
-    existing_ids = set(existing.keys())
-    to_delete = list(existing_ids - current_record_ids)
-    num_deleted = 0
+def ingest_file(file_path: str, lesson_id: int = None):
+    """Xử lý đồng bộ 1 file duy nhất."""
+    lname = file_path.lower()
+    raw_docs = []
+    
+    if lname.endswith(".pdf"):
+        raw_docs = process_pdf(file_path)
+    elif lname.endswith(".txt"):
+        loader = TextLoader(file_path, encoding="utf-8")
+        raw_docs = loader.load()
+        for d in raw_docs:
+            d.page_content = clean_and_merge_lines(d.page_content)
+            d.metadata["source"] = file_path
+            d.metadata["filename"] = os.path.basename(file_path)
+            if lesson_id:
+                d.metadata["lesson_id"] = lesson_id
 
-    if to_delete:
-        print(f"   🗑️ Đang xóa {len(to_delete)} vectors cũ...")
-        try:
-            vector_store.delete(ids=to_delete)
-            for rid in to_delete:
-                delete_record(pg_conn, namespace, rid)
-                num_deleted += 1
-        except Exception as e:
-             print(f"⚠️ Lỗi xóa vector: {e}")
+    if not raw_docs:
+        return {"status": "error", "message": "File format not supported or empty"}
 
+    embeddings_for_chunking = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001")
+    text_splitter = SemanticChunker(embeddings_for_chunking, breakpoint_threshold_type="percentile")
+    docs = text_splitter.split_documents(raw_docs)
+
+    for doc in docs:
+        filename = doc.metadata.get("filename", "unknown")
+        doc.page_content = f"Tên tài liệu: {filename}\nNội dung trích đoạn:\n{doc.page_content}"
+        # Ensure lesson_id is in metadata for each chunk
+        if lesson_id:
+            doc.metadata["lesson_id"] = lesson_id
+
+    embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001")
+    
+    # Tạo engine với pool_pre_ping
+    engine = create_engine(DB_URL, pool_pre_ping=True, pool_recycle=300)
+    
+    vector_store = PGVector(embeddings=embeddings, collection_name=COLLECTION_NAME, connection=engine, use_jsonb=True)
+    
+    clean_db_url = DB_URL.replace("postgresql+psycopg2://", "postgresql://")
+    pg_conn = psycopg2.connect(clean_db_url)
+    ensure_table(pg_conn)
+    
+    namespace = f"pgvector/{COLLECTION_NAME}"
+    
+    # Chạy sync chỉ cho file này
+    current_ids = []
+    for i, doc in enumerate(docs):
+        source_file = doc.metadata.get("filename", "unknown")
+        record_id = f"{source_file}:{i}"
+        checksum = compute_checksum(doc.page_content)
+        current_ids.append(record_id)
+        
+        # Upsert record and vector
+        vector_store.add_documents([doc], ids=[record_id])
+        with pg_conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO ingest_records(record_id, namespace, source, checksum, updated_at)
+                VALUES (%s, %s, %s, %s, %s)
+                ON CONFLICT (record_id) DO UPDATE
+                SET checksum = EXCLUDED.checksum, updated_at = EXCLUDED.updated_at
+            """, (record_id, namespace, source_file, checksum, datetime.datetime.utcnow()))
+    
+    pg_conn.commit()
     pg_conn.close()
-
-    print("\n✅ HOÀN TẤT ĐỒNG BỘ!")
-    print(f"   ➕ Thêm: {num_added}")
-    print(f"   🔄 Update: {num_updated}")
-    print(f"   🗑️ Xóa: {num_deleted}")
-    print(f"   ⏭️ Bỏ qua (Không đổi): {len(docs) - num_added - num_updated}")
+    return {"status": "success", "chunks": len(docs)}
 
 if __name__ == "__main__":
     run_ingest()
