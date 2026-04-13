@@ -25,6 +25,7 @@ const sendMessageToAskAiStream = async (
     headers: {
       'Content-Type': 'application/json',
     },
+    cache: 'no-store',
     credentials: 'include', // Gửi kèm cookies (accessToken) để xác thực
     body: JSON.stringify({ sessionId, message, lessonId })
   });

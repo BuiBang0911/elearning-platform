@@ -135,6 +135,9 @@ namespace Web.Controllers
                 }
 
                 Response.ContentType = "text/event-stream";
+                Response.Headers.Append("Cache-Control", "no-cache");
+                Response.Headers.Append("X-Accel-Buffering", "no"); // Disable buffering for Nginx/Proxies
+                
                 var fullAnswer = new System.Text.StringBuilder();
 
                 using var stream = await response.Content.ReadAsStreamAsync();

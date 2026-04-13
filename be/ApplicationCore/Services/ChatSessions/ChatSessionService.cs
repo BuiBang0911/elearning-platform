@@ -1,4 +1,4 @@
-﻿using ApplicationCore.Data;
+using ApplicationCore.Data;
 using Infrastructure.Entities;
 using System;
 using System.Collections.Generic;
@@ -17,7 +17,10 @@ namespace ApplicationCore.Services.ChatSessions
 
         public async Task<List<ChatSession>> GetListChatSessionByUserId(int id)
         {
-            var li = await _repository.GetAsync<ChatSession>(x => x.UserId == id);
+            var li = await _repository.GetAsync<ChatSession>(
+                where: x => x.UserId == id,
+                relatedEntities: x => x.Lesson
+            );
 
             if (li == null) return new List<ChatSession>();
 

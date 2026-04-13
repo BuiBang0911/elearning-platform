@@ -109,7 +109,7 @@ namespace ApplicationCore.Services.Dashboard
             
             if (instructorId.HasValue)
             {
-                messagesQuery = messagesQuery.Where(m => m.Session.Course != null && m.Session.Course.LecturerId == instructorId);
+                messagesQuery = messagesQuery.Where(m => m.Session.Lesson != null && m.Session.Lesson.Course.LecturerId == instructorId);
             }
 
             var totalQuestions = await messagesQuery.CountAsync(m => m.Role == ChatbotRole.User);
@@ -151,7 +151,7 @@ namespace ApplicationCore.Services.Dashboard
 
             var totalStudents = await _context.Enrollments.CountAsync(e => e.CourseId == courseId);
             var aiQuestionsCount = await _context.ChatMessages
-                .CountAsync(m => m.Session.Course.Id == courseId && m.Role == ChatbotRole.User);
+                .CountAsync(m => m.Session.Lesson != null && m.Session.Lesson.CourseId == courseId && m.Role == ChatbotRole.User);
 
             // Trend for this course
             var now = DateTime.UtcNow;

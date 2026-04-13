@@ -27,11 +27,20 @@ const DeleteChatSession = async (
   return res.data
 }
 
+const update = async (
+  id: number,
+  data: Partial<ChatSessionResponse>
+): Promise<ChatSessionResponse> => {
+  const res = await api.put(`/ChatSession/${id}`, data)
+  return res.data
+}
+
 const ChatSessionApi = {
   getAll,
   createNewChat,
   DeleteNewChat,
-  DeleteChatSession
+  DeleteChatSession,
+  update
 }
 
 export default ChatSessionApi;
