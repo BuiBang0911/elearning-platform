@@ -1,0 +1,82 @@
+# =============================================================
+# docker-compose.override.yml — LOCAL DEVELOPMENT
+# =============================================================
+# Automatically picked up by `docker compose up`
+# Adds local PostgreSQL + Redis, mounts source code volumes
+# =============================================================
+
+services:
+  # ── Local PostgreSQL with pgvector ──
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: elearning-platform_db
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-admin}
+      POSTGRES_DB: ${POSTGRES_DB:-elearning-platform_db}
+    ports:
+      - "5678:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - edumind-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d elearning-platform_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Local Redis ──
+  redis:
+    image: redis:7-alpine
+    container_name: redis_server
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - edumind-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # ── Override FE for dev (rebuild from source) ──
+  frontend:
+    build:
+      args:
+        VITE_API_BASE_URL: http://localhost:5000/api
+    ports:
+      - "3000:80"
+
+  # ── Override BE for dev ──
+  web:
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Server=db;Port=5432;Database=elearning-platform_db;User Id=admin;Password=admin;
+      - ConnectionStrings__Redis=redis:6379
+      - AllowedOrigins=http://localhost:5173,http://localhost:3000
+    ports:
+      - "5000:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ── Override RAG for dev ──
+  rag:
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    volumes:
+      - ./rag:/app
+      - /app/venv
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+volumes:
+  postgres_data:
+  redis_data:

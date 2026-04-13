@@ -35,6 +35,9 @@ var builder = WebApplication.CreateBuilder(args);
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 var jwtKey = builder.Configuration["Jwt:Key"];
 var redisConnectionString = builder.Configuration.GetConnectionString("Redis");
+var aiServiceUrl = builder.Configuration["AIService:Url"] ?? "http://localhost:8000";
+var allowedOrigins = builder.Configuration["AllowedOrigins"]?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+    ?? new[] { "http://localhost:5173" };
 
 
 builder.Services.AddDbContext<DatabaseContext>(options =>
@@ -81,7 +84,7 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowFrontend",
         policy =>
         {
-            policy.WithOrigins("http://localhost:5173")
+            policy.WithOrigins(allowedOrigins)
                   .AllowAnyHeader()
                   .AllowAnyMethod()
                   .AllowCredentials();
@@ -143,8 +146,8 @@ builder.Services.AddScoped<JwtService>();
 
 builder.Services.AddHttpClient("AIService", client =>
 {
-    client.BaseAddress = new Uri("http://localhost:8000");
-    client.Timeout = TimeSpan.FromSeconds(30);
+    client.BaseAddress = new Uri(aiServiceUrl);
+    client.Timeout = TimeSpan.FromSeconds(60);
 });
 
 builder.Services.AddSingleton<IConnectionMultiplexer>(ConnectionMultiplexer.Connect(redisConnectionString));
@@ -198,6 +201,7 @@ if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
+    app.UseHttpsRedirection();
 }
 
 
@@ -205,7 +209,6 @@ app.UseCors("AllowFrontend");
 
 app.UseRouting();
 
-app.UseHttpsRedirection();
 app.UseAuthentication();
 
 app.Use(async (context, next) =>

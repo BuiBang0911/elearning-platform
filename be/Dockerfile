@@ -1,36 +1,60 @@
-# Giai đoạn 1: Build ứng dụng
+# ============================================
+# Stage 1: Build
+# ============================================
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
-# Copy các file .csproj vào đúng cấu trúc thư mục để restore dependencies
-# Bước này giúp tận dụng Docker Cache, chỉ chạy lại khi bạn thay đổi thư viện (NuGet)
-COPY ["Web/Web.csproj", "Web/"]
-COPY ["ApplicationCore/ApplicationCore.csproj", "ApplicationCore/"]
-COPY ["Infrastructure/Infrastructure.csproj", "Infrastructure/"]
+# Copy csproj files first for layer caching
+COPY Web/Web.csproj Web/
+COPY ApplicationCore/ApplicationCore.csproj ApplicationCore/
+COPY Infrastructure/Infrastructure.csproj Infrastructure/
 
-# Thực hiện restore
-RUN dotnet restore "Web/Web.csproj"
+# Restore dependencies (cached unless csproj changes)
+RUN dotnet restore Web/Web.csproj
 
-# Copy toàn bộ mã nguồn còn lại vào container
+# Copy all source code
 COPY . .
 
-# Chuyển vào thư mục Web và build
-WORKDIR "/src/Web"
-RUN dotnet build "Web.csproj" -c Release -o /app/build
+# Publish directly (no separate build step needed)
+WORKDIR /src/Web
+RUN dotnet publish Web.csproj -c Release -o /app/publish \
+    --no-restore \
+    /p:UseAppHost=false
 
-# Publish ứng dụng ra thư mục /app/publish
-RUN dotnet publish "Web.csproj" -c Release -o /app/publish /p:UseAppHost=false
+# ============================================
+# Stage 2: Runtime (minimal image)
+# ============================================
+FROM mcr.microsoft.com/dotnet/aspnet:8.0-alpine AS final
 
-# Giai đoạn 2: Runtime (Hình ảnh cuối cùng cực nhẹ)
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
+# Add labels
+LABEL maintainer="EduMind Team" \
+      app="edumind-api" \
+      version="1.0"
+
+# Install curl for healthcheck
+RUN apk add --no-cache curl
+
+# Create non-root user
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
 WORKDIR /app
 
-# Copy các file đã publish từ giai đoạn build
+# Copy published output
 COPY --from=build /app/publish .
 
-# .NET 8 mặc định chạy cổng 8080 cho non-root user
-EXPOSE 8080
-ENV ASPNETCORE_URLS=http://+:8080
+# Set environment
+ENV ASPNETCORE_URLS=http://+:8080 \
+    ASPNETCORE_ENVIRONMENT=Production \
+    DOTNET_RUNNING_IN_CONTAINER=true \
+    DOTNET_EnableDiagnostics=0
 
-# Chạy file dll chính của dự án Web
+EXPOSE 8080
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:8080/api/Course || exit 1
+
+# Switch to non-root user
+USER appuser
+
 ENTRYPOINT ["dotnet", "Web.dll"]

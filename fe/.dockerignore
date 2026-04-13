@@ -1,0 +1,36 @@
+# Dependencies
+edumind/node_modules/
+
+# Build output
+edumind/dist/
+edumind/.vite/
+
+# Environment files
+edumind/.env
+edumind/.env.*
+!edumind/.env.example
+
+# Editor / IDE
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Git
+.git/
+.gitignore
+
+# Docker
+Dockerfile
+.dockerignore

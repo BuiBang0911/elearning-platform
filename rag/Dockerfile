@@ -1,33 +1,64 @@
-# Python 3.10 slim
-FROM python:3.10-slim
+# ============================================
+# Stage 1: Build dependencies
+# ============================================
+FROM python:3.10-slim AS builder
 
-# Không tạo .pyc + log realtime
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
-
-# Tăng timeout pip + dùng mirror nhanh
-ENV PIP_DEFAULT_TIMEOUT=1000
-ENV PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_DEFAULT_TIMEOUT=300 \
+    PIP_NO_CACHE_DIR=1
 
 WORKDIR /app
 
-# Cài lib cần cho psycopg2 / postgres
-RUN apt-get update && apt-get install -y \
+# Install system deps needed for psycopg2 build
+RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev gcc \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements trước để cache layer
+# Copy and install Python deps
 COPY requirements.txt .
-
-# Update pip + install deps
 RUN pip install --upgrade pip \
-    && pip install --no-cache-dir -r requirements.txt
+    && pip install --no-cache-dir --prefix=/install -r requirements.txt
 
-# Copy source
+# ============================================
+# Stage 2: Runtime (minimal)
+# ============================================
+FROM python:3.10-slim AS final
+
+# Add labels
+LABEL maintainer="EduMind Team" \
+      app="edumind-rag" \
+      version="1.0"
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+# Install only runtime lib (not compiler)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq5 curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user
+RUN groupadd -r appgroup && useradd -r -g appgroup appuser
+
+# Copy installed packages from builder
+COPY --from=builder /install /usr/local
+
+# Copy source code
 COPY . .
 
-# Expose FastAPI
+# Ensure data directory exists and is writable
+RUN mkdir -p /app/data && chown -R appuser:appgroup /app
+
 EXPOSE 8000
 
-# Run app
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Health check
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+    CMD curl -f http://localhost:8000/docs || exit 1
+
+# Switch to non-root user
+USER appuser
+
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
