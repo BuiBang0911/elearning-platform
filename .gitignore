@@ -23,6 +23,7 @@ env/
 ENV/
 .python-version
 be/Web/appsettings.Development.json
+be/Web/appsettings.Production.json
 
 # pip logs
 pip-log.txt
