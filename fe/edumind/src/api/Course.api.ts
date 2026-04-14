@@ -42,7 +42,24 @@ const create = async (data: CourseUpdateRequest): Promise<CourseResponse> => {
 };
 
 const update = async (id: string | number, data: CourseUpdateRequest): Promise<CourseResponse> => {
-  const res = await api.put(`/Course/${id}`, data);
+  const formData = new FormData();
+
+  Object.entries(data).forEach(([key, value]) => {
+    if (value !== null && value !== undefined) {
+      if (key === 'thumbnail' && value instanceof File) {
+        formData.append(key, value);
+      }
+      else {
+        formData.append(key, value.toString());
+      }
+    }
+  });
+
+  const res = await api.put(`/Course/${id}`, formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  });
   return res.data;
 };
 

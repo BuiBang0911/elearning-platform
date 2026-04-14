@@ -24,6 +24,7 @@ namespace ApplicationCore.DTO
         public CourseLevel Level { get; set; }
         public double Rating { get; set; }
         public string? CategoryName { get; set; }
+        public int? CategoryId { get; set; }
     }
 
     public class CourseUpdateRequest

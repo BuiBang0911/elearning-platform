@@ -8,6 +8,7 @@ export interface CourseRequest extends PagingRequest {
 	thumbnail: File | null;
 	level: CourseLevel;
 	rating: number;
+	categoryId?: number;
 }
 
 export interface CourseResponse extends BaseDto {
@@ -20,6 +21,7 @@ export interface CourseResponse extends BaseDto {
 	level: CourseLevel;
 	rating: number;
 	categoryName: string;
+	categoryId?: number;
 }
 
 export interface CourseResponseInstructorDashboard extends CourseResponse {
@@ -32,6 +34,7 @@ export interface CourseUpdateRequest {
 	lecturerId?: number | null;
 	thumbnail: File | null;
 	level: CourseLevel;
+	categoryId?: number;
 }
 
 export interface CourseByStudentDashboard {

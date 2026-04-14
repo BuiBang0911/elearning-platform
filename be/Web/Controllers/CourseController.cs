@@ -118,9 +118,32 @@ namespace Web.Controllers
                 Level = x.Level,
                 Rating = x.Rating,
                 CategoryName = x.Category?.Name,
+                CategoryId = x.CategoryId,
                 Students = x.Enrollments.Count()
             });
             return Ok(res);
+        }
+
+        [HttpPut("{id}")]
+        [Authorize(Roles = $"{nameof(UserRole.Instructor)}")]
+        public override async Task<IActionResult> Update(int id, [FromForm] CourseUpdateRequest request)
+        {
+            var entity = await _courseService.FirstOrDefaultAsync(x => x.Id == id);
+            if (entity == null) return NotFound();
+
+            if (request.Thumbnail != null)
+            {
+                var resultUrl = await _storageService.UploadFileAsync(request.Thumbnail);
+                if (!string.IsNullOrEmpty(resultUrl))
+                {
+                    entity.Thumbnail = resultUrl;
+                }
+            }
+
+            _mapper.Map(request, entity);
+            await _courseService.UpdateAsync(entity);
+
+            return NoContent();
         }
 
         [HttpPost("course-by-student-dashboard/{studentId}")]

@@ -20,6 +20,8 @@ import { Badge } from "../ui/badge";
 import EditDocument from "./editCourse/EditDocument";
 import documentApi from "../../api/Document.api";
 import CourseApi from "../../api/Course.api";
+import CategoryApi from "../../api/Category.api";
+import type { CategoryResponse } from "../../interfaces/Category";
 import { formatDate } from "../../Format/FormatDate";
 import { formatFileSize } from "../../Format/FormatFileSize";
 import {
@@ -50,21 +52,25 @@ const EditCourse = ({ editCourseOpen, setEditCourseOpen, selectedCourse, handleM
 	const [editDocumentOpen, setEditDocumentOpen] = useState(false);
 	const [selectedLessonForUpload, setSelectedLessonForUpload] = useState<number | undefined>(undefined);
 
-	const [deleteDocId, setDeleteDocId] = useState<number | null>(null);
-	const [isDeleting, setIsDeleting] = useState(false);
-
+	const [categories, setCategories] = useState<CategoryResponse[]>([]);
 	const [editForm, setEditForm] = useState({
 		title: selectedCourse.title,
 		description: selectedCourse.description,
 		level: selectedCourse.level,
-		thumbnail: selectedCourse.thumbnail
+		categoryId: selectedCourse.categoryId,
+		thumbnail: null as File | null
 	});
+
+	const [deleteDocId, setDeleteDocId] = useState<number | null>(null);
+	const [isDeleting, setIsDeleting] = useState(false);
 
 	useEffect(() => {
 		const fetchCourseDetails = async () => {
 			try {
 				const lessons = await lessonApi.getByCourseId(selectedCourse.id);
 				const documents = await CourseApi.searchDocuments(selectedCourse.id);
+				const cats = await CategoryApi.getAll();
+				setCategories(cats);
 				setCourseDocuments(documents);
 				setCourseLessons(lessons);
 			} catch (error) {
@@ -152,15 +158,17 @@ const EditCourse = ({ editCourseOpen, setEditCourseOpen, selectedCourse, handleM
 		e.preventDefault();
 		setIsSaving(true);
 		try {
-			// Assuming there's an update API, if not we'll just simulate for now or use courseApi.update
-			// toast.success(`Course "${editForm.title}" updated successfully!`);
-			// setEditCourseOpen(false);
-
-			// For now, let's just show the success message as it was
-			await new Promise(resolve => setTimeout(resolve, 800)); // Simulate API call
+			await CourseApi.update(selectedCourse.id, {
+				title: editForm.title,
+				description: editForm.description,
+				level: editForm.level,
+				categoryId: editForm.categoryId,
+				thumbnail: editForm.thumbnail instanceof File ? editForm.thumbnail : null
+			});
 			toast.success(`Course "${editForm.title}" updated successfully!`);
 			setEditCourseOpen(false);
 		} catch (error) {
+			console.error("Error updating course:", error);
 			toast.error("Failed to update course.");
 		} finally {
 			setIsSaving(false);
@@ -204,23 +212,6 @@ const EditCourse = ({ editCourseOpen, setEditCourseOpen, selectedCourse, handleM
 									/>
 								</div>
 								<div className="grid sm:grid-cols-2 gap-4">
-									{/* <div>
-									<Label htmlFor="edit-category">Category</Label>
-									<Select
-										value={editForm.category}
-										onValueChange={(value) => setEditForm({ ...editForm, category: value })}
-									>
-										<SelectTrigger id="edit-category">
-											<SelectValue />
-										</SelectTrigger>
-										<SelectContent>
-											<SelectItem value="AI & Machine Learning">AI & Machine Learning</SelectItem>
-											<SelectItem value="Web Development">Web Development</SelectItem>
-											<SelectItem value="Data Science">Data Science</SelectItem>
-											<SelectItem value="Design">Design</SelectItem>
-										</SelectContent>
-									</Select>
-								</div> */}
 									<div>
 										<Label htmlFor="edit-level">Level</Label>
 										<Select
@@ -235,6 +226,29 @@ const EditCourse = ({ editCourseOpen, setEditCourseOpen, selectedCourse, handleM
 												<SelectItem value="1">Beginner</SelectItem>
 												<SelectItem value="2">Intermediate</SelectItem>
 												<SelectItem value="3">Advanced</SelectItem>
+											</SelectContent>
+										</Select>
+									</div>
+
+									<div>
+										<Label htmlFor="edit-category">Category</Label>
+										<Select
+											value={editForm.categoryId?.toString()}
+											onValueChange={(value) => setEditForm({ ...editForm, categoryId: Number(value) })}
+											disabled={isSaving}
+										>
+											<SelectTrigger id="edit-category">
+												<SelectValue placeholder="Select category" />
+											</SelectTrigger>
+											<SelectContent>
+												{categories.map((cat) => (
+													<SelectItem key={cat.id} value={cat.id.toString()}>
+														{cat.name}
+													</SelectItem>
+												))}
+												{categories.length === 0 && (
+													<SelectItem value="none" disabled>No categories available</SelectItem>
+												)}
 											</SelectContent>
 										</Select>
 									</div>
