@@ -57,6 +57,11 @@ namespace Web.Controllers
 
             string? resultUrl = null;
 
+            if (request.Price < 0)
+            {
+                return BadRequest("Price must be greater than or equal to 0.");
+            }
+
             if (request.Thumbnail != null)
             {
                 resultUrl = await _storageService.UploadFileAsync(request.Thumbnail);
@@ -119,7 +124,8 @@ namespace Web.Controllers
                 Rating = x.Rating,
                 CategoryName = x.Category?.Name,
                 CategoryId = x.CategoryId,
-                Students = x.Enrollments.Count()
+                Students = x.Enrollments.Count(),
+                Price = x.Price
             });
             return Ok(res);
         }
@@ -128,7 +134,7 @@ namespace Web.Controllers
         [Authorize(Roles = $"{nameof(UserRole.Instructor)}")]
         public override async Task<IActionResult> Update(int id, [FromForm] CourseUpdateRequest request)
         {
-            var entity = await _courseService.FirstOrDefaultAsync(x => x.Id == id);
+            var entity = await _courseService.FirstOrDefaultAsync(x => x.Id == id, earlyLoad: [x => x.Enrollments, x => x.Category, x => x.Lecturer]);
             if (entity == null) return NotFound();
 
             if (request.Thumbnail != null)
@@ -143,7 +149,23 @@ namespace Web.Controllers
             _mapper.Map(request, entity);
             await _courseService.UpdateAsync(entity);
 
-            return NoContent();
+            var res = new CourseDashboardResponse
+            {
+                Id = entity.Id,
+                Title = entity.Title,
+                Description = entity.Description,
+                LecturerId = entity.LecturerId,
+                CreatedAt = entity.CreatedAt,
+                Thumbnail = entity.Thumbnail,
+                Level = entity.Level,
+                Rating = entity.Rating,
+                CategoryName = entity.Category?.Name,
+                CategoryId = entity.CategoryId,
+                Students = entity.Enrollments?.Count() ?? 0,
+                Price = entity.Price
+            };
+
+            return Ok(res);
         }
 
         [HttpPost("course-by-student-dashboard/{studentId}")]

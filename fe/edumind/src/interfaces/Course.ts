@@ -9,7 +9,9 @@ export interface CourseRequest extends PagingRequest {
 	level: CourseLevel;
 	rating: number;
 	categoryId?: number;
+	price: number;
 }
+
 
 export interface CourseResponse extends BaseDto {
 	title: string;
@@ -22,7 +24,9 @@ export interface CourseResponse extends BaseDto {
 	rating: number;
 	categoryName: string;
 	categoryId?: number;
+	price: number;
 }
+
 
 export interface CourseResponseInstructorDashboard extends CourseResponse {
 	students: number;
@@ -35,7 +39,9 @@ export interface CourseUpdateRequest {
 	thumbnail: File | null;
 	level: CourseLevel;
 	categoryId?: number;
+	price: number;
 }
+
 
 export interface CourseByStudentDashboard {
 	id: number;
@@ -78,9 +84,9 @@ export interface CourseDetailForStudentDto extends CourseResponse {
 }
 
 export const CourseLevel = {
-	BEGINNER: 1,
-	INTERMEDIATE: 2,
-	ADVANCED: 3
+	BEGINNER: 0,
+	INTERMEDIATE: 1,
+	ADVANCED: 2
 } as const;
 
 export type CourseLevel = typeof CourseLevel[keyof typeof CourseLevel];

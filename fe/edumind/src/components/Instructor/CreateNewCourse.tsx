@@ -28,6 +28,7 @@ const CreateNewCourse = ({ createCourseOpen, setCreateCourseOpen, handleCoursesC
 		description: "",
 		level: CourseLevel.BEGINNER as CourseLevel,
 		categoryId: undefined as number | undefined,
+		price: 0,
 		thumbnail: null as File | null
 	});
 
@@ -52,7 +53,7 @@ const CreateNewCourse = ({ createCourseOpen, setCreateCourseOpen, handleCoursesC
 			setCreateCourseOpen(false);
 			onSave(newCourse);
 			handleCoursesChanged(1);
-			setCourseForm({ title: "", description: "", level: CourseLevel.BEGINNER, categoryId: undefined, thumbnail: null });
+			setCourseForm({ title: "", description: "", level: CourseLevel.BEGINNER, categoryId: undefined, price: 0, thumbnail: null });
 		} catch (error) {
 			console.error("Error creating course:", error);
 			toast.error("Failed to create course. Please try again.");
@@ -143,6 +144,19 @@ const CreateNewCourse = ({ createCourseOpen, setCreateCourseOpen, handleCoursesC
 								</SelectContent>
 							</Select>
 						</div>
+					</div>
+					<div>
+						<Label htmlFor="course-price">Course Price (VND)</Label>
+						<Input
+							id="course-price"
+							type="number"
+							min="0"
+							placeholder="e.g., 500000"
+							value={courseForm.price}
+							onChange={(e) => setCourseForm({ ...courseForm, price: Number(e.target.value) })}
+							disabled={isLoading}
+							required
+						/>
 					</div>
 					<div>
 						<Label htmlFor="thumbnail" className="mb-2 block">Course Thumbnail</Label>

@@ -40,9 +40,10 @@ type EditCourseProps = {
 	setEditCourseOpen: (open: boolean) => void;
 	selectedCourse: CourseResponse;
 	handleMaterialsChanged: (delta: number) => void;
+	onSave: (updatedCourse: CourseResponse) => void;
 };
 
-const EditCourse = ({ editCourseOpen, setEditCourseOpen, selectedCourse, handleMaterialsChanged }: EditCourseProps) => {
+const EditCourse = ({ editCourseOpen, setEditCourseOpen, selectedCourse, handleMaterialsChanged, onSave }: EditCourseProps) => {
 	const [courseLessons, setCourseLessons] = useState<LessonResponse[]>([]);
 	const [addLessonOpen, setAddLessonOpen] = useState(false);
 	const [editLessonOpen, setEditLessonOpen] = useState(false);
@@ -58,7 +59,9 @@ const EditCourse = ({ editCourseOpen, setEditCourseOpen, selectedCourse, handleM
 		description: selectedCourse.description,
 		level: selectedCourse.level,
 		categoryId: selectedCourse.categoryId,
-		thumbnail: null as File | null
+		price: selectedCourse.price,
+		thumbnail: null as File | null,
+		lecturerId: selectedCourse.lecturerId
 	});
 
 	const [deleteDocId, setDeleteDocId] = useState<number | null>(null);
@@ -158,14 +161,17 @@ const EditCourse = ({ editCourseOpen, setEditCourseOpen, selectedCourse, handleM
 		e.preventDefault();
 		setIsSaving(true);
 		try {
-			await CourseApi.update(selectedCourse.id, {
+			const updatedCourse = await CourseApi.update(selectedCourse.id, {
 				title: editForm.title,
 				description: editForm.description,
 				level: editForm.level,
 				categoryId: editForm.categoryId,
-				thumbnail: editForm.thumbnail instanceof File ? editForm.thumbnail : null
+				price: editForm.price,
+				thumbnail: editForm.thumbnail instanceof File ? editForm.thumbnail : null,
+				lecturerId: selectedCourse.lecturerId
 			});
 			toast.success(`Course "${editForm.title}" updated successfully!`);
+			onSave(updatedCourse);
 			setEditCourseOpen(false);
 		} catch (error) {
 			console.error("Error updating course:", error);
@@ -223,9 +229,9 @@ const EditCourse = ({ editCourseOpen, setEditCourseOpen, selectedCourse, handleM
 												<SelectValue />
 											</SelectTrigger>
 											<SelectContent>
-												<SelectItem value="1">Beginner</SelectItem>
-												<SelectItem value="2">Intermediate</SelectItem>
-												<SelectItem value="3">Advanced</SelectItem>
+												<SelectItem value="0">Beginner</SelectItem>
+												<SelectItem value="1">Intermediate</SelectItem>
+												<SelectItem value="2">Advanced</SelectItem>
 											</SelectContent>
 										</Select>
 									</div>
@@ -252,6 +258,18 @@ const EditCourse = ({ editCourseOpen, setEditCourseOpen, selectedCourse, handleM
 											</SelectContent>
 										</Select>
 									</div>
+								</div>
+								<div>
+									<Label htmlFor="edit-price">Course Price (VND)</Label>
+									<Input
+										id="edit-price"
+										type="number"
+										min="0"
+										value={editForm.price}
+										onChange={(e) => setEditForm({ ...editForm, price: Number(e.target.value) })}
+										disabled={isSaving}
+										required
+									/>
 								</div>
 								{/* <div>
 								<Label htmlFor="edit-duration">Duration</Label>

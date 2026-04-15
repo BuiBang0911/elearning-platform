@@ -1,5 +1,6 @@
 using Infrastructure.Entities;
 using Microsoft.AspNetCore.Http;
+using System.ComponentModel.DataAnnotations;
 
 namespace ApplicationCore.DTO
 {
@@ -11,6 +12,7 @@ namespace ApplicationCore.DTO
         public CourseLevel Level { get; set; }
         public double Rating { get; set; }
         public int CategoryId { get; set; }
+        [Range(0, double.MaxValue)]
         public decimal Price { get; set; } = 0;
     }
 
@@ -37,6 +39,7 @@ namespace ApplicationCore.DTO
         public IFormFile? Thumbnail { get; set; }
         public CourseLevel Level { get; set; }
         public int CategoryId { get; set; }
+        [Range(0, double.MaxValue)]
         public decimal Price { get; set; } = 0;
     }
 

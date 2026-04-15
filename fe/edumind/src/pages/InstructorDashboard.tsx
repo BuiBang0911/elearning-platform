@@ -73,24 +73,24 @@ export default function InstructorDashboard() {
 		}
 	};
 
-	useEffect(() => {
-		const fetchData = async () => {
-			try {
-				setIsLoading(true);
-				const [coursesData, statsData] = await Promise.all([
-					CourseApi.getAllInstructorDashboard(),
-					DashboardApi.getInstructorDashboardStats()
-				]);
-				setCourses(coursesData);
-				setStats(statsData);
-				await fetchRevenueStats();
-			} catch (error) {
-				console.error("Error fetching instructor data:", error);
-			} finally {
-				setIsLoading(false);
-			}
-		};
+	const fetchData = async () => {
+		try {
+			setIsLoading(true);
+			const [coursesData, statsData] = await Promise.all([
+				CourseApi.getAllInstructorDashboard(),
+				DashboardApi.getInstructorDashboardStats()
+			]);
+			setCourses(coursesData);
+			setStats(statsData);
+			await fetchRevenueStats();
+		} catch (error) {
+			console.error("Error fetching instructor data:", error);
+		} finally {
+			setIsLoading(false);
+		}
+	};
 
+	useEffect(() => {
 		fetchData();
 	}, []);
 
@@ -117,6 +117,24 @@ export default function InstructorDashboard() {
 		};
 		setCourses(prev => [...prev, newCourse]);
 	}
+
+	const handleUpdateCourse = async (updatedDoc: CourseResponse) => {
+		console.log(updatedDoc);
+		setCourses(prev => prev.map(course =>
+			course.id === updatedDoc.id
+				? { ...course, ...updatedDoc }
+				: course
+		));
+
+		setSelectedCourse(prev =>
+			prev && prev.id.toString() === updatedDoc.id.toString()
+				? { ...prev, ...updatedDoc as any }
+				: prev
+		);
+
+		// 3. Optional: Background refresh for total sync (e.g. recalculated stats)
+		// fetchData(); 
+	};
 
 	if (isLoading || !stats) return (<FullPageLoader />);
 
@@ -204,6 +222,12 @@ export default function InstructorDashboard() {
 														}`}
 												>
 													⭐ {course.rating === 0 ? "No ratings yet" : course.rating}
+												</p>
+											</div>
+											<div>
+												<p className="text-sm text-gray-600">Price</p>
+												<p className="text-lg font-semibold text-green-600">
+													{formatCurrency(course.price)}
 												</p>
 											</div>
 										</div>
@@ -508,6 +532,7 @@ export default function InstructorDashboard() {
 					setEditCourseOpen={setEditCourseOpen}
 					selectedCourse={selectedCourse}
 					handleMaterialsChanged={handleMaterialsChanged}
+					onSave={handleUpdateCourse}
 				/>
 			)}
 
