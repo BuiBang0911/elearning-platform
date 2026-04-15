@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using PayOS;
 using Infrastructure;
 using Infrastructure.Data;
 using ApplicationCore.Data;
@@ -29,6 +30,10 @@ using ApplicationCore.Services.UserLessons;
 using ApplicationCore.Services.Dashboard;
 using ApplicationCore.Services.Admin;
 using ApplicationCore.Services.Rag;
+using ApplicationCore.Services.Payments;
+using ApplicationCore.Services.Wallets;
+using ApplicationCore.Services.Withdrawals;
+using PayOS;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -193,6 +198,21 @@ builder.Services.AddScoped<ICacheService, CacheService>();
 builder.Services.AddScoped<ICeleryService, CeleryService>();
 builder.Services.AddScoped<IStorageService, AzureStorageService>();
 builder.Services.AddHttpClient<IRagService, RagService>();
+
+// --- Payment & Wallet Services ---
+var payOSClientId = builder.Configuration["PayOS:ClientId"] ?? "";
+var payOSApiKey = builder.Configuration["PayOS:ApiKey"] ?? "";
+var payOSChecksumKey = builder.Configuration["PayOS:ChecksumKey"] ?? "";
+builder.Services.AddSingleton(new PayOSClient(payOSClientId, payOSApiKey, payOSChecksumKey));
+
+
+builder.Services.AddScoped<IRepository<Infrastructure.Entities.Order>, Repository<Infrastructure.Entities.Order>>();
+builder.Services.AddScoped<IRepository<TeacherWallet>, Repository<TeacherWallet>>();
+builder.Services.AddScoped<IRepository<WalletTransaction>, Repository<WalletTransaction>>();
+builder.Services.AddScoped<IRepository<WithdrawalRequest>, Repository<WithdrawalRequest>>();
+builder.Services.AddScoped<IPaymentService, PaymentService>();
+builder.Services.AddScoped<ITeacherWalletService, TeacherWalletService>();
+builder.Services.AddScoped<IWithdrawalService, WithdrawalService>();
 
 var app = builder.Build();
 

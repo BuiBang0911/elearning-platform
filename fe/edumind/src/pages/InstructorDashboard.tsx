@@ -14,7 +14,10 @@ import {
 	Star,
 	Clock,
 	MessageSquare,
-	ArrowUpRight
+	ArrowUpRight,
+	Wallet,
+	DollarSign,
+	ArrowDownRight as ArrowDown,
 } from "lucide-react";
 import { getCourseLevelName, type CourseResponse, type CourseResponseInstructorDashboard } from "../interfaces/Course";
 import HeaderInstructor from "../components/Header/HeaderInstructor";
@@ -24,9 +27,12 @@ import EditCourse from "../components/Instructor/EditCourse";
 import LearningMaterial from "../components/Instructor/LearningMaterial/LearningMaterial";
 import StudentTabContent from "../components/Instructor/StudentTabContent";
 import { DashboardApi, type InstructorDashboardStats } from "../api/Dashboard.api";
+import WalletApi from "../api/Wallet.api";
+import type { TeacherRevenueStats } from "../interfaces/Payment";
 import AiAssistant from "../components/AiAssistant/AiAssistant";
 import FullPageLoader from "../components/PostLoading/FullPageLoader";
 import CourseAnalyticsDialog from "../components/Instructor/CourseAnalyticsDialog";
+import WithdrawalDialog from "../components/Instructor/WithdrawalDialog";
 import {
 	AreaChart,
 	Area,
@@ -38,9 +44,14 @@ import {
 } from "recharts";
 import { format } from "date-fns";
 
+const formatCurrency = (amount: number) => {
+	return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
+};
+
 export default function InstructorDashboard() {
 	const [courses, setCourses] = useState<CourseResponseInstructorDashboard[]>([]);
 	const [stats, setStats] = useState<InstructorDashboardStats | null>(null);
+	const [revenueStats, setRevenueStats] = useState<TeacherRevenueStats | null>(null);
 	const [editCourseOpen, setEditCourseOpen] = useState(false);
 	const [selectedCourse, setSelectedCourse] = useState<CourseResponseInstructorDashboard | null>(null);
 	const [analyticsOpen, setAnalyticsOpen] = useState(false);
@@ -53,6 +64,15 @@ export default function InstructorDashboard() {
 		setAnalyticsOpen(true);
 	};
 
+	const fetchRevenueStats = async () => {
+		try {
+			const data = await WalletApi.getRevenueStats();
+			setRevenueStats(data);
+		} catch (error) {
+			console.error("Error fetching revenue stats:", error);
+		}
+	};
+
 	useEffect(() => {
 		const fetchData = async () => {
 			try {
@@ -63,6 +83,7 @@ export default function InstructorDashboard() {
 				]);
 				setCourses(coursesData);
 				setStats(statsData);
+				await fetchRevenueStats();
 			} catch (error) {
 				console.error("Error fetching instructor data:", error);
 			} finally {
@@ -147,6 +168,7 @@ export default function InstructorDashboard() {
 						<TabsTrigger value="courses">My Courses</TabsTrigger>
 						<TabsTrigger value="materials">Learning Materials</TabsTrigger>
 						<TabsTrigger value="students">Students</TabsTrigger>
+						<TabsTrigger value="revenue">Revenue</TabsTrigger>
 						<TabsTrigger value="analytics">Analytics</TabsTrigger>
 					</TabsList>
 
@@ -184,21 +206,12 @@ export default function InstructorDashboard() {
 													⭐ {course.rating === 0 ? "No ratings yet" : course.rating}
 												</p>
 											</div>
-											{/* <div>
-												<p className="text-sm text-gray-600">Modules</p>
-												<p className="text-lg font-semibold">{course.modules.length}</p>
-											</div> */}
-											{/* <div>
-												<p className="text-sm text-gray-600">Duration</p>
-												<p className="text-lg font-semibold">{course.duration}</p>
-											</div> */}
 										</div>
 										<div className="flex gap-2 mt-4">
 											<Button variant="outline" className="gap-2" onClick={() => { setEditCourseOpen(true); setSelectedCourse(course); }}>
 												<Settings className="w-4 h-4" />
 												Edit Course
 											</Button>
-											{/* <EditCourse key={course.id} editCourseOpen={editCourseOpen} setEditCourseOpen={setEditCourseOpen} selectedCourse={course} handleMaterialsChanged={handleMaterialsChanged} /> */}
 											<Button
 												variant="outline"
 												className="gap-2"
@@ -219,7 +232,6 @@ export default function InstructorDashboard() {
 							<p className="text-sm text-gray-600">
 								Upload materials for AI-powered student assistance
 							</p>
-							{/* Upload Material */}
 						</div>
 
 						<Card>
@@ -236,6 +248,147 @@ export default function InstructorDashboard() {
 							<h3 className="font-semibold mb-4">Recent Student Activity</h3>
 							<StudentTabContent />
 						</Card>
+					</TabsContent>
+
+					{/* ===== REVENUE TAB ===== */}
+					<TabsContent value="revenue" className="space-y-6">
+						{revenueStats ? (
+							<>
+								{/* Revenue Summary Cards */}
+								<div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+									<Card className="p-6 border-none shadow-sm bg-gradient-to-br from-green-50 to-emerald-50">
+										<div className="flex items-center gap-4">
+											<div className="bg-green-100 text-green-600 p-3 rounded-xl">
+												<Wallet className="w-6 h-6" />
+											</div>
+											<div>
+												<p className="text-sm font-medium text-slate-500 uppercase tracking-wider">Số dư hiện tại</p>
+												<p className="text-2xl font-bold text-green-700">{formatCurrency(revenueStats.balance)}</p>
+											</div>
+										</div>
+									</Card>
+									<Card className="p-6 border-none shadow-sm bg-gradient-to-br from-blue-50 to-indigo-50">
+										<div className="flex items-center gap-4">
+											<div className="bg-blue-100 text-blue-600 p-3 rounded-xl">
+												<DollarSign className="w-6 h-6" />
+											</div>
+											<div>
+												<p className="text-sm font-medium text-slate-500 uppercase tracking-wider">Tổng thu nhập</p>
+												<p className="text-2xl font-bold text-blue-700">{formatCurrency(revenueStats.totalEarned)}</p>
+											</div>
+										</div>
+									</Card>
+									<Card className="p-6 border-none shadow-sm bg-gradient-to-br from-amber-50 to-orange-50">
+										<div className="flex items-center gap-4">
+											<div className="bg-amber-100 text-amber-600 p-3 rounded-xl">
+												<Clock className="w-6 h-6" />
+											</div>
+											<div>
+												<p className="text-sm font-medium text-slate-500 uppercase tracking-wider">Đang chờ rút</p>
+												<p className="text-2xl font-bold text-amber-700">{formatCurrency(revenueStats.pendingWithdrawal)}</p>
+											</div>
+										</div>
+									</Card>
+								</div>
+
+								{/* Withdrawal Action */}
+								<div className="flex justify-end">
+									<WithdrawalDialog
+										balance={revenueStats.balance}
+										minAmount={2000000}
+										onSuccess={fetchRevenueStats}
+									/>
+								</div>
+
+								{/* Revenue Chart */}
+								<Card className="p-6 border-none shadow-sm">
+									<h3 className="font-bold text-slate-800 mb-6 flex items-center gap-2">
+										<TrendingUp className="w-5 h-5 text-green-500" />
+										Doanh thu theo tháng
+									</h3>
+									<div className="h-[300px]">
+										{revenueStats.monthlyRevenue.length > 0 ? (
+											<ResponsiveContainer width="100%" height="100%">
+												<AreaChart data={revenueStats.monthlyRevenue}>
+													<defs>
+														<linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+															<stop offset="5%" stopColor="#10b981" stopOpacity={0.1} />
+															<stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+														</linearGradient>
+													</defs>
+													<CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+													<XAxis
+														dataKey="month"
+														axisLine={false}
+														tickLine={false}
+														tick={{ fill: '#94a3b8', fontSize: 12 }}
+													/>
+													<YAxis
+														axisLine={false}
+														tickLine={false}
+														tick={{ fill: '#94a3b8', fontSize: 12 }}
+														tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
+													/>
+													<Tooltip
+														contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+														formatter={(value: number) => [formatCurrency(value), 'Doanh thu']}
+													/>
+													<Area type="monotone" dataKey="amount" stroke="#10b981" strokeWidth={3} fill="url(#colorRevenue)" />
+												</AreaChart>
+											</ResponsiveContainer>
+										) : (
+											<div className="h-full flex items-center justify-center text-slate-400">
+												<p>Chưa có dữ liệu doanh thu</p>
+											</div>
+										)}
+									</div>
+								</Card>
+
+								{/* Recent Orders */}
+								<Card className="p-6 border-none shadow-sm">
+									<h3 className="font-bold text-slate-800 mb-6 flex items-center gap-2">
+										<DollarSign className="w-5 h-5 text-blue-500" />
+										Giao dịch gần đây
+									</h3>
+									{revenueStats.recentOrders.length > 0 ? (
+										<div className="overflow-x-auto">
+											<table className="w-full text-sm">
+												<thead>
+													<tr className="border-b border-slate-100">
+														<th className="text-left py-3 px-4 text-slate-500 font-medium">Học sinh</th>
+														<th className="text-left py-3 px-4 text-slate-500 font-medium">Khóa học</th>
+														<th className="text-right py-3 px-4 text-slate-500 font-medium">Tổng tiền</th>
+														<th className="text-right py-3 px-4 text-slate-500 font-medium">Nhận được (70%)</th>
+														<th className="text-right py-3 px-4 text-slate-500 font-medium">Ngày</th>
+													</tr>
+												</thead>
+												<tbody>
+													{revenueStats.recentOrders.map((order) => (
+														<tr key={order.orderId} className="border-b border-slate-50 hover:bg-slate-50/50">
+															<td className="py-3 px-4 font-medium text-slate-800">{order.studentName}</td>
+															<td className="py-3 px-4 text-slate-600">{order.courseTitle}</td>
+															<td className="py-3 px-4 text-right text-slate-600">{formatCurrency(order.totalAmount)}</td>
+															<td className="py-3 px-4 text-right font-semibold text-green-600">{formatCurrency(order.teacherShare)}</td>
+															<td className="py-3 px-4 text-right text-slate-400">{format(new Date(order.paidAt), "dd/MM/yyyy")}</td>
+														</tr>
+													))}
+												</tbody>
+											</table>
+										</div>
+									) : (
+										<div className="py-12 text-center text-slate-400">
+											<DollarSign className="w-12 h-12 mx-auto mb-3 opacity-20" />
+											<p>Chưa có giao dịch nào</p>
+										</div>
+									)}
+								</Card>
+							</>
+						) : (
+							<Card className="p-12 text-center border-none shadow-sm">
+								<Wallet className="w-16 h-16 mx-auto mb-4 text-slate-300" />
+								<h3 className="text-lg font-semibold text-slate-600 mb-2">Đang tải dữ liệu doanh thu...</h3>
+							</Card>
+						)}
 					</TabsContent>
 
 					<TabsContent value="analytics" className="space-y-6">

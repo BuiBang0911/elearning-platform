@@ -66,12 +66,14 @@ export interface CourseListDto extends CourseResponse {
 	isEnrolled: boolean;
 	progress: number;
 	totalStudents: number;
+	price: number;
 }
 
 export interface CourseDetailForStudentDto extends CourseResponse {
 	isEnrolled: boolean;
 	progress: number;
 	totalStudents: number;
+	price: number;
 	lessons: LessonByStudent[];
 }
 

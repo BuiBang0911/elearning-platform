@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -14,6 +14,7 @@ namespace Infrastructure.Entities
         public string? Thumbnail { get; set; }
         public CourseLevel Level { get; set; }
         public double Rating { get; set; }
+        public decimal Price { get; set; } = 0;
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public int? CategoryId { get; set; }
 
@@ -22,6 +23,7 @@ namespace Infrastructure.Entities
         public virtual Category? Category { get; set; }
         public virtual ICollection<Enrollment> Enrollments { get; set; }
         public virtual ICollection<Lesson> Lessons { get; set; }
+        public virtual ICollection<Order> Orders { get; set; }
     }
 
     public enum CourseLevel

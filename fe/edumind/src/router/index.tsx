@@ -8,9 +8,13 @@ import InstructorDashboard from "../pages/InstructorDashboard";
 import StudentDashboard from "../pages/StudentDashboard";
 import CourseDetail from "../pages/student/CourseDetail";
 import LearningScreen from "../pages/student/LearningScreen";
+import PaymentSuccess from "../pages/student/PaymentSuccess";
+import PaymentCancel from "../pages/student/PaymentCancel";
 import AdminDashboard from "../pages/admin/AdminDashboard";
 import AdminUserManagement from "../pages/admin/AdminUserManagement";
 import AdminCourseManagement from "../pages/admin/AdminCourseManagement";
+import AdminWithdrawals from "../pages/admin/AdminWithdrawals";
+import AdminRevenueOverview from "../pages/admin/AdminRevenueOverview";
 import AdminLayout from "../components/Admin/AdminLayout";
 import ProtectedRoute from "../components/auth/ProtectedRoute";
 import { UserRole } from "../interfaces/auth";
@@ -34,6 +38,8 @@ export const router = createBrowserRouter([
           { index: true, element: <AdminDashboard /> },
           { path: "users", element: <AdminUserManagement /> },
           { path: "courses", element: <AdminCourseManagement /> },
+          { path: "withdrawals", element: <AdminWithdrawals /> },
+          { path: "revenue", element: <AdminRevenueOverview /> },
         ]
       },
       { 
@@ -65,6 +71,22 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute allowedRoles={[UserRole.STUDENT, UserRole.ADMIN]}>
             <LearningScreen />
+          </ProtectedRoute>
+        ) 
+      },
+      { 
+        path: "payment/success", 
+        element: (
+          <ProtectedRoute allowedRoles={[UserRole.STUDENT, UserRole.ADMIN]}>
+            <PaymentSuccess />
+          </ProtectedRoute>
+        ) 
+      },
+      { 
+        path: "payment/cancel", 
+        element: (
+          <ProtectedRoute allowedRoles={[UserRole.STUDENT, UserRole.ADMIN]}>
+            <PaymentCancel />
           </ProtectedRoute>
         ) 
       },

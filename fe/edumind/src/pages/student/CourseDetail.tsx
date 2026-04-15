@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { BookOpen, Clock, Star, Users, CheckCircle, ChevronLeft } from "lucide-react";
+import { BookOpen, Clock, Star, Users, CheckCircle, ChevronLeft, CreditCard, Loader2 } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { Card } from "../../components/ui/card";
 import { Badge } from "../../components/ui/badge";
@@ -13,10 +13,15 @@ import HeaderStudent from "../../components/Student/HeaderStudent";
 import authApi from "../../api/auth.api";
 import type { UserResponse } from "../../interfaces/auth";
 import enrollmentApi from "../../api/Enrollment";
+import PaymentApi from "../../api/Payment.api";
 import { toast } from "sonner";
 import { Progress } from "../../components/ui/progress";
 
 import { useAuth } from "../../context/AuthContext";
+
+const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
+};
 
 const CourseDetail = () => {
     const { id } = useParams<{ id: string }>();
@@ -25,6 +30,7 @@ const CourseDetail = () => {
     const [course, setCourse] = useState<CourseDetailForStudentDto | null>(null);
     const [isLoadingData, setIsLoadingData] = useState(true);
     const [isEnrolling, setIsEnrolling] = useState(false);
+    const [isPaying, setIsPaying] = useState(false);
 
     useEffect(() => {
         const fetchDetails = async () => {
@@ -60,11 +66,28 @@ const CourseDetail = () => {
         }
     };
 
+    const handleBuyCourse = async () => {
+        if (!course) return;
+        setIsPaying(true);
+        try {
+            const result = await PaymentApi.createPaymentLink(course.id);
+            // Redirect to PayOS checkout
+            window.location.href = result.checkoutUrl;
+        } catch (error: any) {
+            console.error(error);
+            const message = error?.response?.data?.message || "Không thể tạo link thanh toán.";
+            toast.error(message);
+        } finally {
+            setIsPaying(false);
+        }
+    };
+
     if (isLoadingData) return <FullPageLoader />;
     if (!course) return <div className="text-center py-20 text-xl font-semibold">Course not found.</div>;
 
     const levelName = getCourseLevelName(course.level) || "Beginner";
     const lessonCount = course.lessons?.length || 0;
+    const isFree = !course.price || course.price === 0;
 
     return (
         <div className="min-h-screen bg-slate-50">
@@ -186,14 +209,47 @@ const CourseDetail = () => {
                                 </div>
                             ) : (
                                 <div className="space-y-4">
-                                    <h3 className="text-2xl font-bold text-slate-800">Free</h3>
-                                    <Button
-                                        onClick={handleEnroll}
-                                        disabled={isEnrolling}
-                                        className="w-full h-12 text-lg font-semibold bg-blue-600 hover:bg-blue-700"
-                                    >
-                                        {isEnrolling ? "Enrolling..." : "Enroll Now"}
-                                    </Button>
+                                    {isFree ? (
+                                        <>
+                                            <h3 className="text-2xl font-bold text-slate-800">Free</h3>
+                                            <Button
+                                                onClick={handleEnroll}
+                                                disabled={isEnrolling}
+                                                className="w-full h-12 text-lg font-semibold bg-blue-600 hover:bg-blue-700"
+                                            >
+                                                {isEnrolling ? "Enrolling..." : "Enroll Now"}
+                                            </Button>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <div className="space-y-1">
+                                                <h3 className="text-3xl font-bold text-slate-800">
+                                                    {formatCurrency(course.price)}
+                                                </h3>
+                                            </div>
+                                            <Button
+                                                onClick={handleBuyCourse}
+                                                disabled={isPaying}
+                                                className="w-full h-12 text-lg font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 gap-2"
+                                            >
+                                                {isPaying ? (
+                                                    <>
+                                                        <Loader2 className="w-5 h-5 animate-spin" />
+                                                        Đang tạo thanh toán...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <CreditCard className="w-5 h-5" />
+                                                        Mua khóa học
+                                                    </>
+                                                )}
+                                            </Button>
+                                            <div className="flex items-center justify-center gap-2 text-sm text-slate-500 font-medium">
+                                                <img src="https://payos.vn/wp-content/uploads/sites/13/2024/08/payos-logo-nobg.png" alt="PayOS" className="h-5" />
+                                                <span>Thanh toán qua PayOS</span>
+                                            </div>
+                                        </>
+                                    )}
                                     <div className="text-center text-sm text-slate-500 font-medium">
                                         30-Day Money-Back Guarantee
                                     </div>

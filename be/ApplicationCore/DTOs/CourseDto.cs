@@ -11,6 +11,7 @@ namespace ApplicationCore.DTO
         public CourseLevel Level { get; set; }
         public double Rating { get; set; }
         public int CategoryId { get; set; }
+        public decimal Price { get; set; } = 0;
     }
 
     public class CourseResponse : BaseDto
@@ -23,6 +24,7 @@ namespace ApplicationCore.DTO
         public string Thumbnail { get; set; }
         public CourseLevel Level { get; set; }
         public double Rating { get; set; }
+        public decimal Price { get; set; }
         public string? CategoryName { get; set; }
         public int? CategoryId { get; set; }
     }
@@ -35,6 +37,7 @@ namespace ApplicationCore.DTO
         public IFormFile? Thumbnail { get; set; }
         public CourseLevel Level { get; set; }
         public int CategoryId { get; set; }
+        public decimal Price { get; set; } = 0;
     }
 
     public class CourseDashboardResponse : CourseResponse

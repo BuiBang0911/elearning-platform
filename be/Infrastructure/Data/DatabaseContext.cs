@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -28,6 +28,10 @@ namespace Infrastructure.Data
         public DbSet<ChatMessage> ChatMessages { get; set; }
         public DbSet<UserLesson> UserLessons { get; set; }
         public DbSet<Category> Categories { get; set; }
+        public DbSet<Order> Orders { get; set; }
+        public DbSet<TeacherWallet> TeacherWallets { get; set; }
+        public DbSet<WalletTransaction> WalletTransactions { get; set; }
+        public DbSet<WithdrawalRequest> WithdrawalRequests { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -46,6 +50,7 @@ namespace Infrastructure.Data
             modelBuilder.Entity<Course>(entity =>
             {
                 entity.HasKey(c => c.Id);
+                entity.Property(c => c.Price).HasPrecision(18, 2);
                 // Quan hệ 1-N: Một Lecturer (User) dạy nhiều Course
                 entity.HasOne(c => c.Lecturer)
                       .WithMany(u => u.TeachesCourses)
@@ -126,6 +131,67 @@ namespace Infrastructure.Data
                 .WithOne(c => c.Category)
                 .HasForeignKey(c => c.CategoryId)
                 .OnDelete(DeleteBehavior.SetNull);
+
+            // 8. Cấu hình bảng Orders
+            modelBuilder.Entity<Order>(entity =>
+            {
+                entity.HasKey(o => o.Id);
+                entity.HasIndex(o => o.OrderCode).IsUnique();
+                entity.Property(o => o.Amount).HasPrecision(18, 2);
+
+                entity.HasOne(o => o.Course)
+                      .WithMany(c => c.Orders)
+                      .HasForeignKey(o => o.CourseId)
+                      .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(o => o.Student)
+                      .WithMany()
+                      .HasForeignKey(o => o.StudentId)
+                      .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // 9. Cấu hình bảng TeacherWallets
+            modelBuilder.Entity<TeacherWallet>(entity =>
+            {
+                entity.HasKey(w => w.Id);
+                entity.HasIndex(w => w.TeacherId).IsUnique();
+                entity.Property(w => w.Balance).HasPrecision(18, 2);
+                entity.Property(w => w.TotalEarned).HasPrecision(18, 2);
+
+                entity.HasOne(w => w.Teacher)
+                      .WithMany()
+                      .HasForeignKey(w => w.TeacherId)
+                      .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // 10. Cấu hình bảng WalletTransactions
+            modelBuilder.Entity<WalletTransaction>(entity =>
+            {
+                entity.HasKey(t => t.Id);
+                entity.Property(t => t.Amount).HasPrecision(18, 2);
+
+                entity.HasOne(t => t.Wallet)
+                      .WithMany(w => w.Transactions)
+                      .HasForeignKey(t => t.WalletId)
+                      .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(t => t.Order)
+                      .WithMany()
+                      .HasForeignKey(t => t.OrderId)
+                      .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // 11. Cấu hình bảng WithdrawalRequests
+            modelBuilder.Entity<WithdrawalRequest>(entity =>
+            {
+                entity.HasKey(w => w.Id);
+                entity.Property(w => w.Amount).HasPrecision(18, 2);
+
+                entity.HasOne(w => w.Teacher)
+                      .WithMany()
+                      .HasForeignKey(w => w.TeacherId)
+                      .OnDelete(DeleteBehavior.Restrict);
+            });
         }
 
     }

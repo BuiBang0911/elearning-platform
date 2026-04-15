@@ -172,6 +172,7 @@ namespace ApplicationCore.Services.Courses
                     Thumbnail = c.Thumbnail,
                     Level = c.Level,
                     Rating = c.Rating,
+                    Price = c.Price,
                     CategoryName = c.Category.Name,
                     TotalStudents = _context.Enrollments.Count(e => e.CourseId == c.Id),
                     IsEnrolled = studentId.HasValue && _context.Enrollments
@@ -229,6 +230,7 @@ namespace ApplicationCore.Services.Courses
                 Thumbnail = course.Thumbnail,
                 Level = course.Level,
                 Rating = course.Rating,
+                Price = course.Price,
                 CategoryName = course.Category?.Name,
                 IsEnrolled = isEnrolled,
                 Progress = progress,

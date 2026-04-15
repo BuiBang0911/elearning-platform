@@ -8,7 +8,9 @@ import {
   LogOut, 
   Brain,
   Menu,
-  ChevronRight
+  ChevronRight,
+  Banknote,
+  DollarSign
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { Button } from "../ui/button";
@@ -27,6 +29,8 @@ const AdminLayout = () => {
     { icon: LayoutDashboard, label: "Dashboard", path: "/admin" },
     { icon: Users, label: "Users", path: "/admin/users" },
     { icon: BookOpen, label: "Courses", path: "/admin/courses" },
+    { icon: Banknote, label: "Withdrawals", path: "/admin/withdrawals" },
+    { icon: DollarSign, label: "Revenue", path: "/admin/revenue" },
   ];
 
   return (
