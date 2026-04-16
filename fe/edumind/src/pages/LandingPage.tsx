@@ -5,44 +5,35 @@ import { BookOpen, Brain, Users, TrendingUp, Sparkles, GraduationCap } from "luc
 import { useEffect, useState } from "react";
 import { UserRole, type UserResponse } from "../interfaces/auth";
 import AuthApi from "../api/auth.api";
+import { useAuth } from "../context/AuthContext";
 
 export default function LandingPage() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [user, setUser] = useState<UserResponse | null>(null);
+  const { user, logout, loading } = useAuth();
   const navigate = useNavigate();
+  const isAuthenticated = !!user;
 
-
+  // Manual redirect logic for specific roles when landing on home
   useEffect(() => {
-    const fetchUser = async () => {
-      const res = await AuthApi.getMe();
-      if (res) {
-        setIsAuthenticated(true);
-        setUser(res);
-        switch (res.role) {
-          case UserRole.ADMIN:
-            navigate("/admin");
-            break;
-          case UserRole.INSTRUCTOR:
-            navigate("/instructor");
-            break;
-          case UserRole.STUDENT:
-            navigate("/student");
-            break;
-          default:
-            navigate("/");
-        }
-      } else {
-        setIsAuthenticated(false);
-        setUser(null);
+    if (!loading && user) {
+      switch (user.role) {
+        case UserRole.ADMIN:
+          navigate("/admin");
+          break;
+        case UserRole.INSTRUCTOR:
+          navigate("/instructor");
+          break;
+        case UserRole.STUDENT:
+          // We might WANT students to see the landing page sometimes, 
+          // but if we want auto-dashboard, keep this:
+          navigate("/student");
+          break;
       }
-    };
-    fetchUser();
-  }, []);
+    }
+  }, [user, loading, navigate]);
 
-  const logout = async () => {
-    await AuthApi.logout();
-    setIsAuthenticated(false);
-    setUser(null);
+  const handleLogout = async () => {
+    await logout();
+    navigate("/");
   };
 
   return (
@@ -84,7 +75,7 @@ export default function LandingPage() {
                 </Link>
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium hidden sm:inline">{user?.fullName}</span>
-                  <Button variant="ghost" onClick={logout}>
+                  <Button variant="ghost" onClick={handleLogout}>
                     Logout
                   </Button>
                 </div>

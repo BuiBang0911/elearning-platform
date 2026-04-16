@@ -15,14 +15,31 @@ const ConditionalAiAssistant = () => {
   return null;
 };
 
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5, // 5 minutes
+      gcTime: 1000 * 60 * 30, // 30 minutes
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
+
 export default function Root() {
   return (
-    <div className="min-h-screen bg-slate-50">
-      <AuthProvider>
-        <Outlet />
-        <ConditionalAiAssistant />
-        <Toaster />
-      </AuthProvider>
-    </div>
+    <QueryClientProvider client={queryClient}>
+      <div className="min-h-screen bg-slate-50">
+        <AuthProvider>
+          <Outlet />
+          <ConditionalAiAssistant />
+          <Toaster />
+        </AuthProvider>
+      </div>
+      <ReactQueryDevtools initialIsOpen={false} />
+    </QueryClientProvider>
   );
 }

@@ -56,21 +56,23 @@ const Login = () => {
             setIsLoading(true);
 
             await AuthApi.login({ email, password, role });
+            
+            // Explicitly wait for refreshUser to populate context
             await refreshUser();
+            
             toast.success("Login successful!");
 
             // navigate theo role sau khi login thành công
             if (role === UserRole.STUDENT) {
-                navigate("/student");
+                navigate("/student", { replace: true });
             } else if (role === UserRole.INSTRUCTOR) {
-                navigate("/instructor");
+                navigate("/instructor", { replace: true });
             } else if (role === UserRole.ADMIN) {
-                navigate("/admin");
+                navigate("/admin", { replace: true });
             }
         } catch (err: any) {
             console.error("Login failed:", err);
             toast.error(err.response?.data || "Login failed. Please check your credentials.");
-        } finally {
             setIsLoading(false);
         }
     };

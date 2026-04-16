@@ -6,7 +6,7 @@ interface AuthContextType {
   user: UserResponse | null;
   loading: boolean;
   login: (userData: UserResponse) => void;
-  logout: () => void;
+  logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
 
@@ -14,30 +14,51 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<UserResponse | null>(null);
-  const [loading, setLoading] = useState(true);
+  
+  // Use localStorage as a hint to avoid flickering on public pages
+  const [loading, setLoading] = useState(() => {
+    return localStorage.getItem("is_logged_in") === "true";
+  });
 
   const refreshUser = async () => {
     try {
-      setLoading(true);
       const userData = await authApi.getMe();
       setUser(userData);
+      localStorage.setItem("is_logged_in", "true");
     } catch (error) {
+      console.error("Failed to fetch user:", error);
       setUser(null);
+      localStorage.removeItem("is_logged_in");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    refreshUser();
+    const isLoggedIn = localStorage.getItem("is_logged_in") === "true";
+    if (isLoggedIn) {
+      refreshUser();
+    } else {
+      setLoading(false);
+    }
   }, []);
 
   const login = (userData: UserResponse) => {
     setUser(userData);
+    localStorage.setItem("is_logged_in", "true");
+    setLoading(false);
   };
 
-  const logout = () => {
-    setUser(null);
+  const logout = async () => {
+    try {
+      await authApi.logout();
+    } catch (error) {
+      console.error("Logout failed:", error);
+    } finally {
+      setUser(null);
+      localStorage.removeItem("is_logged_in");
+      setLoading(false);
+    }
   };
 
   return (

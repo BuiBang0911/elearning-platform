@@ -16,12 +16,12 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles 
     return <FullPageLoader />;
   }
 
-  if (!user) {
+  if (!user && !loading) {
     // Redirect to login but save the current location to redirect back after login
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  if (allowedRoles && !allowedRoles.includes(user.role)) {
+  if (allowedRoles && !allowedRoles.includes(user!.role)) {
     // User is logged in but doesn't have the required role
     return <Navigate to="/" replace />;
   }

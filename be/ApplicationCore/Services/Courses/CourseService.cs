@@ -1,5 +1,6 @@
 using ApplicationCore.Data;
 using ApplicationCore.DTO;
+using ApplicationCore.Services.Cache;
 using AutoMapper;
 using Infrastructure.Data;
 using Infrastructure.Entities;
@@ -19,13 +20,15 @@ namespace ApplicationCore.Services.Courses
         private readonly IRepository<UserLesson> _userLessonRepository;
         private readonly DatabaseContext _context;
         private readonly IMapper _mapper;
+        private readonly ICacheService _cacheService;
 
-        public CourseService(IRepository<Course> repository, IRepository<UserLesson> userLessonRepository, IMapper mapper, DatabaseContext context) : base(repository)
+        public CourseService(IRepository<Course> repository, IRepository<UserLesson> userLessonRepository, IMapper mapper, DatabaseContext context, ICacheService cacheService) : base(repository)
         {
             _repository = repository;
             _userLessonRepository = userLessonRepository;
             _context = context; 
             _mapper = mapper;
+            _cacheService = cacheService;
         }
 
         public async Task<List<CourseByStudentDashboard>> CourseByStudentDashboard(int studentId, PagingRequest? pagingRequest = null, int? teacherId = null)
@@ -120,6 +123,10 @@ namespace ApplicationCore.Services.Courses
         public async Task<IPagedList<CourseResponse>> GetTopRatedCoursesPagedAsync(int pageNumber = 1, int pageSize = 10)
         {
             if (pageNumber < 1) pageNumber = 1;
+            var cacheKey = $"courses:top-rated:p{pageNumber}:s{pageSize}";
+
+            var cached = await _cacheService.GetAsync<PagedList<CourseResponse>>(cacheKey);
+            if (cached != null) return cached;
 
             var query = _context.Courses
                 .Include(c => c.Category)
@@ -135,8 +142,11 @@ namespace ApplicationCore.Services.Courses
                 .ToListAsync();
 
             var mappedItems = _mapper.Map<List<CourseResponse>>(items);
+            var result = new PagedList<CourseResponse>(mappedItems, totalCount, pageNumber, pageSize);
 
-            return new PagedList<CourseResponse>(mappedItems, totalCount, pageNumber, pageSize);
+            await _cacheService.SetAsync(cacheKey, result, TimeSpan.FromMinutes(10));
+
+            return result;
         }
 
         public async Task<IPagedList<CourseListDto>> GetAllCoursesForStudentAsync(

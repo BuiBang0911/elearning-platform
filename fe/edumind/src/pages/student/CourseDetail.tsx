@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { BookOpen, Clock, Star, Users, CheckCircle, ChevronLeft, CreditCard, Loader2 } from "lucide-react";
 import { Button } from "../../components/ui/button";
@@ -24,30 +25,20 @@ const formatCurrency = (amount: number) => {
 };
 
 const CourseDetail = () => {
-    const { id } = useParams<{ id: string }>();
+    const queryClient = useQueryClient();
+    const { id = "" } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const { user: currentUser } = useAuth();
-    const [course, setCourse] = useState<CourseDetailForStudentDto | null>(null);
-    const [isLoadingData, setIsLoadingData] = useState(true);
+    
+    // Replace state with useQuery
+    const { data: course, isLoading: isLoadingData } = useQuery({
+        queryKey: ["course", id],
+        queryFn: () => CourseApi.getCourseDetailForStudent(id),
+        enabled: !!id,
+    });
+
     const [isEnrolling, setIsEnrolling] = useState(false);
     const [isPaying, setIsPaying] = useState(false);
-
-    useEffect(() => {
-        const fetchDetails = async () => {
-            try {
-                setIsLoadingData(true);
-                if (id) {
-                    const res = await CourseApi.getCourseDetailForStudent(id);
-                    setCourse(res);
-                }
-            } catch (error) {
-                console.error("Failed to fetch course details", error);
-            } finally {
-                setIsLoadingData(false);
-            }
-        };
-        fetchDetails();
-    }, [id]);
 
     const handleEnroll = async () => {
         if (!course) return;
@@ -55,9 +46,8 @@ const CourseDetail = () => {
         try {
             await enrollmentApi.enrollCourse(course.id);
             toast.success("Successfully enrolled!");
-            // Refresh course details
-            const updated = await CourseApi.getCourseDetailForStudent(course.id);
-            setCourse(updated);
+            // Invalidate query to refetch course details
+            queryClient.invalidateQueries({ queryKey: ["course", id] });
         } catch (error) {
             console.error(error);
             toast.error("Failed to enroll.");

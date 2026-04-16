@@ -1,8 +1,8 @@
-import { useEffect, useState, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, CheckCircle, Circle, Menu, PlayCircle, FileText, ExternalLink } from "lucide-react";
 import CourseApi from "../../api/Course.api";
-import type { CourseDetailForStudentDto } from "../../interfaces/Course";
 import type { LessonByStudent } from "../../interfaces/Lesson";
 import FullPageLoader from "../../components/PostLoading/FullPageLoader";
 import lessonApi from "../../api/Lesson.api";
@@ -11,36 +11,26 @@ import { Button } from "../../components/ui/button";
 import { Progress } from "../../components/ui/progress";
 
 const LearningScreen = () => {
-    const { id } = useParams<{ id: string }>();
+    const queryClient = useQueryClient();
+    const { id = "" } = useParams<{ id: string }>();
     const navigate = useNavigate();
 
-    const [course, setCourse] = useState<CourseDetailForStudentDto | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
     const [activeLessonId, setActiveLessonId] = useState<number | null>(null);
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
-    const fetchDetails = async () => {
-        try {
-            if (id) {
-                const res = await CourseApi.getCourseDetailForStudent(id);
-                setCourse(res);
-
-                if (res.lessons && res.lessons.length > 0 && !activeLessonId) {
-                    const firstUncompleted = res.lessons.find((l: LessonByStudent) => !l.isCompleted);
-                    setActiveLessonId(firstUncompleted ? firstUncompleted.id : res.lessons[0].id);
-                }
+    const { data: course, isLoading } = useQuery({
+        queryKey: ["course", id],
+        queryFn: async () => {
+            const res = await CourseApi.getCourseDetailForStudent(id);
+            // Set initial active lesson if not already set
+            if (res.lessons && res.lessons.length > 0 && !activeLessonId) {
+                const firstUncompleted = res.lessons.find((l: LessonByStudent) => !l.isCompleted);
+                setActiveLessonId(firstUncompleted ? firstUncompleted.id : res.lessons[0].id);
             }
-        } catch (error) {
-            console.error("Failed to fetch course details", error);
-            toast.error("Failed to load course.");
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        fetchDetails();
-    }, [id]);
+            return res;
+        },
+        enabled: !!id,
+    });
 
     const activeLesson = useMemo(() =>
         course?.lessons.find(l => l.id === activeLessonId),
@@ -73,7 +63,8 @@ const LearningScreen = () => {
                 await lessonApi.completeLesson(lesson.id);
                 toast.success("Lesson completed! 🎉");
             }
-            await fetchDetails();
+            // Invalidate query to refresh course data (including progress)
+            queryClient.invalidateQueries({ queryKey: ["course", id] });
         } catch (error) {
             console.error(error);
             toast.error("Failed to update status.");

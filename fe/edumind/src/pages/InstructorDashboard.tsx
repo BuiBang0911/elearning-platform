@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
@@ -49,94 +50,59 @@ const formatCurrency = (amount: number) => {
 };
 
 export default function InstructorDashboard() {
-	const [courses, setCourses] = useState<CourseResponseInstructorDashboard[]>([]);
-	const [stats, setStats] = useState<InstructorDashboardStats | null>(null);
-	const [revenueStats, setRevenueStats] = useState<TeacherRevenueStats | null>(null);
+	const queryClient = useQueryClient();
+
 	const [editCourseOpen, setEditCourseOpen] = useState(false);
 	const [selectedCourse, setSelectedCourse] = useState<CourseResponseInstructorDashboard | null>(null);
 	const [analyticsOpen, setAnalyticsOpen] = useState(false);
 	const [analyticsCourse, setAnalyticsCourse] = useState<{ id: number, title: string } | null>(null);
 	const [createCourseOpen, setCreateCourseOpen] = useState(false);
-	const [isLoading, setIsLoading] = useState(true);
 
 	const handleOpenAnalytics = (courseId: number, courseTitle: string) => {
 		setAnalyticsCourse({ id: courseId, title: courseTitle });
 		setAnalyticsOpen(true);
 	};
 
-	const fetchRevenueStats = async () => {
-		try {
-			const data = await WalletApi.getRevenueStats();
-			setRevenueStats(data);
-		} catch (error) {
-			console.error("Error fetching revenue stats:", error);
-		}
+	const { data: courses = [], isLoading: coursesLoading } = useQuery({
+		queryKey: ["instructor", "courses"],
+		queryFn: CourseApi.getAllInstructorDashboard,
+	});
+
+	const { data: stats = null, isLoading: statsLoading } = useQuery({
+		queryKey: ["instructor", "stats"],
+		queryFn: DashboardApi.getInstructorDashboardStats,
+	});
+
+	const { data: revenueStats = null, isLoading: revenueLoading, refetch: refetchRevenueStats } = useQuery({
+		queryKey: ["instructor", "revenue"],
+		queryFn: WalletApi.getRevenueStats,
+	});
+
+	const isLoading = coursesLoading || statsLoading || revenueLoading;
+
+	const avgRating = useMemo(() => {
+		if (courses.length === 0) return "0.0";
+		return (courses.reduce((sum, c) => sum + c.rating, 0) / courses.length).toFixed(1);
+	}, [courses]);
+
+	const handleCoursesChanged = () => {
+		queryClient.invalidateQueries({ queryKey: ["instructor", "stats"] });
+		queryClient.invalidateQueries({ queryKey: ["instructor", "courses"] });
 	};
 
-	const fetchData = async () => {
-		try {
-			setIsLoading(true);
-			const [coursesData, statsData] = await Promise.all([
-				CourseApi.getAllInstructorDashboard(),
-				DashboardApi.getInstructorDashboardStats()
-			]);
-			setCourses(coursesData);
-			setStats(statsData);
-			await fetchRevenueStats();
-		} catch (error) {
-			console.error("Error fetching instructor data:", error);
-		} finally {
-			setIsLoading(false);
-		}
+	const handleMaterialsChanged = () => {
+		queryClient.invalidateQueries({ queryKey: ["instructor", "stats"] });
 	};
 
-	useEffect(() => {
-		fetchData();
-	}, []);
-
-	const avgRating = (courses.reduce((sum, c) => sum + c.rating, 0) / courses.length).toFixed(1);
-
-	const handleCoursesChanged = (delta: number) => {
-		setStats(prev => prev ? {
-			...prev,
-			totalCourses: prev.totalCourses + delta
-		} : null);
-	};
-
-	const handleMaterialsChanged = (delta: number) => {
-		setStats(prev => prev ? {
-			...prev,
-			totalMaterials: prev.totalMaterials + delta
-		} : null);
-	};
-
-	const handleAddCourse = (newDoc: CourseResponse) => {
-		const newCourse: CourseResponseInstructorDashboard = {
-			...newDoc,
-			students: 0 // hoặc 0 tùy kiểu của bạn
-		};
-		setCourses(prev => [...prev, newCourse]);
+	const handleAddCourse = () => {
+		handleCoursesChanged();
 	}
 
-	const handleUpdateCourse = async (updatedDoc: CourseResponse) => {
-		console.log(updatedDoc);
-		setCourses(prev => prev.map(course =>
-			course.id === updatedDoc.id
-				? { ...course, ...updatedDoc }
-				: course
-		));
-
-		setSelectedCourse(prev =>
-			prev && prev.id.toString() === updatedDoc.id.toString()
-				? { ...prev, ...updatedDoc as any }
-				: prev
-		);
-
-		// 3. Optional: Background refresh for total sync (e.g. recalculated stats)
-		// fetchData(); 
+	const handleUpdateCourse = async () => {
+		handleCoursesChanged();
 	};
 
-	if (isLoading || !stats) return (<FullPageLoader />);
+	if (isLoading || !stats || !revenueStats) return (<FullPageLoader />);
 
 	const summaryCards = [
 		{ label: "Active Courses", value: stats.totalCourses, icon: BookOpen, color: "text-blue-600", bg: "bg-blue-50" },
@@ -320,7 +286,7 @@ export default function InstructorDashboard() {
 									<WithdrawalDialog
 										balance={revenueStats.balance}
 										minAmount={0}
-										onSuccess={fetchRevenueStats}
+										onSuccess={refetchRevenueStats}
 									/>
 								</div>
 

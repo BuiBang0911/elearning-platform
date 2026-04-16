@@ -1,5 +1,6 @@
 using ApplicationCore.Data;
 using ApplicationCore.DTOs;
+using ApplicationCore.Services.Cache;
 using Infrastructure.Entities;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -13,17 +14,26 @@ namespace Web.Controllers
     public class CategoryController : ControllerBase
     {
         private readonly IRepository<Category> _categoryRepository;
+        private readonly ICacheService _cacheService;
+        private const string CategoriesCacheKey = "categories:all";
 
-        public CategoryController(IRepository<Category> categoryRepository)
+        public CategoryController(IRepository<Category> categoryRepository, ICacheService cacheService)
         {
             _categoryRepository = categoryRepository;
+            _cacheService = cacheService;
         }
 
         [HttpGet]
         public async Task<ActionResult<IEnumerable<CategoryResponse>>> GetAll()
         {
+            var cached = await _cacheService.GetAsync<List<CategoryResponse>>(CategoriesCacheKey);
+            if (cached != null) return Ok(cached);
+
             var categories = await _categoryRepository.ListAllAsync();
-            var categoryResponses = categories.Select(c => new CategoryResponse { Id = c.Id, Name = c.Name });
+            var categoryResponses = categories.Select(c => new CategoryResponse { Id = c.Id, Name = c.Name }).ToList();
+            
+            await _cacheService.SetAsync(CategoriesCacheKey, categoryResponses, TimeSpan.FromHours(1));
+            
             return Ok(categoryResponses);
         }
 
@@ -51,6 +61,7 @@ namespace Web.Controllers
 
             var category = new Category { Name = categoryRequest.Name };
             var res = await _categoryRepository.AddAsync(category);
+            await _cacheService.RemoveAsync(CategoriesCacheKey);
             var categoryResponse = new CategoryResponse { Id = res.Id, Name = res.Name };
             return Ok(categoryResponse);
         }
@@ -73,6 +84,7 @@ namespace Web.Controllers
 
             existingCategory.Name = categoryRequest.Name;
             await _categoryRepository.UpdateAsync(existingCategory);
+            await _cacheService.RemoveAsync(CategoriesCacheKey);
             return NoContent();
         }
 
@@ -85,6 +97,7 @@ namespace Web.Controllers
                 return NotFound();
             }
             await _categoryRepository.DeleteAsync(category);
+            await _cacheService.RemoveAsync(CategoriesCacheKey);
             return NoContent();
         }
     }
