@@ -12,6 +12,8 @@ using Infrastructure.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System;
+using System.IO;
 
 namespace Web.Controllers
 {
@@ -104,20 +106,41 @@ namespace Web.Controllers
             var doc = await _documentService.FirstOrDefaultAsync(x => x.Id == id);
             if (doc == null) return NotFound();
 
+            // 1. Delete actual file from cloud storage
             try
             {
-                // Trigger cleanup in RAG system
-                await _celeryService.EnqueueTaskAsync(
-                    "rag.tasks.delete_document_task",
-                    doc.FileName
-                );
+                if (!string.IsNullOrEmpty(doc.FilePath))
+                {
+                    await _storageService.DeleteFileAsync(doc.FilePath);
+                    Console.WriteLine($"✅ Physical file deleted from storage: {doc.FilePath}");
+                }
             }
             catch (Exception ex)
             {
-                // Log but don't stop deletion
-                Console.WriteLine($"Celery Delete Enqueue Error: {ex.Message}");
+                // We log the storage error but continue with database deletion
+                // to avoid keeping "dead" records in the UI.
+                Console.WriteLine($"⚠️ Storage Delete Error: {ex.Message}");
             }
 
+            // 2. Trigger cleanup in RAG system using the unique blob name
+            try
+            {
+                // Extract unique filename (GUID-based) from storage URL
+                Uri uri = new Uri(doc.FilePath);
+                string physicalFileName = Path.GetFileName(uri.LocalPath);
+
+                await _celeryService.EnqueueTaskAsync(
+                    "rag.tasks.delete_document_task",
+                    physicalFileName
+                );
+                Console.WriteLine($"🚀 Enqueued RAG cleanup for: {physicalFileName}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"⚠️ Celery Delete Enqueue Error: {ex.Message}");
+            }
+
+            // 3. Delete from database
             await _documentService.DeleteAsync(doc);
             return NoContent();
         }
