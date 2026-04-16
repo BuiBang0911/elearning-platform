@@ -55,6 +55,11 @@ const UploadDocument = ({ uploadDocumentOpen, setUploadDocumentOpen, courseId, o
 				toast.error("Only PDF documents are accepted here.");
 				return;
 			}
+			// 5MB limit
+			if (file.size > 5 * 1024 * 1024) {
+				toast.error("File size exceeds 5MB limit.");
+				return;
+			}
 			setSelectedFile(file);
 		}
 	};
@@ -83,9 +88,9 @@ const UploadDocument = ({ uploadDocumentOpen, setUploadDocumentOpen, courseId, o
 			onSave(newDoc);
 			setUploadDocumentOpen(false);
 			resetForm();
-		} catch (error) {
+		} catch (error: any) {
 			console.error("Upload error:", error);
-			toast.error("Failed to upload document.");
+			toast.error(error.response?.data || "Failed to upload document.");
 		} finally {
 			setIsUploading(false);
 		}

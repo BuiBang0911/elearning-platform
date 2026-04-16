@@ -9,6 +9,7 @@ import { Button } from "../../components/ui/button";
 import FullPageLoader from "../../components/PostLoading/FullPageLoader";
 import { UserRole } from "../../interfaces/auth";
 import AuthApi from "../../api/auth.api";
+import { toast } from "sonner";
 
 export default function RegisterPage() {
 	const navigate = useNavigate();
@@ -45,11 +46,13 @@ export default function RegisterPage() {
 			setIsLoading(true);
 			await AuthApi.register({ email, fullName: name, password, role });
 			setIsLoading(false);
+			toast.success("Registration successful! Please login.");
 			navigate("/login");
 		}
-		catch (err) {
+		catch (err: any) {
 			console.error("Registration failed:", err);
 			setIsLoading(false);
+			toast.error(err.response?.data || "Registration failed. Please try again.");
 		}
 	};
 

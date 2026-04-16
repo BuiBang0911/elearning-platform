@@ -319,7 +319,7 @@ export default function InstructorDashboard() {
 								<div className="flex justify-end">
 									<WithdrawalDialog
 										balance={revenueStats.balance}
-										minAmount={2000000}
+										minAmount={0}
 										onSuccess={fetchRevenueStats}
 									/>
 								</div>

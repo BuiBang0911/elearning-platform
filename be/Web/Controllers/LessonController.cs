@@ -10,6 +10,8 @@ using Azure;
 using Infrastructure.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.IO;
+using System.Linq;
 
 namespace Web.Controllers
 {
@@ -60,6 +62,21 @@ namespace Web.Controllers
 
             if (rq.VideoFile != null)
             {
+                // 1. Validate File Size (Max 100MB)
+                const long maxFileSize = 100 * 1024 * 1024;
+                if (rq.VideoFile.Length > maxFileSize)
+                {
+                    return BadRequest("Video file size exceeds 100MB limit.");
+                }
+
+                // 2. Validate File Extension
+                var allowedExtensions = new[] { ".mp4", ".mov", ".avi", ".mkv" };
+                var extension = Path.GetExtension(rq.VideoFile.FileName).ToLowerInvariant();
+                if (!allowedExtensions.Contains(extension))
+                {
+                    return BadRequest("Invalid video format. Supported formats: .mp4, .mov, .avi, .mkv");
+                }
+
                 var videoUrl = await _storageService.UploadFileAsync(rq.VideoFile);
                 if (!string.IsNullOrEmpty(videoUrl))
                 {
@@ -89,6 +106,21 @@ namespace Web.Controllers
 
             if (rq.VideoFile != null)
             {
+                // 1. Validate File Size (Max 100MB)
+                const long maxFileSize = 100 * 1024 * 1024;
+                if (rq.VideoFile.Length > maxFileSize)
+                {
+                    return BadRequest("Video file size exceeds 100MB limit.");
+                }
+
+                // 2. Validate File Extension
+                var allowedExtensions = new[] { ".mp4", ".mov", ".avi", ".mkv" };
+                var extension = Path.GetExtension(rq.VideoFile.FileName).ToLowerInvariant();
+                if (!allowedExtensions.Contains(extension))
+                {
+                    return BadRequest("Invalid video format. Supported formats: .mp4, .mov, .avi, .mkv");
+                }
+
                 // Optionally delete old video
                 if (!string.IsNullOrEmpty(entity.VideoUrl))
                 {

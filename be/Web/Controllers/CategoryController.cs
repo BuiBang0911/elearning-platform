@@ -1,4 +1,4 @@
-﻿using ApplicationCore.Data;
+using ApplicationCore.Data;
 using ApplicationCore.DTOs;
 using Infrastructure.Entities;
 using Microsoft.AspNetCore.Http;
@@ -42,6 +42,13 @@ namespace Web.Controllers
         [HttpPost]
         public async Task<ActionResult<CategoryResponse>> Create(CategoryRequest categoryRequest)
         {
+            // Check for duplicate name (case-insensitive)
+            var existing = await _categoryRepository.FirstOrDefaultAsync(c => c.Name.ToLower() == categoryRequest.Name.ToLower());
+            if (existing != null)
+            {
+                return BadRequest("A category with this name already exists.");
+            }
+
             var category = new Category { Name = categoryRequest.Name };
             var res = await _categoryRepository.AddAsync(category);
             var categoryResponse = new CategoryResponse { Id = res.Id, Name = res.Name };
@@ -56,6 +63,14 @@ namespace Web.Controllers
             {
                 return NotFound();
             }
+
+            // Check if another category already has this name
+            var duplicate = await _categoryRepository.FirstOrDefaultAsync(c => c.Id != id && c.Name.ToLower() == categoryRequest.Name.ToLower());
+            if (duplicate != null)
+            {
+                return BadRequest("Another category with this name already exists.");
+            }
+
             existingCategory.Name = categoryRequest.Name;
             await _categoryRepository.UpdateAsync(existingCategory);
             return NoContent();

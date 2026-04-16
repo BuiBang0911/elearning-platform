@@ -25,6 +25,12 @@ const EditDocument = ({ editDocumentOpen, setEditDocumentOpen, document, onSave 
 
 	const handleSaveDocumentEdit = async (e: React.FormEvent) => {
 		e.preventDefault();
+
+		if (!documentForm.fileName.trim()) {
+			toast.error("File name is required.");
+			return;
+		}
+
 		setIsLoading(true);
 		try {
 			await documentApi.update(document.id, {
@@ -41,9 +47,9 @@ const EditDocument = ({ editDocumentOpen, setEditDocumentOpen, document, onSave 
 			});
 			toast.success(`Document "${documentForm.fileName}" updated successfully!`);
 			setEditDocumentOpen(false);
-		} catch (error) {
+		} catch (error: any) {
 			console.error("Error updating document:", error);
-			toast.error("Failed to update document. Please try again.");
+			toast.error(error.response?.data || "Failed to update document. Please try again.");
 		} finally {
 			setIsLoading(false);
 		}

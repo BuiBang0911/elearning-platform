@@ -46,6 +46,17 @@ const CreateNewCourse = ({ createCourseOpen, setCreateCourseOpen, handleCoursesC
 
 	const handleCreateCourse = async (e: React.FormEvent) => {
 		e.preventDefault();
+
+		if (courseForm.price < 2000) {
+			toast.error("Minimum course price is 2,000 VND.");
+			return;
+		}
+
+		if (!courseForm.title.trim() || courseForm.title.length < 10) {
+			toast.error("Course title must be at least 10 characters.");
+			return;
+		}
+
 		setIsLoading(true);
 		try {
 			const newCourse = await CourseApi.create(courseForm);
@@ -54,9 +65,9 @@ const CreateNewCourse = ({ createCourseOpen, setCreateCourseOpen, handleCoursesC
 			onSave(newCourse);
 			handleCoursesChanged(1);
 			setCourseForm({ title: "", description: "", level: CourseLevel.BEGINNER, categoryId: undefined, price: 0, thumbnail: null });
-		} catch (error) {
+		} catch (error: any) {
 			console.error("Error creating course:", error);
-			toast.error("Failed to create course. Please try again.");
+			toast.error(error.response?.data || "Failed to create course. Please try again.");
 		} finally {
 			setIsLoading(false);
 		}
@@ -64,7 +75,13 @@ const CreateNewCourse = ({ createCourseOpen, setCreateCourseOpen, handleCoursesC
 
 	const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 		if (e.target.files && e.target.files[0]) {
-			setCourseForm({ ...courseForm, thumbnail: e.target.files[0] });
+			const file = e.target.files[0];
+			// 2MB limit
+			if (file.size > 2 * 1024 * 1024) {
+				toast.error("Thumbnail size exceeds 2MB limit.");
+				return;
+			}
+			setCourseForm({ ...courseForm, thumbnail: file });
 		}
 	};
 

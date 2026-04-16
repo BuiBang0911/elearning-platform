@@ -11,6 +11,9 @@ using Infrastructure.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System;
+using System.IO;
+using System.Linq;
 using System.Net.WebSockets;
 using Web.Controllers;
 
@@ -57,13 +60,23 @@ namespace Web.Controllers
 
             string? resultUrl = null;
 
-            if (request.Price < 0)
-            {
-                return BadRequest("Price must be greater than or equal to 0.");
-            }
-
             if (request.Thumbnail != null)
             {
+                // 1. Validate File Size (Max 2MB)
+                const long maxFileSize = 2 * 1024 * 1024;
+                if (request.Thumbnail.Length > maxFileSize)
+                {
+                    return BadRequest("Thumbnail size exceeds 2MB limit.");
+                }
+
+                // 2. Validate File Extension
+                var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".webp" };
+                var extension = Path.GetExtension(request.Thumbnail.FileName).ToLowerInvariant();
+                if (!allowedExtensions.Contains(extension))
+                {
+                    return BadRequest("Invalid image format. Supported formats: .jpg, .jpeg, .png, .webp");
+                }
+
                 resultUrl = await _storageService.UploadFileAsync(request.Thumbnail);
                 if (string.IsNullOrEmpty(resultUrl))
                 {
@@ -139,6 +152,21 @@ namespace Web.Controllers
 
             if (request.Thumbnail != null)
             {
+                // 1. Validate File Size (Max 2MB)
+                const long maxFileSize = 2 * 1024 * 1024;
+                if (request.Thumbnail.Length > maxFileSize)
+                {
+                    return BadRequest("Thumbnail size exceeds 2MB limit.");
+                }
+
+                // 2. Validate File Extension
+                var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".webp" };
+                var extension = Path.GetExtension(request.Thumbnail.FileName).ToLowerInvariant();
+                if (!allowedExtensions.Contains(extension))
+                {
+                    return BadRequest("Invalid image format. Supported formats: .jpg, .jpeg, .png, .webp");
+                }
+
                 var resultUrl = await _storageService.UploadFileAsync(request.Thumbnail);
                 if (!string.IsNullOrEmpty(resultUrl))
                 {

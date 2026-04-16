@@ -14,6 +14,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.IO;
+using System.Linq;
 
 namespace Web.Controllers
 {
@@ -41,7 +42,28 @@ namespace Web.Controllers
             var userId = _authService.UserId;
             if (userId == null) return Unauthorized("Invalid refresh token");
 
-            if (request.File == null) return BadRequest("File not null");
+            if (request.File == null) return BadRequest("File is required");
+
+            // 1. Validate File Size (Max 5MB)
+            const long maxFileSize = 5 * 1024 * 1024;
+            if (request.File.Length > maxFileSize)
+            {
+                return BadRequest("File size exceeds 5MB limit.");
+            }
+
+            // 2. Validate File Extension
+            var allowedExtensions = new[] { ".pdf" };
+            var extension = Path.GetExtension(request.File.FileName).ToLowerInvariant();
+            if (!allowedExtensions.Contains(extension))
+            {
+                return BadRequest("Only .pdf files are allowed for documents.");
+            }
+
+            // 3. Validate Content Type
+            if (request.File.ContentType != "application/pdf")
+            {
+                return BadRequest("Invalid file content type. Expected application/pdf.");
+            }
 
             var resultUrl = await _storageService.UploadFileAsync(request.File);
             if (string.IsNullOrEmpty(resultUrl))

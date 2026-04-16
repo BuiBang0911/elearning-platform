@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.ComponentModel.DataAnnotations;
 
 namespace ApplicationCore.DTOs
 {
@@ -33,9 +34,20 @@ namespace ApplicationCore.DTOs
 
     public class WithdrawalRequestDto
     {
+        [Required(ErrorMessage = "Amount is required")]
+        [Range(0.01, double.MaxValue, ErrorMessage = "Amount must be greater than 0")]
         public decimal Amount { get; set; }
+
+        [Required(ErrorMessage = "Bank name is required")]
+        [StringLength(100, ErrorMessage = "Bank name cannot exceed 100 characters")]
         public string BankName { get; set; }
+
+        [Required(ErrorMessage = "Bank account number is required")]
+        [StringLength(50, ErrorMessage = "Bank account number cannot exceed 50 characters")]
         public string BankAccountNumber { get; set; }
+
+        [Required(ErrorMessage = "Bank account name is required")]
+        [StringLength(100, ErrorMessage = "Bank account name cannot exceed 100 characters")]
         public string BankAccountName { get; set; }
     }
 
@@ -68,6 +80,7 @@ namespace ApplicationCore.DTOs
 
     public class AdminWithdrawalActionDto
     {
+        [StringLength(500, ErrorMessage = "Admin note cannot exceed 500 characters")]
         public string? AdminNote { get; set; }
     }
 }

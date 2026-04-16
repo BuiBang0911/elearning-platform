@@ -9,6 +9,7 @@ import { Input } from "../../components/ui/input";
 import { Button } from "../../components/ui/button";
 import { UserRole } from "../../interfaces/auth";
 import AuthApi from "../../api/auth.api";
+import { toast } from "sonner";
 
 
 
@@ -25,12 +26,38 @@ const Login = () => {
     const [searchParams] = useSearchParams();
     const roleFromUrl = searchParams.get("role") || "student";
 
+    const [errors, setErrors] = useState({ email: "", password: "" });
+
+    const validate = () => {
+        let valid = true;
+        const newErrors = { email: "", password: "" };
+
+        if (!email.trim()) {
+            newErrors.email = "Email is required";
+            valid = false;
+        } else if (!/\S+@\S+\.\S+/.test(email)) {
+            newErrors.email = "Invalid email format";
+            valid = false;
+        }
+
+        if (!password) {
+            newErrors.password = "Password is required";
+            valid = false;
+        }
+
+        setErrors(newErrors);
+        return valid;
+    };
+
     const handleSubmit = async (role: UserRole) => {
+        if (!validate()) return;
+
         try {
             setIsLoading(true);
 
             await AuthApi.login({ email, password, role });
             await refreshUser();
+            toast.success("Login successful!");
 
             // navigate theo role sau khi login thành công
             if (role === UserRole.STUDENT) {
@@ -40,8 +67,9 @@ const Login = () => {
             } else if (role === UserRole.ADMIN) {
                 navigate("/admin");
             }
-        } catch (err) {
+        } catch (err: any) {
             console.error("Login failed:", err);
+            toast.error(err.response?.data || "Login failed. Please check your credentials.");
         } finally {
             setIsLoading(false);
         }
@@ -89,7 +117,9 @@ const Login = () => {
                                     placeholder="student@edumind.com"
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
+                                    required
                                 />
+                                {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
                             </div>
                             <div>
                                 <Label htmlFor="student-password">Password</Label>
@@ -99,7 +129,9 @@ const Login = () => {
                                     placeholder="••••••••"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
+                                    required
                                 />
+                                {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password}</p>}
                             </div>
                             <Button type="submit" className="w-full">
                                 Sign In as Student

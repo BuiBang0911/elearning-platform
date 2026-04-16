@@ -29,6 +29,12 @@ const AddNewLesson = ({ addLessonOpen, setAddLessonOpen, courseId, onSave }: Add
 
 	const handleAddLesson = async (e: React.FormEvent) => {
 		e.preventDefault();
+
+		if (!formData.title.trim() || formData.title.length < 5) {
+			toast.error("Lesson title must be at least 5 characters.");
+			return;
+		}
+
 		setIsLoading(true);
 		try {
 			const newLesson = await lessonApi.create(formData);
@@ -36,9 +42,9 @@ const AddNewLesson = ({ addLessonOpen, setAddLessonOpen, courseId, onSave }: Add
 			onSave(newLesson);
 			setAddLessonOpen(false);
 			setFormData({ ...formData, title: "", description: "", content: "", videoFile: undefined });
-		} catch (error) {
+		} catch (error: any) {
 			console.error("Error creating lesson:", error);
-			toast.error("Failed to create lesson. Please try again.");
+			toast.error(error.response?.data || "Failed to create lesson. Please try again.");
 		} finally {
 			setIsLoading(false);
 		}
@@ -46,7 +52,20 @@ const AddNewLesson = ({ addLessonOpen, setAddLessonOpen, courseId, onSave }: Add
 
 	const handleVideoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 		if (e.target.files && e.target.files[0]) {
-			setFormData({ ...formData, videoFile: e.target.files[0] });
+			const file = e.target.files[0];
+			// 100MB limit
+			if (file.size > 100 * 1024 * 1024) {
+				toast.error("Video file size exceeds 100MB limit.");
+				return;
+			}
+			// Extension check
+			const allowed = [".mp4", ".mov", ".avi", ".mkv"];
+			const ext = file.name.substring(file.name.lastIndexOf(".")).toLowerCase();
+			if (!allowed.includes(ext)) {
+				toast.error("Invalid video format. Use .mp4, .mov, .avi, or .mkv");
+				return;
+			}
+			setFormData({ ...formData, videoFile: file });
 		}
 	};
 
@@ -84,6 +103,22 @@ const AddNewLesson = ({ addLessonOpen, setAddLessonOpen, courseId, onSave }: Add
 							disabled={isLoading}
 							rows={3}
 						/>
+					</div>
+					<div>
+						<Label htmlFor="lesson-video">Lesson Video (Max 100MB)</Label>
+						<Input
+							id="lesson-video"
+							type="file"
+							accept="video/*"
+							onChange={handleVideoChange}
+							className="mt-2"
+							disabled={isLoading}
+						/>
+						{formData.videoFile && (
+							<p className="text-xs text-blue-600 mt-2 font-medium">
+								✓ {formData.videoFile.name} selected
+							</p>
+						)}
 					</div>
 					<div className="flex justify-end gap-2 pt-4">
 						<Button type="button" variant="outline" onClick={() => setAddLessonOpen(false)} disabled={isLoading}>

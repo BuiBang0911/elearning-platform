@@ -18,7 +18,7 @@ import { toast } from "sonner";
 
 interface WithdrawalDialogProps {
     balance: number;
-    minAmount: number;
+    minAmount?: number;
     onSuccess: () => void;
 }
 
@@ -26,7 +26,7 @@ const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
 };
 
-const WithdrawalDialog = ({ balance, minAmount, onSuccess }: WithdrawalDialogProps) => {
+const WithdrawalDialog = ({ balance, minAmount = 0, onSuccess }: WithdrawalDialogProps) => {
     const [open, setOpen] = useState(false);
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({

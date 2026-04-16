@@ -6,13 +6,26 @@ namespace ApplicationCore.DTO
 {
     public class CourseRequest : PagingRequest
     {
+        [Required(ErrorMessage = "Course title is required")]
+        [StringLength(255, MinimumLength = 10, ErrorMessage = "Title must be between 10 and 255 characters")]
         public string Title { get; set; }
+
+        [Required(ErrorMessage = "Description is required")]
+        [StringLength(5000, MinimumLength = 50, ErrorMessage = "Description must be between 50 and 5000 characters")]
         public string Description { get; set; }
+
         public int? LecturerId { get; set; }
+
+        [Required]
         public CourseLevel Level { get; set; }
+
         public double Rating { get; set; }
+
+        [Required]
         public int CategoryId { get; set; }
-        [Range(0, double.MaxValue)]
+
+        [Required]
+        [Range(2000, 100000000, ErrorMessage = "Price must be at least 2,000 VND")]
         public decimal Price { get; set; } = 0;
     }
 
@@ -33,13 +46,25 @@ namespace ApplicationCore.DTO
 
     public class CourseUpdateRequest
     {
+        [Required(ErrorMessage = "Course title is required")]
+        [StringLength(255, MinimumLength = 10, ErrorMessage = "Title must be between 10 and 255 characters")]
         public string Title { get; set; }
+
+        [Required(ErrorMessage = "Description is required")]
+        [StringLength(5000, MinimumLength = 50, ErrorMessage = "Description must be between 50 and 5000 characters")]
         public string Description { get; set; }
+
         public int? LecturerId { get; set; }
         public IFormFile? Thumbnail { get; set; }
+
+        [Required]
         public CourseLevel Level { get; set; }
+
+        [Required]
         public int CategoryId { get; set; }
-        [Range(0, double.MaxValue)]
+
+        [Required]
+        [Range(2000, 100000000, ErrorMessage = "Price must be at least 2,000 VND")]
         public decimal Price { get; set; } = 0;
     }
 
