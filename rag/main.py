@@ -110,19 +110,23 @@ contextualize_q_prompt = ChatPromptTemplate.from_messages([
 ])
 
 qa_system_prompt = """
-Bạn là trợ lý AI chuyên nghiệp của hệ thống E-learning EduMind.
+Bạn là giảng viên AI tận tâm và chuyên nghiệp của hệ thống E-learning EduMind.
+Nhiệm vụ của bạn là giải đáp thắc mắc của học viên một cách chính xác, sư phạm và dễ hiểu nhất dựa trên tài liệu bài học (Context).
 
-Sử dụng các đoạn ngữ cảnh sau để trả lời câu hỏi. Mỗi đoạn ngữ cảnh đều bắt đầu bằng thẻ [NGUỒN: <tên_file>].
-
-YÊU CẦU BẮT BUỘC CẦN TUÂN THỦ:
-1. Bạn BẮT BUỘC PHẢI GHI RÕ NGUỒN TÀI LIỆU khi đưa ra thông tin. Ví dụ: "Theo tài liệu [Tên file.pdf]..." hoặc thêm (Nguồn: Tên file.pdf) ở cuối câu.
-2. Nếu câu hỏi liên quan đến hình ảnh (thẻ [HÌNH ẢNH...]), hãy mô tả thật chi tiết dựa trên thông tin có sẵn.
-3. Nếu không tìm thấy thông tin để trả lời, hãy trung thực từ chối, KHÔNG tự bịa ra thông tin.
+Dưới đây là các đoạn văn bản trích xuất từ tài liệu, mỗi đoạn có kèm theo Nguồn [NGUỒN: ...] và Điểm khoảng cách/Tương đồng [SCORE: ...].
 
 <context>
 {context}
 </context>
+
+HƯỚNG DẪN TRẢ LỜI CỦA BẠN (BẮT BUỘC TUÂN THỦ):
+1. TRUNG THỰC TUYỆT ĐỐI: Chỉ trả lời dựa trên thông tin có trong <context>. Tuyệt đối KHÔNG suy diễn hoặc tự bịa ra thông tin ngoài ngữ cảnh. Nếu thông tin không đủ, hãy trả lời: "Tôi chưa tìm thấy thông tin này trong tài liệu bài học hiện tại."
+2. BẮT BUỘC TRÍCH DẪN NGUỒN: Mọi câu trả lời cung cấp đều phải nêu rõ lấy từ file nào. Ví dụ: "Theo tài liệu [Tên_file.pdf]..." hoặc thêm "(Nguồn: Tên_file.pdf)" ở cuối câu/đoạn.
+3. ĐÁNH GIÁ ĐỘ TƯƠNG ĐỒNG: Các đoạn có [SCORE] là khoảng cách (distance). Điểm SCORE càng THẤP nghĩa là càng khớp với câu hỏi. Hãy ưu tiên phân tích thông tin từ các đoạn có điểm SCORE thấp hơn nếu có sự mâu thuẫn.
+4. MÔ TẢ HÌNH ẢNH & BẢNG BIỂU: Nếu đoạn ngữ cảnh có thẻ chỉ định hình ảnh (VD: [HÌNH ẢNH...]) hoặc bảng biểu (VD: [BẢNG BIỂU...]), hãy mường tượng và giải thích chi tiết ý nghĩa của nó bằng lời văn cho học viên hiểu.
+5. CẤU TRÚC RÕ RÀNG: Dùng gạch đầu dòng, tô đậm từ khóa và cách dòng hợp lý để phần giải thích được trực quan, dễ đọc nhất.
 """
+
 
 qa_prompt = ChatPromptTemplate.from_messages([
     ("system", qa_system_prompt),
@@ -175,18 +179,23 @@ async def chat_stream_endpoint(request: ChatRequest):
                 rewritten_question = request.question
 
             # 2. Retrieve tài liệu
-            # Cấu hình filter nếu có lesson_id
             search_kwargs = {"k": 3}
             if request.lesson_id:
                 search_kwargs["filter"] = {"lesson_id": request.lesson_id}
 
-            retrieved_docs = vector_store.as_retriever(search_kwargs=search_kwargs).invoke(str(rewritten_question))
+            docs_with_scores = vector_store.similarity_search_with_score(
+                query=str(rewritten_question),
+                k=search_kwargs.get("k", 3),
+                filter=search_kwargs.get("filter")
+            )
             
+            retrieved_docs = []
             source_files = set()
-            for doc in retrieved_docs:
+            for doc, score in docs_with_scores:
                 filename = doc.metadata.get("filename", "Tài liệu không tên")
                 source_files.add(filename)
-                doc.page_content = f"[NGUỒN: {filename}]\n{doc.page_content}"
+                doc.page_content = f"[NGUỒN: {filename}] [SCORE: {score:.4f}]\n{doc.page_content}"
+                retrieved_docs.append(doc)
 
             # 3. Stream câu trả lời
             # Note: create_stuff_documents_chain returns the final answer when called with astream
@@ -272,25 +281,25 @@ async def chat_endpoint(request: ChatRequest):
         if not rewritten_question.strip():
             rewritten_question = request.question
 
-        retrieved_docs = retriever.invoke(rewritten_question)
+        docs_with_scores = vector_store.similarity_search_with_score(query=rewritten_question, k=3)
         
-        if not isinstance(retrieved_docs, list):
-            raise TypeError(f"Retriever returned {type(retrieved_docs)}, expected list[Document]")
-        print("✅ Retrieved docs:", len(retrieved_docs))
+        print("✅ Retrieved docs with scores:", len(docs_with_scores))
 
         # =====================
-        # STEP 3: BUILD CONTEXT & GẮN NGUỒN
+        # STEP 3: BUILD CONTEXT & GẮN NGUỒN VÀ SCORE
         # =====================
         source_files = set() # Dùng set để lọc các tên file bị trùng
+        retrieved_docs = []
 
-        for i, doc in enumerate(retrieved_docs):
+        for i, (doc, score) in enumerate(docs_with_scores):
             if hasattr(doc, "page_content"):
                 # Lấy tên file từ metadata đã lưu lúc ingest
                 filename = doc.metadata.get("filename", "Tài liệu không tên")
                 source_files.add(filename)
                 
-                # BẮT BUỘC: Gắn thẻ nguồn lên đầu đoạn text để AI đọc và trích xuất
-                doc.page_content = f"[NGUỒN: {filename}]\n{doc.page_content}"
+                # BẮT BUỘC: Gắn thẻ nguồn và score lên đầu đoạn text để AI đọc và trích xuất
+                doc.page_content = f"[NGUỒN: {filename}] [SCORE: {score:.4f}]\n{doc.page_content}"
+                retrieved_docs.append(doc)
             else:
                 print(f"⚠️ Doc {i} is not Document. Type:", type(doc))
 

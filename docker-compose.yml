@@ -91,6 +91,29 @@ services:
     networks:
       - edumind-network
 
+  # ----------------------------------------------------------------
+  # 4. RAG WORKER (Celery)
+  # ----------------------------------------------------------------
+  rag-worker:
+    build:
+      context: ./rag
+      dockerfile: Dockerfile
+    image: ${ACR_LOGIN_SERVER:-edumindacr.azurecr.io}/edumind-rag:${IMAGE_TAG:-latest}
+    container_name: edumind_rag_worker
+    restart: always
+    command: ["celery", "-A", "celery_app", "worker", "--loglevel=info", "--concurrency=2"]
+    environment:
+      - DATABASE_URL=${RAG_DATABASE_URL}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - GOOGLE_API_KEYS=${GOOGLE_API_KEYS}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://redis:6379/0}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
+    depends_on:
+      rag:
+        condition: service_healthy
+    networks:
+      - edumind-network
+
 networks:
   edumind-network:
     driver: bridge

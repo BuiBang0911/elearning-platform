@@ -61,24 +61,13 @@ namespace Web.Controllers
             // --- TRIGGER RAG EMBEDDING ---
             try
             {
-                // Save a local copy for the Python RAG to process
-                // Assuming the web server has access to the rag/data directory relative to the solution root
-                var ragDataPath = Path.Combine(Directory.GetCurrentDirectory(), "..", "rag", "data");
-                if (!Directory.Exists(ragDataPath)) Directory.CreateDirectory(ragDataPath);
-
-                var localFilePath = Path.Combine(ragDataPath, request.File.FileName);
-                using (var stream = new FileStream(localFilePath, FileMode.Create))
-                {
-                    await request.File.CopyToAsync(stream);
-                }
-
                 var lessonIdFilter = request.LessonId;
                 var documentId = res.Id;
 
-                // Push task to Celery instead of manual Task.Run
+                // Pass the Cloud URL (resultUrl) directly to RAG
                 await _celeryService.EnqueueTaskAsync(
                     "rag.tasks.process_document_task",
-                    localFilePath,
+                    resultUrl,
                     lessonIdFilter,
                     documentId
                 );

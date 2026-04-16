@@ -14,3 +14,4 @@ google-generativeai
 pymupdf 
 pdfplumber
 rapidocr-onnxruntime
+requests

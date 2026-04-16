@@ -8,6 +8,8 @@ import shutil
 import fitz  # PyMuPDF
 import psycopg2
 import psycopg2.extras
+import pdfplumber
+import requests
 from dotenv import load_dotenv
 from PIL import Image, ImageEnhance, ImageOps
 from langchain_community.document_loaders import TextLoader
@@ -225,87 +227,107 @@ def process_pdf(pdf_path):
     filename = os.path.basename(pdf_path)
     print(f"\n📄 Đang xử lý: {filename} ({len(doc)} trang)...")
 
-    for i, page in enumerate(doc):
-        page_num = i + 1
-        
-        # 1. Text gốc - SỬ DỤNG HÀM CẮT TỌA ĐỘ Ở ĐÂY
-        raw_text = extract_text_without_margins(page, margin_percent=0.08)
-        clean_raw = clean_and_merge_lines(raw_text)
-        
-        # 2. Xử lý Ảnh
-        image_list = page.get_images(full=True)
-        ocr_content = ""
-        processed_any_image = False
-        
-        if image_list:
-            print(f"   --- Trang {page_num}: Có {len(image_list)} ảnh.")
+    with pdfplumber.open(pdf_path) as pdf_plumb:
+        for i, page in enumerate(doc):
+            page_num = i + 1
             
-            for img_index, img in enumerate(image_list):
-                try:
-                    xref = img[0]
-                    rects = page.get_image_rects(xref)
-                    
-                    for rect_idx, rect in enumerate(rects):
-                        w, h = rect.width, rect.height
-                        print(f"      🖼️  Ảnh {img_index}.{rect_idx} ({w:.0f}x{h:.0f}): ", end="")
-                        
-                        if w < 50 or h < 50: 
-                            print("❌ BỎ QUA (Quá nhỏ)")
-                            continue
-                        
-                        print("✅ CẮT & OCR...", end=" ")
-                        
-                        try:
-                            caption = get_image_caption(page, rect)
-                        
-                            if caption:
-                                header_title = f"HÌNH ẢNH: {caption}"
-                                print(f"      🏷️  Tìm thấy caption: '{caption[:30]}...'")
-                            else:
-                                header_title = f"HÌNH ẢNH (Trang {page_num})"
-                                
-                            clip_rect = rect + (-10, -10, 10, 10)
-                            pix = page.get_pixmap(clip=clip_rect, matrix=fitz.Matrix(3, 3))
-                            
-                            dbg_name = f"p{page_num}_img{img_index}_{rect_idx}.png"
-                            text_in_image = process_image_for_ocr(pix.tobytes("png"), debug_name=dbg_name)
-                            
-                            if not text_in_image:
-                                print("⚠️ RỖNG (Không đọc được chữ).")
-                            elif len(text_in_image) <= 5:
-                                print(f"⚠️ RÁC (Len={len(text_in_image)}): '{text_in_image}'")
-                            else:
-                                print(f"🎉 OK! ({len(text_in_image)} chars).")
-                                ocr_content += (
-                                    f"\n\n=== [{header_title}] ===\n"
-                                    f"{text_in_image}\n"
-                                    f"==============================\n"
-                                )
-                                processed_any_image = True
-                                
-                        except Exception as inner_e:
-                            print(f"❌ Lỗi hàm OCR: {inner_e}")
+            # 1. Text gốc - SỬ DỤNG HÀM CẮT TỌA ĐỘ Ở ĐÂY
+            raw_text = extract_text_without_margins(page, margin_percent=0.08)
+            clean_raw = clean_and_merge_lines(raw_text)
 
-                except Exception as e:
-                    print(f"\n      ❌ Lỗi vòng lặp ảnh: {e}")
-                    continue
-
-        # 3. Fallback Snapshot
-        if not processed_any_image and len(clean_raw) < 300:
-            print(f"   📸 Trang {page_num} ít text -> Thử chụp toàn trang...")
+            # 1.5 Trích xuất Bảng (Table) sang Markdown
+            table_content = ""
             try:
-                pix = page.get_pixmap(matrix=fitz.Matrix(3, 3))
-                dbg_name = f"p{page_num}_snapshot.png"
-                full_page_ocr = process_image_for_ocr(pix.tobytes("png"), debug_name=dbg_name)
+                plumb_page = pdf_plumb.pages[i]
+                tables = plumb_page.extract_tables()
+                if tables:
+                    print(f"   --- Trang {page_num}: Bắt được {len(tables)} bảng biểu.")
+                    for tbl in tables:
+                        table_content += "\n\n=== [BẢNG BIỂU DỮ LIỆU] ===\n"
+                        for r_idx, row in enumerate(tbl):
+                            # Xóa ký tự xuống dòng và pipe (|) để tránh hỏng cú pháp markdown
+                            clean_row = [str(x).replace('\n', ' ').replace('|', '').strip() if x else "" for x in row]
+                            table_content += "| " + " | ".join(clean_row) + " |\n"
+                            if r_idx == 0:  # Thêm dòng phân cách header của markdown
+                                table_content += "| " + " | ".join(["---"] * len(clean_row)) + " |\n"
+                        table_content += "==============================\n"
+            except Exception as e:
+                print(f"   ⚠️ Lỗi khi đọc bảng trang {page_num}: {e}")
+            
+            # 2. Xử lý Ảnh
+            image_list = page.get_images(full=True)
+            ocr_content = ""
+            processed_any_image = False
+            
+            if image_list:
+                print(f"   --- Trang {page_num}: Có {len(image_list)} ảnh.")
                 
-                if len(full_page_ocr) > len(clean_raw) + 50:
-                    print(f"      ✅ Snapshot lấy thêm được {len(full_page_ocr)} ký tự.")
-                    ocr_content += f"\n\n=== [SCAN TOÀN TRANG {page_num}] ===\n{full_page_ocr}\n==============================\n"
-            except: pass
+                for img_index, img in enumerate(image_list):
+                    try:
+                        xref = img[0]
+                        rects = page.get_image_rects(xref)
+                        
+                        for rect_idx, rect in enumerate(rects):
+                            w, h = rect.width, rect.height
+                            print(f"      🖼️  Ảnh {img_index}.{rect_idx} ({w:.0f}x{h:.0f}): ", end="")
+                            
+                            if w < 50 or h < 50: 
+                                print("❌ BỎ QUA (Quá nhỏ)")
+                                continue
+                            
+                            print("✅ CẮT & OCR...", end=" ")
+                            
+                            try:
+                                caption = get_image_caption(page, rect)
+                            
+                                if caption:
+                                    header_title = f"HÌNH ẢNH: {caption}"
+                                    print(f"      🏷️  Tìm thấy caption: '{caption[:30]}...'")
+                                else:
+                                    header_title = f"HÌNH ẢNH (Trang {page_num})"
+                                    
+                                clip_rect = rect + (-10, -10, 10, 10)
+                                pix = page.get_pixmap(clip=clip_rect, matrix=fitz.Matrix(3, 3))
+                                
+                                dbg_name = f"p{page_num}_img{img_index}_{rect_idx}.png"
+                                text_in_image = process_image_for_ocr(pix.tobytes("png"), debug_name=dbg_name)
+                                
+                                if not text_in_image:
+                                    print("⚠️ RỖNG (Không đọc được chữ).")
+                                elif len(text_in_image) <= 5:
+                                    print(f"⚠️ RÁC (Len={len(text_in_image)}): '{text_in_image}'")
+                                else:
+                                    print(f"🎉 OK! ({len(text_in_image)} chars).")
+                                    ocr_content += (
+                                        f"\n\n=== [{header_title}] ===\n"
+                                        f"{text_in_image}\n"
+                                        f"==============================\n"
+                                    )
+                                    processed_any_image = True
+                                    
+                            except Exception as inner_e:
+                                print(f"❌ Lỗi hàm OCR: {inner_e}")
 
-        # Gộp nội dung
-        page_content = clean_raw + " " + ocr_content
-        full_text_content += page_content + " "
+                    except Exception as e:
+                        print(f"\n      ❌ Lỗi vòng lặp ảnh: {e}")
+                        continue
+
+            # 3. Fallback Snapshot
+            if not processed_any_image and len(clean_raw) < 300:
+                print(f"   📸 Trang {page_num} ít text -> Thử chụp toàn trang...")
+                try:
+                    pix = page.get_pixmap(matrix=fitz.Matrix(3, 3))
+                    dbg_name = f"p{page_num}_snapshot.png"
+                    full_page_ocr = process_image_for_ocr(pix.tobytes("png"), debug_name=dbg_name)
+                    
+                    if len(full_page_ocr) > len(clean_raw) + 50:
+                        print(f"      ✅ Snapshot lấy thêm được {len(full_page_ocr)} ký tự.")
+                        ocr_content += f"\n\n=== [SCAN TOÀN TRANG {page_num}] ===\n{full_page_ocr}\n==============================\n"
+                except: pass
+
+            # Gộp nội dung
+            page_content = clean_raw + " " + table_content + " " + ocr_content
+            full_text_content += page_content + " "
 
     if full_text_content.strip():
         print(f"   ✅ Xong file. Tổng: {len(full_text_content)} ký tự.")
@@ -444,7 +466,8 @@ def sync_engine(pg_conn, docs, vector_store, namespace):
 
     for i, doc in enumerate(docs):
         source_file = doc.metadata.get("filename", "unknown")
-        record_id = f"{source_file}:{i}"
+        # ID sẽ luôn có độ dài cố định là 32 ký tự
+        record_id = hashlib.md5(f"{source_file}-{doc.page_content}".encode()).hexdigest()
         checksum = compute_checksum(doc.page_content)
         current_record_ids.add(record_id)
 
@@ -476,10 +499,34 @@ def sync_engine(pg_conn, docs, vector_store, namespace):
     # For simplicity, we keep the deletion if run_ingest is called.
 
 def ingest_file(file_path: str, lesson_id: int = None):
-    """Xử lý đồng bộ 1 file duy nhất."""
+    """Xử lý đồng bộ 1 file duy nhất (Local Path hoặc URL Cloud)."""
     lname = file_path.lower()
     raw_docs = []
-    
+    temp_local_path = None
+
+    # Nếu là URL Cloud (Azure Blob, v.v.)
+    if file_path.startswith("http://") or file_path.startswith("https://"):
+        try:
+            filename = os.path.basename(file_path.split('?')[0]) # Bỏ SAS token nếu có
+            temp_dir = os.path.join(os.path.dirname(__file__), "data", "temp")
+            if not os.path.exists(temp_dir): os.makedirs(temp_dir)
+            
+            temp_local_path = os.path.join(temp_dir, f"cloud_{datetime.datetime.now().timestamp()}_{filename}")
+            
+            print(f"🌐 Đang tải file từ Cloud: {file_path}")
+            response = requests.get(file_path, timeout=60)
+            response.raise_for_status()
+            
+            with open(temp_local_path, "wb") as f:
+                f.write(response.content)
+            
+            print(f"✅ Tải xong. Đã lưu tạm tại: {temp_local_path}")
+            file_path = temp_local_path
+            lname = file_path.lower()
+        except Exception as e:
+            print(f"❌ Lỗi khi tải file từ Cloud: {e}")
+            return {"status": "error", "message": f"Cloud download failed: {str(e)}"}
+
     if lname.endswith(".pdf"):
         raw_docs = process_pdf(file_path)
     elif lname.endswith(".txt"):
@@ -523,7 +570,8 @@ def ingest_file(file_path: str, lesson_id: int = None):
     current_ids = []
     for i, doc in enumerate(docs):
         source_file = doc.metadata.get("filename", "unknown")
-        record_id = f"{source_file}:{i}"
+        # ID sẽ luôn có độ dài cố định là 32 ký tự
+        record_id = hashlib.md5(f"{source_file}-{doc.page_content}".encode()).hexdigest()
         checksum = compute_checksum(doc.page_content)
         current_ids.append(record_id)
         
@@ -539,6 +587,14 @@ def ingest_file(file_path: str, lesson_id: int = None):
     
     pg_conn.commit()
     pg_conn.close()
+    
+    # Dọn dẹp file tạm nếu là download từ Cloud
+    if temp_local_path and os.path.exists(temp_local_path):
+        try:
+            os.remove(temp_local_path)
+            print(f"🗑️ Đã dọn dẹp file tạm: {temp_local_path}")
+        except: pass
+
     return {"status": "success", "chunks": len(docs)}
 
 if __name__ == "__main__":

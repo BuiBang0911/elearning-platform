@@ -77,6 +77,16 @@ services:
       - /app/venv
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
+  # ── Override RAG WORKER for dev ──
+  rag-worker:
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    volumes:
+      - ./rag:/app
+      - /app/venv
+    command: celery -A celery_app worker --loglevel=info -P solo
+
 volumes:
   postgres_data:
   redis_data:
