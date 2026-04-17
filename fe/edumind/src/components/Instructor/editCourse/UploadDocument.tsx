@@ -10,6 +10,7 @@ import { FileStatus, type DocumentResponse } from "../../../interfaces/Document"
 import documentApi from "../../../api/Document.api";
 import type { LessonResponse } from "../../../interfaces/Lesson";
 import lessonApi from "../../../api/Lesson.api";
+import { parseError } from "../../../utils/errorUtils";
 
 type UploadDocumentProps = {
 	uploadDocumentOpen: boolean;
@@ -89,8 +90,7 @@ const UploadDocument = ({ uploadDocumentOpen, setUploadDocumentOpen, courseId, o
 			setUploadDocumentOpen(false);
 			resetForm();
 		} catch (error: any) {
-			console.error("Upload error:", error);
-			toast.error(error.response?.data || "Failed to upload document.");
+			toast.error(parseError(error, "Failed to upload document."));
 		} finally {
 			setIsUploading(false);
 		}

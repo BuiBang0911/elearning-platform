@@ -8,6 +8,7 @@ import { Textarea } from "../../ui/textarea"
 import { toast } from "sonner"
 import { Loader2 } from "lucide-react"
 import lessonApi from "../../../api/Lesson.api"
+import { parseError } from "../../../utils/errorUtils";
 
 type EditLessonProps = {
 	editLessonOpen: boolean;
@@ -43,21 +44,7 @@ const EditLesson = ({ editLessonOpen, setEditLessonOpen, selectedLesson: lesson,
 			onUpdate(updated);
 			setEditLessonOpen(false);
 		} catch (error: any) {
-			console.error("Error updating lesson:", error);
-			const errorData = error.response?.data;
-			let errorMessage = "Failed to update lesson. Please try again.";
-
-			if (typeof errorData === 'string') {
-				errorMessage = errorData;
-			} else if (errorData && typeof errorData === 'object') {
-				if (errorData.errors) {
-					errorMessage = Object.values(errorData.errors).flat().join(", ");
-				} else if (errorData.title) {
-					errorMessage = errorData.title;
-				}
-			}
-
-			toast.error(errorMessage);
+			toast.error(parseError(error, "Failed to update lesson. Please try again."));
 		} finally {
 			setIsLoading(false);
 		}

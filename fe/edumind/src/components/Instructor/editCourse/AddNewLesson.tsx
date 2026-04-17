@@ -8,6 +8,7 @@ import { useState } from "react"
 import lessonApi from "../../../api/Lesson.api"
 import { toast } from "sonner"
 import type { LessonRequest, LessonResponse } from "../../../interfaces/Lesson"
+import { parseError } from "../../../utils/errorUtils";
 
 type AddNewLessonProps = {
 	addLessonOpen: boolean;
@@ -43,21 +44,7 @@ const AddNewLesson = ({ addLessonOpen, setAddLessonOpen, courseId, onSave }: Add
 			setAddLessonOpen(false);
 			setFormData({ ...formData, title: "", description: "", content: "", videoFile: undefined });
 		} catch (error: any) {
-			console.error("Error creating lesson:", error);
-			const errorData = error.response?.data;
-			let errorMessage = "Failed to create lesson. Please try again.";
-
-			if (typeof errorData === 'string') {
-				errorMessage = errorData;
-			} else if (errorData && typeof errorData === 'object') {
-				if (errorData.errors) {
-					errorMessage = Object.values(errorData.errors).flat().join(", ");
-				} else if (errorData.title) {
-					errorMessage = errorData.title;
-				}
-			}
-
-			toast.error(errorMessage);
+			toast.error(parseError(error, "Failed to create lesson. Please try again."));
 		} finally {
 			setIsLoading(false);
 		}

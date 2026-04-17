@@ -7,6 +7,7 @@ import { type DocumentResponse } from "../../../interfaces/Document";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import documentApi from "../../../api/Document.api";
+import { parseError } from "../../../utils/errorUtils";
 
 type EditDocumentProps = {
 	editDocumentOpen: boolean;
@@ -48,8 +49,7 @@ const EditDocument = ({ editDocumentOpen, setEditDocumentOpen, document, onSave 
 			toast.success(`Document "${documentForm.fileName}" updated successfully!`);
 			setEditDocumentOpen(false);
 		} catch (error: any) {
-			console.error("Error updating document:", error);
-			toast.error(error.response?.data || "Failed to update document. Please try again.");
+			toast.error(parseError(error, "Failed to update document. Please try again."));
 		} finally {
 			setIsLoading(false);
 		}

@@ -24,6 +24,7 @@ import CategoryApi from "../../api/Category.api";
 import type { CategoryResponse } from "../../interfaces/Category";
 import { formatDate } from "../../Format/FormatDate";
 import { formatFileSize } from "../../Format/FormatFileSize";
+import { parseError } from "../../utils/errorUtils";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -180,21 +181,7 @@ const EditCourse = ({ editCourseOpen, setEditCourseOpen, selectedCourse, handleM
 			onSave(updatedCourse);
 			setEditCourseOpen(false);
 		} catch (error: any) {
-			console.error("Error updating course:", error);
-			const errorData = error.response?.data;
-			let errorMessage = "Failed to update course. Please try again.";
-
-			if (typeof errorData === 'string') {
-				errorMessage = errorData;
-			} else if (errorData && typeof errorData === 'object') {
-				if (errorData.errors) {
-					errorMessage = Object.values(errorData.errors).flat().join(", ");
-				} else if (errorData.title) {
-					errorMessage = errorData.title;
-				}
-			}
-
-			toast.error(errorMessage);
+			toast.error(parseError(error, "Failed to update course. Please try again."));
 		} finally {
 			setIsSaving(false);
 		}

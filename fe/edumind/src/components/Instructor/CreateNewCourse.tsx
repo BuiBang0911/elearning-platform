@@ -12,6 +12,7 @@ import CategoryApi from "../../api/Category.api";
 import { CourseLevel, type CourseResponse } from "../../interfaces/Course";
 import type { CategoryResponse } from "../../interfaces/Category";
 import { useEffect } from "react";
+import { parseError } from "../../utils/errorUtils";
 
 type CreateNewCourseProps = {
 	createCourseOpen: boolean;
@@ -71,22 +72,7 @@ const CreateNewCourse = ({ createCourseOpen, setCreateCourseOpen, handleCoursesC
 			handleCoursesChanged(1);
 			setCourseForm({ title: "", description: "", level: CourseLevel.BEGINNER, categoryId: undefined, price: 0, thumbnail: null });
 		} catch (error: any) {
-			console.error("Error creating course:", error);
-			const errorData = error.response?.data;
-			let errorMessage = "Failed to create course. Please try again.";
-
-			if (typeof errorData === 'string') {
-				errorMessage = errorData;
-			} else if (errorData && typeof errorData === 'object') {
-				// Handle ASP.NET Core ValidationProblemDetails
-				if (errorData.errors) {
-					errorMessage = Object.values(errorData.errors).flat().join(", ");
-				} else if (errorData.title) {
-					errorMessage = errorData.title;
-				}
-			}
-
-			toast.error(errorMessage);
+			toast.error(parseError(error, "Failed to create course. Please try again."));
 		} finally {
 			setIsLoading(false);
 		}
