@@ -55,7 +55,7 @@ const AdminUserManagement = () => {
     return matchesSearch && matchesRole;
   });
 
-  if (loading) return <FullPageLoader />;
+  if (loading) return <FullPageLoader isFullPage={false} />;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">

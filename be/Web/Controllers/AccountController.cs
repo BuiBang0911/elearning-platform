@@ -42,7 +42,7 @@ namespace Web.Controllers
                 return BadRequest("Validate error!");
             }
 
-            var user = await _userService.FirstOrDefaultAsync(x => x.Email == request.Email && x.Role == request.Role);
+            var user = await _userService.FirstOrDefaultAsync(x => x.Email == request.Email);
             if (user == null)
                 return Unauthorized("Sai tài khoản hoặc mật khẩu");
 
@@ -198,7 +198,7 @@ namespace Web.Controllers
                 FullName = request.FullName,
                 Email = request.Email,
                 Password = passwordHash,
-                Role = request.Role,
+                Role = UserRole.Student, // Force all registrations to be Students
             };
 
             await _userService.AddAsync(userRequest);
@@ -206,18 +206,7 @@ namespace Web.Controllers
             return Ok();
         }
 
-        [Authorize(Roles = nameof(UserRole.Student))]
-        [HttpPost("update-to-lecture")]
-        public async Task<IActionResult> UpdateToLecture()
-        {
-            var userId = _authService.UserId;
-            if (userId == null) return BadRequest();
-            var user = await _userService.FirstOrDefaultAsync(x => x.Id == userId); 
-            if (user == null) return BadRequest();
-            user.Role = UserRole.Instructor;
-            await _userService.UpdateAsync(user);
-            return Ok();
-        }
+        // Removed UpdateToLecture as it is replaced by the approval workflow
 
         [Authorize]
         [HttpGet("get-me")]

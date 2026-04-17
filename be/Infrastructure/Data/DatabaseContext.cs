@@ -32,6 +32,7 @@ namespace Infrastructure.Data
         public DbSet<TeacherWallet> TeacherWallets { get; set; }
         public DbSet<WalletTransaction> WalletTransactions { get; set; }
         public DbSet<WithdrawalRequest> WithdrawalRequests { get; set; }
+        public DbSet<InstructorRequest> InstructorRequests { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -191,6 +192,16 @@ namespace Infrastructure.Data
                       .WithMany()
                       .HasForeignKey(w => w.TeacherId)
                       .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // 12. Cấu hình bảng InstructorRequests
+            modelBuilder.Entity<InstructorRequest>(entity =>
+            {
+                entity.HasKey(r => r.Id);
+                entity.HasOne(r => r.User)
+                      .WithMany()
+                      .HasForeignKey(r => r.UserId)
+                      .OnDelete(DeleteBehavior.Cascade);
             });
         }
 

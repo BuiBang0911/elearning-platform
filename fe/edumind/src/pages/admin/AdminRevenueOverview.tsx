@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { DollarSign, TrendingUp, Users, ShoppingCart, Loader2 } from "lucide-react";
+import FullPageLoader from "../../components/PostLoading/FullPageLoader";
 import { Card } from "../../components/ui/card";
 import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
@@ -30,11 +31,7 @@ const AdminRevenueOverviewPage = () => {
     }, []);
 
     if (loading || !data) {
-        return (
-            <div className="flex justify-center py-20">
-                <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
-            </div>
-        );
+        return <FullPageLoader isFullPage={false} />;
     }
 
     const cards = [

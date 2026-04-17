@@ -3,7 +3,6 @@ import { Brain } from "lucide-react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import FullPageLoader from "../../components/PostLoading/FullPageLoader";
 import { Card } from "../../components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
 import { Label } from "../../components/ui/label";
 import { Input } from "../../components/ui/input";
 import { Button } from "../../components/ui/button";
@@ -24,7 +23,7 @@ const Login = () => {
     const [isLoading, setIsLoading] = useState(false);
 
     const [searchParams] = useSearchParams();
-    const roleFromUrl = searchParams.get("role") || "student";
+    // const roleFromUrl = searchParams.get("role") || "student";
 
     const [errors, setErrors] = useState({ email: "", password: "" });
 
@@ -49,31 +48,42 @@ const Login = () => {
         return valid;
     };
 
-    const handleSubmit = async (role: UserRole) => {
+    const handleSubmit = async () => {
         if (!validate()) return;
 
         try {
             setIsLoading(true);
 
-            await AuthApi.login({ email, password, role });
+            // Fetch user role from context after successful login
+            await AuthApi.login({ email, password, role: UserRole.STUDENT }); // Backend ignores role anyway but interface expects it
 
-            // Explicitly wait for refreshUser to populate context
-            await refreshUser();
+            const userData = await AuthApi.getMe();
+            await refreshUser(); // Ensure context is updated
 
             toast.success("Login successful!");
 
-            // navigate theo role sau khi login thành công
-            if (role === UserRole.STUDENT) {
-                navigate("/student", { replace: true });
-            } else if (role === UserRole.INSTRUCTOR) {
-                navigate("/instructor", { replace: true });
-            } else if (role === UserRole.ADMIN) {
+            // Dynamic redirection based on user role
+            if (userData.role === UserRole.ADMIN) {
                 navigate("/admin", { replace: true });
+            } else {
+                navigate("/", { replace: true });
             }
         } catch (err: any) {
             console.error("Login failed:", err);
-            toast.error(err.response?.data || "Login failed. Please check your credentials.");
             setIsLoading(false);
+
+            const errorData = err.response?.data;
+            let errorMessage = "Login failed. Please check your credentials.";
+
+            if (typeof errorData === "string") {
+                errorMessage = errorData;
+            } else if (errorData?.errors) {
+                errorMessage = Object.values(errorData.errors).flat().join(", ");
+            } else if (errorData?.title) {
+                errorMessage = errorData.title;
+            }
+
+            toast.error(errorMessage);
         }
     };
 
@@ -96,119 +106,52 @@ const Login = () => {
                     <p className="text-gray-600">Sign in to your account</p>
                 </div>
 
-                <Tabs defaultValue={roleFromUrl} className="w-full">
-                    <TabsList className="grid w-full grid-cols-3">
-                        <TabsTrigger value="student">Student</TabsTrigger>
-                        <TabsTrigger value="instructor">Instructor</TabsTrigger>
-                        <TabsTrigger value="admin">Admin</TabsTrigger>
-                    </TabsList>
-
-                    <TabsContent value="student">
-                        <form
-                            onSubmit={(e) => {
-                                e.preventDefault();
-                                handleSubmit(UserRole.STUDENT);
-                            }}
-                            className="space-y-4"
-                        >
-                            <div>
-                                <Label htmlFor="student-email">Email</Label>
-                                <Input
-                                    id="student-email"
-                                    type="email"
-                                    placeholder="student@edumind.com"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    required
-                                />
-                                {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
-                            </div>
-                            <div>
-                                <Label htmlFor="student-password">Password</Label>
-                                <Input
-                                    id="student-password"
-                                    type="password"
-                                    placeholder="••••••••"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    required
-                                />
-                                {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password}</p>}
-                            </div>
-                            <Button type="submit" className="w-full">
-                                Sign In as Student
-                            </Button>
-                        </form>
-                    </TabsContent>
-
-                    <TabsContent value="instructor">
-                        <form
-                            onSubmit={(e) => {
-                                e.preventDefault();
-                                handleSubmit(UserRole.INSTRUCTOR);
-                            }}
-                            className="space-y-4"
-                        >
-                            <div>
-                                <Label htmlFor="instructor-email">Email</Label>
-                                <Input
-                                    id="instructor-email"
-                                    type="email"
-                                    placeholder="instructor@edumind.com"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                />
-                            </div>
-                            <div>
-                                <Label htmlFor="instructor-password">Password</Label>
-                                <Input
-                                    id="instructor-password"
-                                    type="password"
-                                    placeholder="••••••••"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                />
-                            </div>
-                            <Button type="submit" className="w-full">
-                                Sign In as Instructor
-                            </Button>
-                        </form>
-                    </TabsContent>
-
-                    <TabsContent value="admin">
-                        <form
-                            onSubmit={(e) => {
-                                e.preventDefault();
-                                handleSubmit(UserRole.ADMIN);
-                            }}
-                            className="space-y-4"
-                        >
-                            <div>
-                                <Label htmlFor="admin-email">Email</Label>
-                                <Input
-                                    id="admin-email"
-                                    type="email"
-                                    placeholder="admin@edumind.com"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                />
-                            </div>
-                            <div>
-                                <Label htmlFor="admin-password">Password</Label>
-                                <Input
-                                    id="admin-password"
-                                    type="password"
-                                    placeholder="••••••••"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                />
-                            </div>
-                            <Button type="submit" className="w-full">
-                                Sign In as Admin
-                            </Button>
-                        </form>
-                    </TabsContent>
-                </Tabs>
+                <form
+                    onSubmit={(e) => {
+                        e.preventDefault();
+                        handleSubmit();
+                    }}
+                    className="space-y-6"
+                >
+                    <div>
+                        <Label htmlFor="email">Email Address</Label>
+                        <Input
+                            id="email"
+                            type="email"
+                            placeholder="you@example.com"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            required
+                            className="mt-1"
+                        />
+                        {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
+                    </div>
+                    <div>
+                        <div className="flex items-center justify-between mb-1">
+                            <Label htmlFor="password">Password</Label>
+                            <Link to="/forgot-password" className="text-xs text-blue-600 hover:underline">
+                                Forgot password?
+                            </Link>
+                        </div>
+                        <Input
+                            id="password"
+                            type="password"
+                            placeholder="••••••••"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            required
+                            className="mt-1"
+                        />
+                        {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password}</p>}
+                    </div>
+                    <Button 
+                        type="submit" 
+                        loading={isLoading}
+                        className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:opacity-90 transition-opacity h-12 text-lg font-bold shadow-lg shadow-blue-200"
+                    >
+                        Sign In
+                    </Button>
+                </form>
 
                 <div className="mt-6 text-center">
                     <Link to="/" className="text-sm text-blue-600 hover:underline">

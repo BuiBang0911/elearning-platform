@@ -10,7 +10,8 @@ import {
   Menu,
   ChevronRight,
   Banknote,
-  DollarSign
+  DollarSign,
+  UserPlus
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { Button } from "../ui/button";
@@ -29,6 +30,7 @@ const AdminLayout = () => {
     { icon: LayoutDashboard, label: "Dashboard", path: "/admin" },
     { icon: Users, label: "Users", path: "/admin/users" },
     { icon: BookOpen, label: "Courses", path: "/admin/courses" },
+    { icon: UserPlus, label: "Teacher Requests", path: "/admin/instructor-requests" },
     { icon: Banknote, label: "Withdrawals", path: "/admin/withdrawals" },
     { icon: DollarSign, label: "Revenue", path: "/admin/revenue" },
   ];
@@ -96,7 +98,7 @@ const AdminLayout = () => {
           </div>
         </header>
 
-        <div className="p-8">
+        <div className="p-8 relative min-h-[calc(100vh-80px)]">
            <Outlet />
         </div>
       </main>

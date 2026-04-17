@@ -199,15 +199,8 @@ const UploadDocument = ({ uploadDocumentOpen, setUploadDocumentOpen, courseId, o
 						<Button type="button" variant="ghost" onClick={() => setUploadDocumentOpen(false)} disabled={isUploading}>
 							Cancel
 						</Button>
-						<Button type="submit" disabled={!selectedFile || isUploading} className="min-w-[140px] bg-blue-600 hover:bg-blue-700 shadow-md">
-							{isUploading ? (
-								<>
-									<Loader2 className="w-4 h-4 mr-2 animate-spin" />
-									Uploading...
-								</>
-							) : (
-								"Start Upload"
-							)}
+						<Button type="submit" disabled={!selectedFile} loading={isUploading} className="min-w-[140px] bg-blue-600 hover:bg-blue-700 shadow-md">
+							Start Upload
 						</Button>
 					</div>
 				</form>

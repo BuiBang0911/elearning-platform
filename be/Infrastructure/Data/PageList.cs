@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -9,7 +9,11 @@ namespace ApplicationCore.Data
     [Serializable]
     public class PagedList<T> : IPagedList<T>
     {
-        public List<T> Items { get; private set; } = new List<T>();
+        public List<T> Items { get; set; } = new List<T>();
+
+        public PagedList()
+        {
+        }
 
         public PagedList(IQueryable<T> source, int pageIndex, int pageSize, bool getOnlyTotalCount = false)
         {
@@ -76,10 +80,10 @@ namespace ApplicationCore.Data
         }
 
         // metadata
-        public int PageIndex { get; }
-        public int PageSize { get; }
-        public int TotalCount { get; }
-        public int TotalPages { get; }
+        public int PageIndex { get; set; }
+        public int PageSize { get; set; }
+        public int TotalCount { get; set; }
+        public int TotalPages { get; set; }
 
         public bool HasPreviousPage => PageIndex > 0;
         public bool HasNextPage => PageIndex + 1 < TotalPages;

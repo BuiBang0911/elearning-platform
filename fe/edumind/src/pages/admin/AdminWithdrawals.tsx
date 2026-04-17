@@ -8,6 +8,7 @@ import AdminApi from "../../api/admin.api";
 import type { WithdrawalResponse } from "../../interfaces/Payment";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import FullPageLoader from "../../components/PostLoading/FullPageLoader";
 
 const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
@@ -107,9 +108,7 @@ const AdminWithdrawals = () => {
             </div>
 
             {loading ? (
-                <div className="flex justify-center py-20">
-                    <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
-                </div>
+                <FullPageLoader isFullPage={false} />
             ) : filtered.length === 0 ? (
                 <Card className="p-12 text-center border-none shadow-sm">
                     <Banknote className="w-16 h-16 mx-auto mb-4 text-slate-300" />
@@ -164,18 +163,17 @@ const AdminWithdrawals = () => {
                                             <Button
                                                 size="sm"
                                                 onClick={() => handleApprove(w.id)}
-                                                disabled={processingId === w.id}
-                                                className="bg-green-600 hover:bg-green-700 gap-1"
+                                                loading={processingId === w.id}
+                                                className="bg-green-600 hover:bg-green-700 gap-1 text-white font-bold"
                                             >
-                                                {processingId === w.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle className="w-3 h-3" />}
                                                 Confirm
                                             </Button>
                                             <Button
                                                 size="sm"
                                                 variant="outline"
                                                 onClick={() => handleReject(w.id)}
-                                                disabled={processingId === w.id}
-                                                className="text-red-600 border-red-200 hover:bg-red-50 gap-1"
+                                                loading={processingId === w.id}
+                                                className="text-red-600 border-red-200 hover:bg-red-50 gap-1 font-bold"
                                             >
                                                 <XCircle className="w-3 h-3" />
                                                 Reject

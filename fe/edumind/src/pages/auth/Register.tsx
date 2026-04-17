@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { Brain } from "lucide-react";
 import { Card } from "../../components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
 import { Label } from "../../components/ui/label";
 import { Input } from "../../components/ui/input";
 import { Button } from "../../components/ui/button";
@@ -13,8 +12,8 @@ import { toast } from "sonner";
 
 export default function RegisterPage() {
 	const navigate = useNavigate();
-	const [searchParams] = useSearchParams();
-	const roleFromUrl = searchParams.get("role") || "student";
+	// const [searchParams] = useSearchParams();
+	// const roleFromUrl = searchParams.get("role") || "student";
 
 	const [name, setName] = useState("");
 	const [email, setEmail] = useState("");
@@ -52,7 +51,19 @@ export default function RegisterPage() {
 		catch (err: any) {
 			console.error("Registration failed:", err);
 			setIsLoading(false);
-			toast.error(err.response?.data || "Registration failed. Please try again.");
+			
+			const errorData = err.response?.data;
+			let errorMessage = "Registration failed. Please try again.";
+			
+			if (typeof errorData === "string") {
+				errorMessage = errorData;
+			} else if (errorData?.errors) {
+				errorMessage = Object.values(errorData.errors).flat().join(", ");
+			} else if (errorData?.title) {
+				errorMessage = errorData.title;
+			}
+			
+			toast.error(errorMessage);
 		}
 	};
 
@@ -82,9 +93,7 @@ export default function RegisterPage() {
 		return Object.keys(newErrors).length === 0;
 	};
 
-	if (isLoading) {
-		return <FullPageLoader />;
-	}
+
 
 	return (
 		<div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 flex items-center justify-center p-4">
@@ -101,232 +110,84 @@ export default function RegisterPage() {
 					<p className="text-gray-600">Create your account</p>
 				</div>
 
-				<Tabs defaultValue={roleFromUrl} className="w-full">
-					<TabsList className="grid w-full grid-cols-3">
-						<TabsTrigger value="student">Student</TabsTrigger>
-						<TabsTrigger value="instructor">Instructor</TabsTrigger>
-						<TabsTrigger value="admin">Admin</TabsTrigger>
-					</TabsList>
-
-					<TabsContent value="student">
-						<form
-							onSubmit={(e) => {
-								e.preventDefault();
-								handleRegister(UserRole.STUDENT);
-							}}
-							className="space-y-4"
-						>
-							<div>
-								<Label htmlFor="student-name">Full Name</Label>
-								<Input
-									id="student-name"
-									type="text"
-									placeholder="John Doe"
-									value={name}
-									onChange={(e) => setName(e.target.value)}
-									required
-								/>
-								{errors.fullName && (
-									<p className="text-red-500 text-sm">{errors.fullName}</p>
-								)}
-							</div>
-							<div>
-								<Label htmlFor="student-email">Email</Label>
-								<Input
-									id="student-email"
-									type="email"
-									placeholder="student@edumind.com"
-									value={email}
-									onChange={(e) => setEmail(e.target.value)}
-									required
-								/>
-								{errors.email && (
-									<p className="text-red-500 text-sm">{errors.email}</p>
-								)}
-							</div>
-							<div>
-								<Label htmlFor="student-password">Password</Label>
-								<Input
-									id="student-password"
-									type="password"
-									placeholder="••••••••"
-									value={password}
-									onChange={(e) => setPassword(e.target.value)}
-									required
-								/>
-								{errors.password && (
-									<p className="text-red-500 text-sm">{errors.password}</p>
-								)}
-							</div>
-							<div>
-								<Label htmlFor="student-confirm-password">Confirm Password</Label>
-								<Input
-									id="student-confirm-password"
-									type="password"
-									placeholder="••••••••"
-									value={confirmPassword}
-									onChange={(e) => setConfirmPassword(e.target.value)}
-									required
-								/>
-								{errors.confirmPassword && (
-									<p className="text-red-500 text-sm">{errors.confirmPassword}</p>
-								)}
-							</div>
-							<Button type="submit" className="w-full">
-								Register as Student
-							</Button>
-						</form>
-					</TabsContent>
-
-					<TabsContent value="instructor">
-						<form
-							onSubmit={(e) => {
-								e.preventDefault();
-								handleRegister(UserRole.INSTRUCTOR);
-							}}
-							className="space-y-4"
-						>
-							<div>
-								<Label htmlFor="instructor-name">Full Name</Label>
-								<Input
-									id="instructor-name"
-									type="text"
-									placeholder="Jane Smith"
-									value={name}
-									onChange={(e) => setName(e.target.value)}
-									required
-								/>
-								{errors.fullName && (
-									<p className="text-red-500 text-sm">{errors.fullName}</p>
-								)}
-							</div>
-							<div>
-								<Label htmlFor="instructor-email">Email</Label>
-								<Input
-									id="instructor-email"
-									type="email"
-									placeholder="instructor@edumind.com"
-									value={email}
-									onChange={(e) => setEmail(e.target.value)}
-									required
-								/>
-								{errors.email && (
-									<p className="text-red-500 text-sm">{errors.email}</p>
-								)}
-							</div>
-							<div>
-								<Label htmlFor="instructor-password">Password</Label>
-								<Input
-									id="instructor-password"
-									type="password"
-									placeholder="••••••••"
-									value={password}
-									onChange={(e) => setPassword(e.target.value)}
-									required
-								/>
-								{errors.password && (
-									<p className="text-red-500 text-sm">{errors.password}</p>
-								)}
-							</div>
-							<div>
-								<Label htmlFor="instructor-confirm-password">Confirm Password</Label>
-								<Input
-									id="instructor-confirm-password"
-									type="password"
-									placeholder="••••••••"
-									value={confirmPassword}
-									onChange={(e) => setConfirmPassword(e.target.value)}
-									required
-								/>
-								{errors.confirmPassword && (
-									<p className="text-red-500 text-sm">{errors.confirmPassword}</p>
-								)}
-							</div>
-							<Button type="submit" className="w-full">
-								Register as Instructor
-							</Button>
-							<p className="text-sm text-gray-500 text-center">
-								Demo: Fill in the form and register
-							</p>
-						</form>
-					</TabsContent>
-
-					<TabsContent value="admin">
-						<form
-							onSubmit={(e) => {
-								e.preventDefault();
-								handleRegister(UserRole.ADMIN);
-							}}
-							className="space-y-4"
-						>
-							<div>
-								<Label htmlFor="admin-name">Full Name</Label>
-								<Input
-									id="admin-name"
-									type="text"
-									placeholder="Admin User"
-									value={name}
-									onChange={(e) => setName(e.target.value)}
-									required
-								/>
-								{errors.fullName && (
-									<p className="text-red-500 text-sm">{errors.fullName}</p>
-								)}
-							</div>
-							<div>
-								<Label htmlFor="admin-email">Email</Label>
-								<Input
-									id="admin-email"
-									type="email"
-									placeholder="admin@edumind.com"
-									value={email}
-									onChange={(e) => setEmail(e.target.value)}
-									required
-								/>
-								{errors.email && (
-									<p className="text-red-500 text-sm">{errors.email}</p>
-								)}
-
-							</div>
-							<div>
-								<Label htmlFor="admin-password">Password</Label>
-								<Input
-									id="admin-password"
-									type="password"
-									placeholder="••••••••"
-									value={password}
-									onChange={(e) => setPassword(e.target.value)}
-									required
-								/>
-								{errors.password && (
-									<p className="text-red-500 text-sm">{errors.password}</p>
-								)}
-
-							</div>
-							<div>
-								<Label htmlFor="admin-confirm-password">Confirm Password</Label>
-								<Input
-									id="admin-confirm-password"
-									type="password"
-									placeholder="••••••••"
-									value={confirmPassword}
-									onChange={(e) => setConfirmPassword(e.target.value)}
-									required
-								/>
-								{errors.confirmPassword && (
-									<p className="text-red-500 text-sm">{errors.confirmPassword}</p>
-								)}
-
-							</div>
-							<Button type="submit" className="w-full">
-								Register as Admin
-							</Button>
-							<p className="text-sm text-gray-500 text-center">
-								Demo: Fill in the form and register
-							</p>
-						</form>
-					</TabsContent>
-				</Tabs>
+				<form
+					onSubmit={(e) => {
+						e.preventDefault();
+						handleRegister(UserRole.STUDENT);
+					}}
+					className="space-y-6"
+				>
+					<div>
+						<Label htmlFor="name">Full Name</Label>
+						<Input
+							id="name"
+							type="text"
+							placeholder="John Doe"
+							value={name}
+							onChange={(e) => setName(e.target.value)}
+							required
+							className="mt-1"
+						/>
+						{errors.fullName && (
+							<p className="text-red-500 text-xs mt-1">{errors.fullName}</p>
+						)}
+					</div>
+					<div>
+						<Label htmlFor="email">Email Address</Label>
+						<Input
+							id="email"
+							type="email"
+							placeholder="you@example.com"
+							value={email}
+							onChange={(e) => setEmail(e.target.value)}
+							required
+							className="mt-1"
+						/>
+						{errors.email && (
+							<p className="text-red-500 text-xs mt-1">{errors.email}</p>
+						)}
+					</div>
+					<div>
+						<Label htmlFor="password">Password</Label>
+						<Input
+							id="password"
+							type="password"
+							placeholder="••••••••"
+							value={password}
+							onChange={(e) => setPassword(e.target.value)}
+							required
+							className="mt-1"
+						/>
+						{errors.password && (
+							<p className="text-red-500 text-xs mt-1">{errors.password}</p>
+						)}
+					</div>
+					<div>
+						<Label htmlFor="confirm-password">Confirm Password</Label>
+						<Input
+							id="confirm-password"
+							type="password"
+							placeholder="••••••••"
+							value={confirmPassword}
+							onChange={(e) => setConfirmPassword(e.target.value)}
+							required
+							className="mt-1"
+						/>
+						{errors.confirmPassword && (
+							<p className="text-red-500 text-xs mt-1">{errors.confirmPassword}</p>
+						)}
+					</div>
+					<Button 
+						type="submit" 
+						loading={isLoading}
+						className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:opacity-90 transition-opacity h-12 text-lg font-bold shadow-lg shadow-blue-200"
+					>
+						Create Account
+					</Button>
+					<p className="text-center text-xs text-gray-400 mt-4 leading-relaxed">
+						By signing up, you agree to our Terms of Service and Privacy Policy.
+					</p>
+				</form>
 
 				<div className="mt-6 text-center space-y-2">
 					<p className="text-sm text-gray-600">

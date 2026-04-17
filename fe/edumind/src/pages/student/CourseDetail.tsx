@@ -204,10 +204,10 @@ const CourseDetail = () => {
                                             <h3 className="text-2xl font-bold text-slate-800">Free</h3>
                                             <Button
                                                 onClick={handleEnroll}
-                                                disabled={isEnrolling}
+                                                loading={isEnrolling}
                                                 className="w-full h-12 text-lg font-semibold bg-blue-600 hover:bg-blue-700"
                                             >
-                                                {isEnrolling ? "Enrolling..." : "Enroll Now"}
+                                                Enroll Now
                                             </Button>
                                         </>
                                     ) : (
@@ -219,20 +219,11 @@ const CourseDetail = () => {
                                             </div>
                                             <Button
                                                 onClick={handleBuyCourse}
-                                                disabled={isPaying}
+                                                loading={isPaying}
                                                 className="w-full h-12 text-lg font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 gap-2"
                                             >
-                                                {isPaying ? (
-                                                    <>
-                                                        <Loader2 className="w-5 h-5 animate-spin" />
-                                                        Đang tạo thanh toán...
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <CreditCard className="w-5 h-5" />
-                                                        Mua khóa học
-                                                    </>
-                                                )}
+                                                <CreditCard className="w-5 h-5" />
+                                                Mua khóa học
                                             </Button>
                                             <div className="flex items-center justify-center gap-2 text-sm text-slate-500 font-medium">
                                                 <img src="https://payos.vn/wp-content/uploads/sites/13/2024/08/payos-logo-nobg.png" alt="PayOS" className="h-5" />

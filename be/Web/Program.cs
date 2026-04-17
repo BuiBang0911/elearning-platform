@@ -35,6 +35,7 @@ using ApplicationCore.Services.Wallets;
 using ApplicationCore.Services.Withdrawals;
 using Microsoft.AspNetCore.RateLimiting;
 using System.Threading.RateLimiting;
+using ApplicationCore.Services.InstructorRequests;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -315,6 +316,8 @@ builder.Services.AddScoped<IRepository<WithdrawalRequest>, Repository<Withdrawal
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<ITeacherWalletService, TeacherWalletService>();
 builder.Services.AddScoped<IWithdrawalService, WithdrawalService>();
+builder.Services.AddScoped<IRepository<InstructorRequest>, Repository<InstructorRequest>>();
+builder.Services.AddScoped<IInstructorRequestService, InstructorRequestService>();
 
 var app = builder.Build();
 
@@ -330,6 +333,8 @@ if (app.Environment.IsDevelopment())
 app.UseCors("AllowFrontend");
 
 app.UseRouting();
+
+app.UseRateLimiter();
 
 app.UseAuthentication();
 
@@ -373,7 +378,6 @@ app.Use(async (context, next) =>
 });
 
 app.UseAuthorization();
-app.UseRateLimiter();
 app.MapControllers();
 
 app.Run();

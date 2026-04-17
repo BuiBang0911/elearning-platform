@@ -42,7 +42,7 @@ const AdminDashboard = () => {
     fetchStats();
   }, []);
 
-  if (loading || !stats) return <FullPageLoader />;
+  if (loading || !stats) return <FullPageLoader isFullPage={false} />;
 
   const COLORS = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b'];
 

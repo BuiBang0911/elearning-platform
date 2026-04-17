@@ -6,27 +6,27 @@ import { useEffect, useState } from "react";
 import { UserRole, type UserResponse } from "../interfaces/auth";
 import AuthApi from "../api/auth.api";
 import { useAuth } from "../context/AuthContext";
+import instructorRequestApi, { type InstructorRequestStatus } from "../api/instructorRequest.api";
 
 export default function LandingPage() {
   const { user, logout, loading } = useAuth();
   const navigate = useNavigate();
   const isAuthenticated = !!user;
 
+  const [instructorStatus, setInstructorStatus] = useState<InstructorRequestStatus | null>(null);
+
   // Manual redirect logic for specific roles when landing on home
   useEffect(() => {
     if (!loading && user) {
-      switch (user.role) {
-        case UserRole.ADMIN:
-          navigate("/admin");
-          break;
-        case UserRole.INSTRUCTOR:
-          navigate("/instructor");
-          break;
-        case UserRole.STUDENT:
-          // We might WANT students to see the landing page sometimes, 
-          // but if we want auto-dashboard, keep this:
-          navigate("/student");
-          break;
+      if (user.role === UserRole.ADMIN) {
+        navigate("/admin");
+      }
+      
+      // Fetch instructor request status if student
+      if (user.role === UserRole.STUDENT) {
+        instructorRequestApi.getMyStatus()
+          .then(status => setInstructorStatus(status))
+          .catch(() => setInstructorStatus(null));
       }
     }
   }, [user, loading, navigate]);
@@ -71,7 +71,9 @@ export default function LandingPage() {
             {isAuthenticated ? (
               <>
                 <Link to={user?.role === UserRole.STUDENT ? "/student" : user?.role === UserRole.INSTRUCTOR ? "/instructor" : "/admin"}>
-                  <Button variant="outline">Go to Dashboard</Button>
+                  <Button variant="outline" className="border-blue-200 text-blue-700 hover:bg-blue-50">
+                    {user?.role === UserRole.INSTRUCTOR ? "Quản lý khóa học" : "Vào học"}
+                  </Button>
                 </Link>
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium hidden sm:inline">{user?.fullName}</span>
@@ -117,18 +119,32 @@ export default function LandingPage() {
             <p className="text-xl text-gray-600 mb-8">
               EduMind combines expert-created courses with intelligent AI assistance using Retrieval-Augmented Generation (RAG) to provide personalized learning experiences.
             </p>
-            <div className="flex items-center justify-center gap-4">
-              <Link to={isAuthenticated ? (user?.role === UserRole.STUDENT ? "/student" : "/login") : "/register"}>
-                <Button size="lg" className="gap-2">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+              <Link to={isAuthenticated ? (user?.role === UserRole.STUDENT ? "/student" : user?.role === UserRole.INSTRUCTOR ? "/instructor" : "/admin") : "/register"}>
+                <Button size="lg" className="gap-2 w-full sm:w-auto bg-gradient-to-r from-blue-600 to-purple-600">
                   <GraduationCap className="w-5 h-5" />
-                  Start Learning Free
+                  {isAuthenticated ? (user?.role === UserRole.INSTRUCTOR ? "Quản lý khóa học" : "Vào học ngay") : "Bắt đầu học ngay"}
                 </Button>
               </Link>
-              <Link to={isAuthenticated ? (user?.role === UserRole.INSTRUCTOR ? "/instructor" : "/login?role=instructor") : "/register?role=instructor"}>
-                <Button size="lg" variant="outline">
-                  Become an Instructor
-                </Button>
-              </Link>
+              
+              {/* Logic cho nút Đăng ký giảng viên */}
+              {(!isAuthenticated || user?.role === UserRole.STUDENT) && (
+                <Link to={!isAuthenticated ? "/register?role=instructor" : "/apply-instructor"}>
+                  <Button size="lg" variant="outline" className="gap-2 w-full sm:w-auto border-purple-200 text-purple-700 hover:bg-purple-50">
+                    <Users className="w-5 h-5" />
+                    {instructorStatus?.status === "Pending" ? "Đang chờ duyệt giảng viên" : "Trở thành Giảng viên"}
+                  </Button>
+                </Link>
+              )}
+              
+              {isAuthenticated && user?.role === UserRole.INSTRUCTOR && (
+                <Link to="/instructor">
+                  <Button size="lg" variant="outline" className="gap-2 w-full sm:w-auto border-blue-200 text-blue-700 hover:bg-blue-50">
+                    <TrendingUp className="w-5 h-5" />
+                    Kênh giảng viên
+                  </Button>
+                </Link>
+              )}
             </div>
           </div>
         </div>

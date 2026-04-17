@@ -64,7 +64,7 @@ const AdminCourseManagement = () => {
     course.instructorName.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  if (loading) return <FullPageLoader />;
+  if (loading) return <FullPageLoader isFullPage={false} />;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">

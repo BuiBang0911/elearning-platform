@@ -15,9 +15,11 @@ import AdminUserManagement from "../pages/admin/AdminUserManagement";
 import AdminCourseManagement from "../pages/admin/AdminCourseManagement";
 import AdminWithdrawals from "../pages/admin/AdminWithdrawals";
 import AdminRevenueOverview from "../pages/admin/AdminRevenueOverview";
+import AdminInstructorRequests from "../pages/admin/AdminInstructorRequests";
 import AdminLayout from "../components/Admin/AdminLayout";
 import ProtectedRoute from "../components/auth/ProtectedRoute";
 import { UserRole } from "../interfaces/auth";
+import ApplyInstructor from "../pages/student/ApplyInstructor";
 
 export const router = createBrowserRouter([
   {
@@ -27,8 +29,8 @@ export const router = createBrowserRouter([
       { index: true, Component: LandingPage },
       { path: "login", Component: Login },
       { path: "register", Component: Register },
-      { 
-        path: "admin", 
+      {
+        path: "admin",
         element: (
           <ProtectedRoute allowedRoles={[UserRole.ADMIN]}>
             <AdminLayout />
@@ -40,55 +42,64 @@ export const router = createBrowserRouter([
           { path: "courses", element: <AdminCourseManagement /> },
           { path: "withdrawals", element: <AdminWithdrawals /> },
           { path: "revenue", element: <AdminRevenueOverview /> },
+          { path: "instructor-requests", element: <AdminInstructorRequests /> },
         ]
       },
-      { 
-        path: "instructor", 
+      {
+        path: "instructor",
         element: (
           <ProtectedRoute allowedRoles={[UserRole.INSTRUCTOR, UserRole.ADMIN]}>
             <InstructorDashboard />
           </ProtectedRoute>
-        ) 
+        )
       },
-      { 
-        path: "student", 
+      {
+        path: "student",
         element: (
           <ProtectedRoute allowedRoles={[UserRole.STUDENT, UserRole.ADMIN]}>
             <StudentDashboard />
           </ProtectedRoute>
-        ) 
+        )
       },
-      { 
-        path: "student/course/:id", 
+      {
+        path: "apply-instructor",
+        element: (
+          <ProtectedRoute allowedRoles={[UserRole.STUDENT]}>
+            <ApplyInstructor />
+          </ProtectedRoute>
+        )
+      },
+      {
+        path: "student/course/:id",
         element: (
           <ProtectedRoute allowedRoles={[UserRole.STUDENT, UserRole.ADMIN]}>
             <CourseDetail />
           </ProtectedRoute>
-        ) 
+        )
       },
-      { 
-        path: "student/course/:id/learn", 
+      {
+        path: "student/course/:id/learn",
         element: (
           <ProtectedRoute allowedRoles={[UserRole.STUDENT, UserRole.ADMIN]}>
             <LearningScreen />
           </ProtectedRoute>
-        ) 
+        )
       },
-      { 
-        path: "payment/success", 
+      {
+        path: "payment/success",
         element: (
           <ProtectedRoute allowedRoles={[UserRole.STUDENT, UserRole.ADMIN]}>
             <PaymentSuccess />
           </ProtectedRoute>
-        ) 
+        )
       },
-      { 
-        path: "payment/cancel", 
+      {
+        path: "payment/cancel",
         element: (
           <ProtectedRoute allowedRoles={[UserRole.STUDENT, UserRole.ADMIN]}>
             <PaymentCancel />
           </ProtectedRoute>
-        ) 
+        )
       },
       { path: "*", Component: NotFound },
     ],
