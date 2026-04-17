@@ -217,12 +217,7 @@ namespace Web.Controllers
         {
             var results = await _documentService.SearchDocumentsInCourseAsync(courseId, searchTerm);
 
-            if (results == null || !results.Any())
-            {
-                return NotFound();
-            }
-
-            return Ok(results);
+            return Ok(results ?? new List<DocumentResponse>());
         }
 
         [HttpGet("get-courses-for-student")]

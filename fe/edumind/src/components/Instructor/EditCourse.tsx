@@ -79,7 +79,7 @@ const EditCourse = ({ editCourseOpen, setEditCourseOpen, selectedCourse, handleM
 				setCourseLessons(lessons);
 			} catch (error) {
 				console.error("Error fetching course details:", error);
-				toast.error("Failed to load course details. Please try again.");
+				toast.error(parseError(error, "Failed to load course details. Please try again."));
 			}
 		};
 		if (editCourseOpen) {

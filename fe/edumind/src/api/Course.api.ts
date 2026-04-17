@@ -83,7 +83,7 @@ const getCourseByStudentDashboard = async (studentId: number): Promise<CourseByS
 };
 
 const searchDocuments = async (courseId: number, searchTerm?: string): Promise<DocumentResponse[]> => {
-  const res = await api.get(`/Course/${courseId}/documents/search/`, { params: { searchTerm } });
+  const res = await api.get(`/Course/${courseId}/documents/search`, { params: { searchTerm } });
   return res.data;
 };
 
