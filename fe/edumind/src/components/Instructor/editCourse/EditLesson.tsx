@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import type { LessonResponse, LessonUpdateRequest } from "../../../interfaces/Lesson"
 import { Button } from "../../ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../ui/dialog"
@@ -28,6 +28,20 @@ const EditLesson = ({ editLessonOpen, setEditLessonOpen, selectedLesson: lesson,
 		content: lesson.content || "",
 		videoFile: undefined
 	});
+
+	// Sync form state when lesson changes or modal opens
+	useEffect(() => {
+		if (editLessonOpen && lesson) {
+			setFormData({
+				courseId: lesson.courseId,
+				title: lesson.title,
+				lessonOrder: lesson.lessonOrder,
+				description: lesson.description || "",
+				content: lesson.content || "",
+				videoFile: undefined // Reset file selection
+			});
+		}
+	}, [lesson, editLessonOpen]);
 
 	const handleUpdateLesson = async (e: React.FormEvent) => {
 		e.preventDefault();

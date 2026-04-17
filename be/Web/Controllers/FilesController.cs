@@ -1,4 +1,5 @@
-﻿using ApplicationCore.Services.Storage;
+using ApplicationCore.Services.Storage;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
@@ -6,6 +7,7 @@ namespace Web.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class FilesController : ControllerBase
     {
         private readonly IStorageService _storageService;

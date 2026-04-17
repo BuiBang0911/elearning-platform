@@ -21,6 +21,7 @@ namespace Web.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class CourseController : BaseEntityController<Course, CourseRequest, CourseUpdateRequest, CourseResponse>
     {
         private readonly ICourseService _courseService;
@@ -42,6 +43,8 @@ namespace Web.Controllers
             _authService = authService;
         }
 
+        [HttpGet]
+        [AllowAnonymous]
         public override  async Task<ActionResult<IEnumerable<CourseResponse>>> GetAll()
         {
             var list = await _courseService.GetAsync(earlyLoad: [x => x.Lecturer, x => x.Category]);
@@ -101,10 +104,14 @@ namespace Web.Controllers
             if (entity == null)
                 return NotFound();
 
+            var userId = _authService.UserId;
+            if (entity.LecturerId != userId && !User.IsInRole(nameof(UserRole.Admin)))
+                return Forbid("You do not have permission to delete this course.");
+
             var liLesson = await _lessonService.GetAsync(x => x.CourseId == id);
 
             foreach (var lesson in liLesson) {
-                var liDocument = await _documentService.GetAsync(x => x.LessonId == id);
+                var liDocument = await _documentService.GetAsync(x => x.LessonId == lesson.Id);
                 foreach (var document in liDocument) {
                     await _documentService.DeleteAsync(document);
                 }
@@ -149,6 +156,10 @@ namespace Web.Controllers
         {
             var entity = await _courseService.FirstOrDefaultAsync(x => x.Id == id, earlyLoad: [x => x.Enrollments, x => x.Category, x => x.Lecturer]);
             if (entity == null) return NotFound();
+
+            var userId = _authService.UserId;
+            if (entity.LecturerId != userId)
+                return Forbid("You do not have permission to update this course.");
 
             if (request.Thumbnail != null)
             {
@@ -213,6 +224,7 @@ namespace Web.Controllers
         }
 
         [HttpGet("{courseId}/documents/search")]
+        [AllowAnonymous]
         public async Task<IActionResult> SearchDocuments(int courseId, [FromQuery] string? searchTerm)
         {
             var results = await _documentService.SearchDocumentsInCourseAsync(courseId, searchTerm);
@@ -233,6 +245,7 @@ namespace Web.Controllers
         }
 
         [HttpPost("get-top-rated-courses")]
+        [AllowAnonymous]
         public async Task<IActionResult> GetTopRatedCoursesAsync([FromBody] PagingRequest pagingRequest)
         {
             var courses = await _courseService.GetTopRatedCoursesPagedAsync(pagingRequest.PageIndex, pagingRequest.PageSize);
@@ -252,6 +265,7 @@ namespace Web.Controllers
         }
 
         [HttpGet("student/detail/{id}")]
+        [AllowAnonymous]
         public async Task<IActionResult> GetCourseDetailForStudent(int id)
         {
             var userId = _authService?.UserId;

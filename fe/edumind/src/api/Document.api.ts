@@ -3,7 +3,7 @@ import type { DocumentResponse, DocumentUpdateRequest } from "../interfaces/Docu
 import api from "./index.api";
 
 const documentApi = {
-    create: async (data: DocumentUpdateRequest): Promise<DocumentResponse> => {
+    create: async (data: DocumentUpdateRequest, onUploadProgress?: (progressEvent: any) => void): Promise<DocumentResponse> => {
         const formData = new FormData();
 
         Object.entries(data).forEach(([key, value]) => {
@@ -21,6 +21,7 @@ const documentApi = {
             headers: {
                 "Content-Type": "multipart/form-data",
             },
+            onUploadProgress
         });
 
         return res.data;

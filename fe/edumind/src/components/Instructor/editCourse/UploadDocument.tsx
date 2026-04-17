@@ -4,6 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../ui/dialo
 import { Label } from "../../ui/label";
 import { Input } from "../../ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select";
+import { Progress } from "../../ui/progress";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { FileStatus, type DocumentResponse } from "../../../interfaces/Document";
@@ -24,6 +25,7 @@ const UploadDocument = ({ uploadDocumentOpen, setUploadDocumentOpen, courseId, o
 	const [isUploading, setIsUploading] = useState(false);
 	const [selectedFile, setSelectedFile] = useState<File | null>(null);
 	const [fileName, setFileName] = useState("");
+	const [uploadProgress, setUploadProgress] = useState(0);
 	const [lessonId, setLessonId] = useState<number>(initialLessonId || 0);
 	const [lessons, setLessons] = useState<LessonResponse[]>([]);
 
@@ -62,6 +64,10 @@ const UploadDocument = ({ uploadDocumentOpen, setUploadDocumentOpen, courseId, o
 				return;
 			}
 			setSelectedFile(file);
+			if (!fileName) {
+				const nameWithoutExt = file.name.replace(/\.[^/.]+$/, "");
+				setFileName(nameWithoutExt);
+			}
 		}
 	};
 
@@ -77,13 +83,20 @@ const UploadDocument = ({ uploadDocumentOpen, setUploadDocumentOpen, courseId, o
 		}
 
 		setIsUploading(true);
+		setUploadProgress(0);
 		try {
-			const newDoc = await documentApi.create({
-				lessonId,
-				fileName: fileName,
-				status: FileStatus.Uploaded,
-				file: selectedFile
-			});
+			const newDoc = await documentApi.create(
+				{
+					lessonId,
+					fileName: fileName,
+					status: FileStatus.Uploaded,
+					file: selectedFile
+				},
+				(progressEvent) => {
+					const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+					setUploadProgress(progress);
+				}
+			);
 
 			toast.success("Document uploaded successfully!");
 			onSave(newDoc);
@@ -93,6 +106,7 @@ const UploadDocument = ({ uploadDocumentOpen, setUploadDocumentOpen, courseId, o
 			toast.error(parseError(error, "Failed to upload document."));
 		} finally {
 			setIsUploading(false);
+			setUploadProgress(0);
 		}
 	};
 
@@ -146,7 +160,7 @@ const UploadDocument = ({ uploadDocumentOpen, setUploadDocumentOpen, courseId, o
 							</Select>
 						</div>
 
-						<div className="p-8 border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50/50 hover:bg-slate-50 hover:border-blue-400 transition-all group flex flex-col items-center justify-center text-center cursor-pointer relative">
+						<div className={`p-8 border-2 border-dashed rounded-2xl transition-all group flex flex-col items-center justify-center text-center cursor-pointer relative ${selectedFile ? "border-blue-400 bg-blue-50/30" : "border-slate-200 bg-slate-50/50 hover:bg-slate-50 hover:border-blue-400"}`}>
 							<Input
 								type="file"
 								className="absolute inset-0 opacity-0 cursor-pointer z-10 h-full w-full"
@@ -154,16 +168,31 @@ const UploadDocument = ({ uploadDocumentOpen, setUploadDocumentOpen, courseId, o
 								accept=".pdf"
 								disabled={isUploading}
 							/>
-							<div className="w-12 h-12 bg-blue-100/50 text-blue-600 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+							<div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 transition-transform ${selectedFile ? "bg-blue-600 text-white scale-110" : "bg-blue-100/50 text-blue-600 group-hover:scale-110"}`}>
 								<FileText className="w-6 h-6" />
 							</div>
 							<div className="space-y-1">
 								<p className="font-semibold text-slate-700">
 									{selectedFile ? selectedFile.name : "Click to select PDF file"}
 								</p>
-								<p className="text-xs text-slate-500">Only PDF files are supported for documents</p>
+								{selectedFile && !isUploading && (
+									<p className="text-xs text-blue-600 font-medium">Click to change file</p>
+								)}
+								{!selectedFile && (
+									<p className="text-xs text-slate-500">Only PDF files are supported for documents</p>
+								)}
 							</div>
 						</div>
+
+						{isUploading && (
+							<div className="space-y-2 px-1">
+								<div className="flex justify-between text-xs font-medium text-slate-600">
+									<span>Uploading...</span>
+									<span>{uploadProgress}%</span>
+								</div>
+								<Progress value={uploadProgress} className="h-2 bg-slate-100" />
+							</div>
+						)}
 					</div>
 
 					<div className="flex justify-end gap-3 pt-2">

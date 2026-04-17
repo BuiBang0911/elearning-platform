@@ -18,17 +18,22 @@ using System.Linq;
 
 namespace Web.Controllers
 {
+    [Route("api/[controller]")]
+    [ApiController]
+    [Authorize]
     public class DocumentController : BaseEntityController<Document, DocumentRequest, DocumentUpdateRequest, DocumentResponse>
     {
         private readonly IAuthService _authService;
         private readonly ICeleryService _celeryService;
         private readonly IMapper _mapper;
         private readonly IDocumentService _documentService;
+        private readonly ILessonService _lessonService;
         private readonly IStorageService _storageService;
 
-        public DocumentController(IDocumentService documentService, IStorageService storageService, IAuthService authService, ICeleryService celeryService, IMapper mapper) : base(documentService, mapper)
+        public DocumentController(IDocumentService documentService, ILessonService lessonService, IStorageService storageService, IAuthService authService, ICeleryService celeryService, IMapper mapper) : base(documentService, mapper)
         {
             _documentService = documentService;
+            _lessonService = lessonService;
             _storageService = storageService;
             _authService = authService;
             _celeryService = celeryService;
@@ -41,6 +46,11 @@ namespace Web.Controllers
         {
             var userId = _authService.UserId;
             if (userId == null) return Unauthorized("Invalid refresh token");
+
+            // Verify if lesson belongs to a course owned by the instructor
+            var lesson = await _lessonService.FirstOrDefaultAsync(l => l.Id == request.LessonId, earlyLoad: [x => x.Course]);
+            if (lesson == null) return NotFound("Lesson not found");
+            if (lesson.Course.LecturerId != userId) return Forbid("You do not have permission to add documents to this lesson.");
 
             if (request.File == null) return BadRequest("File is required");
 
@@ -125,8 +135,12 @@ namespace Web.Controllers
         [Authorize(Roles = $"{nameof(UserRole.Instructor)}")]
         public override async Task<IActionResult> Delete(int id)
         {
-            var doc = await _documentService.FirstOrDefaultAsync(x => x.Id == id);
+            var doc = await _documentService.FirstOrDefaultAsync(x => x.Id == id, earlyLoad: [x => x.Lesson.Course]);
             if (doc == null) return NotFound();
+
+            var userId = _authService.UserId;
+            if (doc.Lesson.Course.LecturerId != userId && !User.IsInRole(nameof(UserRole.Admin)))
+                return Forbid("You do not have permission to delete this document.");
 
             // 1. Delete actual file from cloud storage
             try

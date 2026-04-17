@@ -32,8 +32,14 @@ import WalletApi from "../api/Wallet.api";
 import type { TeacherRevenueStats } from "../interfaces/Payment";
 import AiAssistant from "../components/AiAssistant/AiAssistant";
 import FullPageLoader from "../components/PostLoading/FullPageLoader";
-import CourseAnalyticsDialog from "../components/Instructor/CourseAnalyticsDialog";
 import WithdrawalDialog from "../components/Instructor/WithdrawalDialog";
+import lessonApi from "../api/Lesson.api";
+import CategoryApi from "../api/Category.api";
+import { type LessonResponse } from "../interfaces/Lesson";
+import { type DocumentResponse } from "../interfaces/Document";
+import { type CategoryResponse } from "../interfaces/Category";
+import { toast } from "sonner";
+import { Loader2 } from "lucide-react";
 import {
 	AreaChart,
 	Area,
@@ -57,6 +63,32 @@ export default function InstructorDashboard() {
 	const [analyticsOpen, setAnalyticsOpen] = useState(false);
 	const [analyticsCourse, setAnalyticsCourse] = useState<{ id: number, title: string } | null>(null);
 	const [createCourseOpen, setCreateCourseOpen] = useState(false);
+	const [isPreparingEdit, setIsPreparingEdit] = useState<number | null>(null);
+	const [preFetchedData, setPreFetchedData] = useState<{
+		lessons: LessonResponse[];
+		documents: DocumentResponse[];
+		categories: CategoryResponse[];
+	} | null>(null);
+
+	const handleOpenEdit = async (course: CourseResponseInstructorDashboard) => {
+		try {
+			setIsPreparingEdit(course.id);
+			const [lessons, documents, categories] = await Promise.all([
+				lessonApi.getByCourseId(course.id),
+				CourseApi.searchDocuments(course.id),
+				CategoryApi.getAll()
+			]);
+
+			setPreFetchedData({ lessons, documents, categories });
+			setSelectedCourse(course);
+			setEditCourseOpen(true);
+		} catch (error) {
+			console.error("Error pre-fetching course data:", error);
+			toast.error("Failed to load course details. Please try again.");
+		} finally {
+			setIsPreparingEdit(null);
+		}
+	};
 
 	const handleOpenAnalytics = (courseId: number, courseTitle: string) => {
 		setAnalyticsCourse({ id: courseId, title: courseTitle });
@@ -198,9 +230,18 @@ export default function InstructorDashboard() {
 											</div>
 										</div>
 										<div className="flex gap-2 mt-4">
-											<Button variant="outline" className="gap-2" onClick={() => { setEditCourseOpen(true); setSelectedCourse(course); }}>
-												<Settings className="w-4 h-4" />
-												Edit Course
+											<Button
+												variant="outline"
+												className="gap-2"
+												onClick={() => handleOpenEdit(course)}
+												disabled={isPreparingEdit === course.id}
+											>
+												{isPreparingEdit === course.id ? (
+													<Loader2 className="w-4 h-4 animate-spin" />
+												) : (
+													<Settings className="w-4 h-4" />
+												)}
+												{isPreparingEdit === course.id ? "Loading..." : "Edit Course"}
 											</Button>
 											<Button
 												variant="outline"
@@ -499,6 +540,9 @@ export default function InstructorDashboard() {
 					selectedCourse={selectedCourse}
 					handleMaterialsChanged={handleMaterialsChanged}
 					onSave={handleUpdateCourse}
+					preFetchedLessons={preFetchedData?.lessons}
+					preFetchedDocuments={preFetchedData?.documents}
+					preFetchedCategories={preFetchedData?.categories}
 				/>
 			)}
 

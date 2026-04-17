@@ -2,6 +2,7 @@ using ApplicationCore.Data;
 using ApplicationCore.DTOs;
 using ApplicationCore.Services.Cache;
 using Infrastructure.Entities;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System.Collections.Generic;
@@ -24,6 +25,7 @@ namespace Web.Controllers
         }
 
         [HttpGet]
+        [AllowAnonymous]
         public async Task<ActionResult<IEnumerable<CategoryResponse>>> GetAll()
         {
             var cached = await _cacheService.GetAsync<List<CategoryResponse>>(CategoriesCacheKey);
@@ -38,6 +40,7 @@ namespace Web.Controllers
         }
 
         [HttpGet("{id}")]
+        [AllowAnonymous]
         public async Task<ActionResult<CategoryResponse>> GetById(int id)
         {
             var category = await _categoryRepository.FirstOrDefaultAsync(c => c.Id == id);
@@ -50,6 +53,7 @@ namespace Web.Controllers
         }
 
         [HttpPost]
+        [Authorize(Roles = nameof(UserRole.Admin))]
         public async Task<ActionResult<CategoryResponse>> Create(CategoryRequest categoryRequest)
         {
             // Check for duplicate name (case-insensitive)
@@ -67,6 +71,7 @@ namespace Web.Controllers
         }
 
         [HttpPut("{id}")]
+        [Authorize(Roles = nameof(UserRole.Admin))]
         public async Task<ActionResult> Update(int id, CategoryRequest categoryRequest)
         {
             var existingCategory = await _categoryRepository.FirstOrDefaultAsync(c => c.Id == id);
@@ -89,6 +94,7 @@ namespace Web.Controllers
         }
 
         [HttpDelete("{id}")]
+        [Authorize(Roles = nameof(UserRole.Admin))]
         public async Task<ActionResult> Delete(int id)
         {
             var category = await _categoryRepository.FirstOrDefaultAsync(c => c.Id == id);

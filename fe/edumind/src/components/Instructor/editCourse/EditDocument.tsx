@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "../../ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../ui/dialog";
 import { Input } from "../../ui/input";
@@ -23,6 +23,18 @@ const EditDocument = ({ editDocumentOpen, setEditDocumentOpen, document, onSave 
 		status: document.status,
 		file: document.filePath as unknown as File // This is a bit of a hack since we don't have the actual File object, just the path. You might want to handle this differently.
 	});
+
+	// Sync form state when document changes or modal opens
+	useEffect(() => {
+		if (editDocumentOpen && document) {
+			setDocumentForm({
+				lessonId: document.lessonId,
+				fileName: document.fileName,
+				status: document.status,
+				file: document.filePath as unknown as File
+			});
+		}
+	}, [document, editDocumentOpen]);
 
 	const handleSaveDocumentEdit = async (e: React.FormEvent) => {
 		e.preventDefault();

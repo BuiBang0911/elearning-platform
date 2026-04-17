@@ -42,9 +42,21 @@ type EditCourseProps = {
 	selectedCourse: CourseResponse;
 	handleMaterialsChanged: (delta: number) => void;
 	onSave: (updatedCourse: CourseResponse) => void;
+	preFetchedLessons?: LessonResponse[];
+	preFetchedDocuments?: DocumentResponse[];
+	preFetchedCategories?: CategoryResponse[];
 };
 
-const EditCourse = ({ editCourseOpen, setEditCourseOpen, selectedCourse, handleMaterialsChanged, onSave }: EditCourseProps) => {
+const EditCourse = ({
+	editCourseOpen,
+	setEditCourseOpen,
+	selectedCourse,
+	handleMaterialsChanged,
+	onSave,
+	preFetchedLessons,
+	preFetchedDocuments,
+	preFetchedCategories
+}: EditCourseProps) => {
 	const [courseLessons, setCourseLessons] = useState<LessonResponse[]>([]);
 	const [addLessonOpen, setAddLessonOpen] = useState(false);
 	const [editLessonOpen, setEditLessonOpen] = useState(false);
@@ -65,27 +77,59 @@ const EditCourse = ({ editCourseOpen, setEditCourseOpen, selectedCourse, handleM
 		lecturerId: selectedCourse.lecturerId
 	});
 
+	// Sync form state when selectedCourse or open status changes
+	useEffect(() => {
+		if (editCourseOpen && selectedCourse) {
+			setEditForm({
+				title: selectedCourse.title,
+				description: selectedCourse.description,
+				level: selectedCourse.level,
+				categoryId: selectedCourse.categoryId,
+				price: selectedCourse.price,
+				thumbnail: null,
+				lecturerId: selectedCourse.lecturerId
+			});
+		}
+	}, [selectedCourse, editCourseOpen]);
+
+	const [isLoading, setIsLoading] = useState(false);
+
 	const [deleteDocId, setDeleteDocId] = useState<number | null>(null);
 	const [isDeleting, setIsDeleting] = useState(false);
 
 	useEffect(() => {
 		const fetchCourseDetails = async () => {
-			try {
-				const lessons = await lessonApi.getByCourseId(selectedCourse.id);
-				const documents = await CourseApi.searchDocuments(selectedCourse.id);
-				const cats = await CategoryApi.getAll();
-				setCategories(cats);
-				setCourseDocuments(documents);
-				setCourseLessons(lessons);
-			} catch (error) {
-				console.error("Error fetching course details:", error);
-				toast.error(parseError(error, "Failed to load course details. Please try again."));
+			// If we have pre-fetched data, use it
+			if (preFetchedLessons) setCourseLessons(preFetchedLessons);
+			if (preFetchedDocuments) setCourseDocuments(preFetchedDocuments);
+			if (preFetchedCategories) setCategories(preFetchedCategories);
+
+			// If any data is missing, fetch it
+			if (!preFetchedLessons || !preFetchedDocuments || !preFetchedCategories) {
+				try {
+					setIsLoading(true);
+					const [lessons, documents, cats] = await Promise.all([
+						!preFetchedLessons ? lessonApi.getByCourseId(selectedCourse.id) : Promise.resolve(preFetchedLessons),
+						!preFetchedDocuments ? CourseApi.searchDocuments(selectedCourse.id) : Promise.resolve(preFetchedDocuments),
+						!preFetchedCategories ? CategoryApi.getAll() : Promise.resolve(preFetchedCategories)
+					]);
+
+					setCategories(cats);
+					setCourseDocuments(documents);
+					setCourseLessons(lessons);
+				} catch (error) {
+					console.error("Error fetching course details:", error);
+					toast.error(parseError(error, "Failed to load course details. Please try again."));
+				} finally {
+					setIsLoading(false);
+				}
 			}
 		};
+
 		if (editCourseOpen) {
 			fetchCourseDetails();
 		}
-	}, [selectedCourse.id, editCourseOpen]);
+	}, [selectedCourse.id, editCourseOpen, preFetchedLessons, preFetchedDocuments, preFetchedCategories]);
 
 	const handleUpdateLesson = (updatedLesson: LessonResponse) => {
 		setCourseLessons(prev =>

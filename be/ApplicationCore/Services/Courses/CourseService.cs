@@ -253,14 +253,14 @@ namespace ApplicationCore.Services.Courses
                     LessonOrder = l.LessonOrder,
                     Description = l.Description,
                     Content = l.Content,
-                    VideoUrl = l.VideoUrl,
+                    VideoUrl = isEnrolled ? l.VideoUrl : null,
                     isCompleted = completedLessonIds.Contains(l.Id),
                     Documents = l.Documents.Select(d => new DocumentResponse
                     {
                         Id = d.Id,
                         LessonId = d.LessonId,
                         FileName = d.FileName,
-                        FilePath = d.FilePath,
+                        FilePath = isEnrolled ? d.FilePath : null,
                         Size = d.Size,
                         Status = d.Status,
                         UploadedAt = d.UploadedAt

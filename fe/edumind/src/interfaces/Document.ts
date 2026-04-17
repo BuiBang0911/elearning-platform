@@ -42,19 +42,19 @@ export const FileStatusConfig: Record<
     className: "bg-gray-100 text-gray-800 border-gray-300",
   },
   1: {
-    label: "Uploading",
+    label: "Uploading...",
     className: "bg-blue-100 text-blue-800 border-blue-300",
   },
   2: {
     label: "Uploaded",
-    className: "bg-green-100 text-green-800 border-green-300",
+    className: "bg-blue-100 text-blue-800 border-blue-300",
   },
   3: {
-    label: "Processing",
-    className: "bg-yellow-100 text-yellow-800 border-yellow-300",
+    label: "AI Embedding...",
+    className: "bg-yellow-100 text-yellow-800 border-yellow-300 animate-pulse",
   },
   4: {
-    label: "Processed",
+    label: "Ready for AI",
     className: "bg-emerald-100 text-emerald-800 border-emerald-300",
   },
   5: {

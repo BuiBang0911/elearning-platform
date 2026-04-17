@@ -17,7 +17,7 @@ namespace Web.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize()]
+    [Authorize]
     public class LessonController : BaseEntityController<Lesson, LessonRequest, LessonUpdateRequest, LessonResponse>
     {
         private readonly ILessonService _lessonService;

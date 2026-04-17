@@ -2,7 +2,8 @@ using ApplicationCore.Constants;
 using ApplicationCore.DTO;
 using ApplicationCore.Services.Auth;
 using ApplicationCore.Services.ChatMessages;
-using ApplicationCore.Services.Documents;
+using ApplicationCore.Services.Enrollments;
+using ApplicationCore.Services.Lessons;
 using AutoMapper;
 using Infrastructure.Entities;
 using Microsoft.AspNetCore.Authorization;
@@ -15,20 +16,24 @@ namespace Web.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    // [Authorize(Roles = nameof(UserRole.Admin))]
+    [Authorize]
     public class ChatMessageController : BaseEntityController<ChatMessage, ChatMessageRequest, ChatMessageUpdateRequest, ChatMessageResponse>
     {
         private readonly IChatMessageService _chatMessageService;
         private readonly IAuthService _authService;
         private readonly IMapper _mapper;
         private readonly IHttpClientFactory _clientFactory;
+        private readonly IEnrollmentService _enrollmentService;
+        private readonly ILessonService _lessonService;
 
-        public ChatMessageController(IChatMessageService chatMessageService, IAuthService authService, IMapper mapper, IHttpClientFactory clientFactory) : base(chatMessageService, mapper)
+        public ChatMessageController(IChatMessageService chatMessageService, IAuthService authService, IMapper mapper, IHttpClientFactory clientFactory, IEnrollmentService enrollmentService, ILessonService lessonService) : base(chatMessageService, mapper)
         {
             _chatMessageService = chatMessageService;
             _authService = authService;
             _mapper = mapper;
             _clientFactory = clientFactory;
+            _enrollmentService = enrollmentService;
+            _lessonService = lessonService;
         }
 
         [Authorize]
@@ -49,6 +54,16 @@ namespace Web.Controllers
         {
             var userId = _authService.UserId;
             if (userId == null) return BadRequest();
+
+            // Verify enrollment
+            var lesson = await _lessonService.FirstOrDefaultAsync(l => l.Id == askAiRequest.LessonId);
+            if (lesson == null) return NotFound("Lesson not found");
+            
+            var isEnrolled = await _enrollmentService.FirstOrDefaultAsync(e => e.UserId == userId.Value && e.CourseId == lesson.CourseId);
+            if (isEnrolled == null && !User.IsInRole(nameof(UserRole.Instructor)) && !User.IsInRole(nameof(UserRole.Admin)))
+            {
+                return Forbid("You must be enrolled in this course to use AI Assistant.");
+            }
 
             await _chatMessageService.AddChatMessageAsync(askAiRequest.SessionId, ChatbotRole.User, askAiRequest.Message);
 
@@ -101,6 +116,20 @@ namespace Web.Controllers
             var userId = _authService.UserId;
             if (userId == null) {
                 Response.StatusCode = 401;
+                return;
+            }
+
+            // Verify enrollment
+            var lesson = await _lessonService.FirstOrDefaultAsync(l => l.Id == askAiRequest.LessonId);
+            if (lesson == null) {
+                Response.StatusCode = 404;
+                return;
+            }
+            
+            var isEnrolled = await _enrollmentService.FirstOrDefaultAsync(e => e.UserId == userId.Value && e.CourseId == lesson.CourseId);
+            if (isEnrolled == null && !User.IsInRole(nameof(UserRole.Instructor)) && !User.IsInRole(nameof(UserRole.Admin)))
+            {
+                Response.StatusCode = 403;
                 return;
             }
 

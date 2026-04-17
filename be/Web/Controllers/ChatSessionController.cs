@@ -1,4 +1,4 @@
-﻿using ApplicationCore.Constants;
+using ApplicationCore.Constants;
 using ApplicationCore.DTO;
 using ApplicationCore.Services.Auth;
 using ApplicationCore.Services.ChatMessages;
@@ -14,6 +14,7 @@ namespace Web.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class ChatSessionController : BaseEntityController<ChatSession, ChatSessionRequest, ChatSessionUpdateRequest, ChatSessionResponse>
     {
         private readonly IChatSessionService _chatSessionService;
@@ -64,7 +65,7 @@ namespace Web.Controllers
             var userId = _authService.UserId;
             if (userId == null) return Unauthorized();
 
-            var newChat = await _chatSessionService.FirstOrDefaultAsync(x => x.Id == id);
+            var newChat = await _chatSessionService.FirstOrDefaultAsync(x => x.Id == id && x.UserId == userId);
 
             if (newChat == null) return BadRequest();
 
