@@ -8,6 +8,7 @@ using AutoMapper;
 using Infrastructure.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using StackExchange.Redis;
 using System.Security.Claims;
 using System.Net.Http.Json;
@@ -50,6 +51,7 @@ namespace Web.Controllers
 
         [Authorize]
         [HttpPost("ask-ai")]
+        [EnableRateLimiting("AiPolicy")]
         public async Task<IActionResult> AskAiAssistant([FromBody] AskAiRequest askAiRequest)
         {
             var userId = _authService.UserId;
@@ -111,6 +113,7 @@ namespace Web.Controllers
 
         [Authorize]
         [HttpPost("ask-ai-stream")]
+        [EnableRateLimiting("AiPolicy")]
         public async Task AskAiAssistantStream([FromBody] AskAiRequest askAiRequest)
         {
             var userId = _authService.UserId;

@@ -4,6 +4,7 @@ using ApplicationCore.Services.Wallets;
 using Infrastructure.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace Web.Controllers
 {
@@ -92,6 +93,7 @@ namespace Web.Controllers
         /// Yêu cầu rút tiền
         /// </summary>
         [HttpPost("withdraw")]
+        [EnableRateLimiting("PaymentPolicy")]
         public async Task<IActionResult> RequestWithdrawal([FromBody] WithdrawalRequestDto request)
         {
             try

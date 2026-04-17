@@ -11,6 +11,7 @@ using Infrastructure.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.RateLimiting;
 using System;
 using System.IO;
 using System.Linq;
@@ -54,6 +55,7 @@ namespace Web.Controllers
 
         [HttpPost]
         [Authorize(Roles = $"{nameof(UserRole.Instructor)}")]
+        [EnableRateLimiting("UploadPolicy")]
         public override async Task<ActionResult<CourseResponse>> Create([FromForm] CourseUpdateRequest request)
         {
             var userId = _authService.UserId;
@@ -152,6 +154,7 @@ namespace Web.Controllers
 
         [HttpPut("{id}")]
         [Authorize(Roles = $"{nameof(UserRole.Instructor)}")]
+        [EnableRateLimiting("UploadPolicy")]
         public override async Task<IActionResult> Update(int id, [FromForm] CourseUpdateRequest request)
         {
             var entity = await _courseService.FirstOrDefaultAsync(x => x.Id == id, earlyLoad: [x => x.Enrollments, x => x.Category, x => x.Lecturer]);
@@ -225,6 +228,7 @@ namespace Web.Controllers
 
         [HttpGet("{courseId}/documents/search")]
         [AllowAnonymous]
+        [EnableRateLimiting("SearchPolicy")]
         public async Task<IActionResult> SearchDocuments(int courseId, [FromQuery] string? searchTerm)
         {
             var results = await _documentService.SearchDocumentsInCourseAsync(courseId, searchTerm);
@@ -246,6 +250,7 @@ namespace Web.Controllers
 
         [HttpPost("get-top-rated-courses")]
         [AllowAnonymous]
+        [EnableRateLimiting("SearchPolicy")]
         public async Task<IActionResult> GetTopRatedCoursesAsync([FromBody] PagingRequest pagingRequest)
         {
             var courses = await _courseService.GetTopRatedCoursesPagedAsync(pagingRequest.PageIndex, pagingRequest.PageSize);
@@ -255,6 +260,7 @@ namespace Web.Controllers
 
         [HttpPost("get-all-course-for-student")]
         [Authorize(Roles = $"{nameof(UserRole.Student)}")]
+        [EnableRateLimiting("SearchPolicy")]
         public async Task<IActionResult> GetAllCoursesForStudentAsync([FromBody] PagingRequest pagingRequest, [FromQuery] string? search)
         {
             var userId = _authService?.UserId;

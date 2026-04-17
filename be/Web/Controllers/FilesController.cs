@@ -2,6 +2,7 @@ using ApplicationCore.Services.Storage;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace Web.Controllers
 {
@@ -18,6 +19,7 @@ namespace Web.Controllers
         }
 
         [HttpPost("upload")]
+        [EnableRateLimiting("UploadPolicy")]
         public async Task<IActionResult> Upload(IFormFile file)
         {
             var resultUrl = await _storageService.UploadFileAsync(file);

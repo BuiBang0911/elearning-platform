@@ -4,6 +4,7 @@ using ApplicationCore.Services.Payments;
 using Infrastructure.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using PayOS.Models.Webhooks;
 
 namespace Web.Controllers
@@ -27,6 +28,7 @@ namespace Web.Controllers
         /// </summary>
         [HttpPost("create-link")]
         [Authorize(Roles = nameof(UserRole.Student))]
+        [EnableRateLimiting("PaymentPolicy")]
         public async Task<IActionResult> CreatePaymentLink([FromBody] CreatePaymentRequest request)
         {
             try

@@ -1,4 +1,4 @@
-﻿using ApplicationCore.DTO;
+using ApplicationCore.DTO;
 using ApplicationCore.Services.Auth;
 using ApplicationCore.Services.Cache;
 using ApplicationCore.Services.Token;
@@ -8,6 +8,7 @@ using Infrastructure.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using System.Security.Claims;
 
 namespace Web.Controllers
@@ -32,6 +33,7 @@ namespace Web.Controllers
         }
 
         [HttpPost("login")]
+        [EnableRateLimiting("AuthPolicy")]
         public async Task<IActionResult> LoginAsync(LoginRequest request)
         {
             if (string.IsNullOrWhiteSpace(request.Email) ||
@@ -175,6 +177,7 @@ namespace Web.Controllers
         }
 
         [HttpPost("register")]
+        [EnableRateLimiting("AuthRegisterPolicy")]
         public async Task<IActionResult> Register(RegisterRequest request)
         {
             if (string.IsNullOrEmpty(request.Email) ||

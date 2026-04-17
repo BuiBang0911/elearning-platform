@@ -10,6 +10,7 @@ using Azure;
 using Infrastructure.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using System.IO;
 using System.Linq;
 
@@ -48,6 +49,7 @@ namespace Web.Controllers
 
         [HttpPost]
         [Authorize(Roles = $"{nameof(UserRole.Instructor)}")]
+        [EnableRateLimiting("UploadPolicy")]
         public override async Task<ActionResult<LessonResponse>> Create([FromForm] LessonUpdateRequest rq)
         {
             var userId = _authService.UserId;
@@ -91,6 +93,7 @@ namespace Web.Controllers
 
         [HttpPut("{id}")]
         [Authorize(Roles = $"{nameof(UserRole.Instructor)}")]
+        [EnableRateLimiting("UploadPolicy")]
         public override async Task<IActionResult> Update(int id, [FromForm] LessonUpdateRequest rq)
         {
             var userId = _authService.UserId;

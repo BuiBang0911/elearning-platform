@@ -12,6 +12,7 @@ using Infrastructure.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.RateLimiting;
 using System;
 using System.IO;
 using System.Linq;
@@ -42,6 +43,7 @@ namespace Web.Controllers
 
         [HttpPost]
         [Authorize(Roles = $"{nameof(UserRole.Instructor)}")]
+        [EnableRateLimiting("UploadPolicy")]
         public override async Task<ActionResult<DocumentResponse>> Create([FromForm] DocumentUpdateRequest request)
         {
             var userId = _authService.UserId;

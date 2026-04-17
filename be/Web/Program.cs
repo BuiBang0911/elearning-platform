@@ -33,7 +33,8 @@ using ApplicationCore.Services.Rag;
 using ApplicationCore.Services.Payments;
 using ApplicationCore.Services.Wallets;
 using ApplicationCore.Services.Withdrawals;
-using PayOS;
+using Microsoft.AspNetCore.RateLimiting;
+using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -52,6 +53,107 @@ builder.Services.AddDbContext<DatabaseContext>(options =>
 // Add services to the container.
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
+
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
+    {
+        var role = httpContext.User?.FindFirst(ClaimTypes.Role)?.Value;
+        if (role == nameof(UserRole.Admin)) return RateLimitPartition.GetNoLimiter("Admin");
+
+        var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        return RateLimitPartition.GetFixedWindowLimiter(ip, _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 200,
+            Window = TimeSpan.FromMinutes(1)
+        });
+    });
+
+    options.AddPolicy("AuthPolicy", httpContext =>
+    {
+        var role = httpContext.User?.FindFirst(ClaimTypes.Role)?.Value;
+        if (role == nameof(UserRole.Admin)) return RateLimitPartition.GetNoLimiter("Admin");
+
+        var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        return RateLimitPartition.GetSlidingWindowLimiter(ip, _ => new SlidingWindowRateLimiterOptions
+        {
+            PermitLimit = 5,
+            Window = TimeSpan.FromMinutes(1),
+            SegmentsPerWindow = 6
+        });
+    });
+    
+    options.AddPolicy("AuthRegisterPolicy", httpContext =>
+    {
+        var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        return RateLimitPartition.GetSlidingWindowLimiter(ip, _ => new SlidingWindowRateLimiterOptions
+        {
+            PermitLimit = 3,
+            Window = TimeSpan.FromMinutes(1),
+            SegmentsPerWindow = 6
+        });
+    });
+
+    options.AddPolicy("UploadPolicy", httpContext =>
+    {
+        var role = httpContext.User?.FindFirst(ClaimTypes.Role)?.Value;
+        if (role == nameof(UserRole.Admin)) return RateLimitPartition.GetNoLimiter("Admin");
+
+        var userId = httpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value 
+            ?? httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            
+        return RateLimitPartition.GetFixedWindowLimiter(userId, _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 5,
+            Window = TimeSpan.FromMinutes(1)
+        });
+    });
+
+    options.AddPolicy("AiPolicy", httpContext =>
+    {
+        var role = httpContext.User?.FindFirst(ClaimTypes.Role)?.Value;
+        if (role == nameof(UserRole.Admin)) return RateLimitPartition.GetNoLimiter("Admin");
+
+        var userId = httpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value 
+            ?? httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            
+        return RateLimitPartition.GetFixedWindowLimiter(userId, _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 10,
+            Window = TimeSpan.FromMinutes(1)
+        });
+    });
+
+    options.AddPolicy("PaymentPolicy", httpContext =>
+    {
+        var role = httpContext.User?.FindFirst(ClaimTypes.Role)?.Value;
+        if (role == nameof(UserRole.Admin)) return RateLimitPartition.GetNoLimiter("Admin");
+
+        var userId = httpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value 
+            ?? httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            
+        return RateLimitPartition.GetFixedWindowLimiter(userId, _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 5,
+            Window = TimeSpan.FromMinutes(1)
+        });
+    });
+
+    options.AddPolicy("SearchPolicy", httpContext =>
+    {
+        var role = httpContext.User?.FindFirst(ClaimTypes.Role)?.Value;
+        if (role == nameof(UserRole.Admin)) return RateLimitPartition.GetNoLimiter("Admin");
+
+        var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        return RateLimitPartition.GetFixedWindowLimiter(ip, _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 60,
+            Window = TimeSpan.FromMinutes(1)
+        });
+    });
+});
 
 builder.Services.AddSwaggerGen(options =>
 {
@@ -271,6 +373,7 @@ app.Use(async (context, next) =>
 });
 
 app.UseAuthorization();
+app.UseRateLimiter();
 app.MapControllers();
 
 app.Run();
