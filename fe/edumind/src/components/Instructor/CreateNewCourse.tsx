@@ -57,6 +57,11 @@ const CreateNewCourse = ({ createCourseOpen, setCreateCourseOpen, handleCoursesC
 			return;
 		}
 
+		if (!courseForm.categoryId) {
+			toast.error("Please select a category for the course.");
+			return;
+		}
+
 		setIsLoading(true);
 		try {
 			const newCourse = await CourseApi.create(courseForm);
@@ -67,7 +72,21 @@ const CreateNewCourse = ({ createCourseOpen, setCreateCourseOpen, handleCoursesC
 			setCourseForm({ title: "", description: "", level: CourseLevel.BEGINNER, categoryId: undefined, price: 0, thumbnail: null });
 		} catch (error: any) {
 			console.error("Error creating course:", error);
-			toast.error(error.response?.data || "Failed to create course. Please try again.");
+			const errorData = error.response?.data;
+			let errorMessage = "Failed to create course. Please try again.";
+
+			if (typeof errorData === 'string') {
+				errorMessage = errorData;
+			} else if (errorData && typeof errorData === 'object') {
+				// Handle ASP.NET Core ValidationProblemDetails
+				if (errorData.errors) {
+					errorMessage = Object.values(errorData.errors).flat().join(", ");
+				} else if (errorData.title) {
+					errorMessage = errorData.title;
+				}
+			}
+
+			toast.error(errorMessage);
 		} finally {
 			setIsLoading(false);
 		}

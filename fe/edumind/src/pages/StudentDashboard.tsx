@@ -13,7 +13,6 @@ import type { CourseForStudent } from "../interfaces/Course";
 import RecommendCourse from "../components/Student/RecommendCourse";
 import AllCourse from "../components/Student/AllCourse";
 import FullPageLoader from "../components/PostLoading/FullPageLoader";
-import AiAssistant from "../components/AiAssistant/AiAssistant";
 import { DashboardApi } from "../api/Dashboard.api";
 import type { DashboardStats } from "../interfaces/dashboard";
 

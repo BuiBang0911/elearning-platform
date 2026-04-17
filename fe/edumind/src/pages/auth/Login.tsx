@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Brain, Link } from "lucide-react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Brain } from "lucide-react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import FullPageLoader from "../../components/PostLoading/FullPageLoader";
 import { Card } from "../../components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
@@ -56,10 +56,10 @@ const Login = () => {
             setIsLoading(true);
 
             await AuthApi.login({ email, password, role });
-            
+
             // Explicitly wait for refreshUser to populate context
             await refreshUser();
-            
+
             toast.success("Login successful!");
 
             // navigate theo role sau khi login thành công

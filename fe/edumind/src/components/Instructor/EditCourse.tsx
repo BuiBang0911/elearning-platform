@@ -159,6 +159,12 @@ const EditCourse = ({ editCourseOpen, setEditCourseOpen, selectedCourse, handleM
 	const [isSaving, setIsSaving] = useState(false);
 	const handleSaveEdit = async (e: React.FormEvent) => {
 		e.preventDefault();
+
+		if (!editForm.categoryId) {
+			toast.error("Please select a category for the course.");
+			return;
+		}
+
 		setIsSaving(true);
 		try {
 			const updatedCourse = await CourseApi.update(selectedCourse.id, {
@@ -173,9 +179,22 @@ const EditCourse = ({ editCourseOpen, setEditCourseOpen, selectedCourse, handleM
 			toast.success(`Course "${editForm.title}" updated successfully!`);
 			onSave(updatedCourse);
 			setEditCourseOpen(false);
-		} catch (error) {
+		} catch (error: any) {
 			console.error("Error updating course:", error);
-			toast.error("Failed to update course.");
+			const errorData = error.response?.data;
+			let errorMessage = "Failed to update course. Please try again.";
+
+			if (typeof errorData === 'string') {
+				errorMessage = errorData;
+			} else if (errorData && typeof errorData === 'object') {
+				if (errorData.errors) {
+					errorMessage = Object.values(errorData.errors).flat().join(", ");
+				} else if (errorData.title) {
+					errorMessage = errorData.title;
+				}
+			}
+
+			toast.error(errorMessage);
 		} finally {
 			setIsSaving(false);
 		}

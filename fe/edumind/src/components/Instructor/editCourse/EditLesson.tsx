@@ -44,7 +44,20 @@ const EditLesson = ({ editLessonOpen, setEditLessonOpen, selectedLesson: lesson,
 			setEditLessonOpen(false);
 		} catch (error: any) {
 			console.error("Error updating lesson:", error);
-			toast.error(error.response?.data || "Failed to update lesson. Please try again.");
+			const errorData = error.response?.data;
+			let errorMessage = "Failed to update lesson. Please try again.";
+
+			if (typeof errorData === 'string') {
+				errorMessage = errorData;
+			} else if (errorData && typeof errorData === 'object') {
+				if (errorData.errors) {
+					errorMessage = Object.values(errorData.errors).flat().join(", ");
+				} else if (errorData.title) {
+					errorMessage = errorData.title;
+				}
+			}
+
+			toast.error(errorMessage);
 		} finally {
 			setIsLoading(false);
 		}

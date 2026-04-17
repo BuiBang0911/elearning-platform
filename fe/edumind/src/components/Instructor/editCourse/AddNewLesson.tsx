@@ -44,7 +44,20 @@ const AddNewLesson = ({ addLessonOpen, setAddLessonOpen, courseId, onSave }: Add
 			setFormData({ ...formData, title: "", description: "", content: "", videoFile: undefined });
 		} catch (error: any) {
 			console.error("Error creating lesson:", error);
-			toast.error(error.response?.data || "Failed to create lesson. Please try again.");
+			const errorData = error.response?.data;
+			let errorMessage = "Failed to create lesson. Please try again.";
+
+			if (typeof errorData === 'string') {
+				errorMessage = errorData;
+			} else if (errorData && typeof errorData === 'object') {
+				if (errorData.errors) {
+					errorMessage = Object.values(errorData.errors).flat().join(", ");
+				} else if (errorData.title) {
+					errorMessage = errorData.title;
+				}
+			}
+
+			toast.error(errorMessage);
 		} finally {
 			setIsLoading(false);
 		}

@@ -32,7 +32,7 @@ export interface CourseDetailStats {
   }[];
 }
 
-const getStudentDashboardStats = async (): Promise<any> => {
+const getStudentDashboardStats = async (): Promise<DashboardStats> => {
   const res = await api.get(`/Dashboard/student-stats`);
   return res.data;
 }
