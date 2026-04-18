@@ -61,6 +61,11 @@ def get_next_embedding_key():
 
 app = FastAPI()
 
+# Root endpoint for Azure Health Check
+@app.get("/")
+def root():
+    return {"status": "ok", "message": "EduMind RAG Service is running"}
+
 # Cấu hình CORS để Frontend (Web) có thể gọi được API
 from fastapi.middleware.cors import CORSMiddleware
 app.add_middleware(

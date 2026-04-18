@@ -115,7 +115,7 @@ def process_image_for_ocr(img_bytes, debug_name=None):
         
         print("         🤖 Gửi ảnh cho Gemini Vision xử lý...")
         llm = ChatGoogleGenerativeAI(
-            model="gemini-1.5-flash",
+            model="models/gemini-2.5-flash",
             temperature=0.1,
             google_api_key=api_key
         )
