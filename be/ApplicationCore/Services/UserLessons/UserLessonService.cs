@@ -29,7 +29,7 @@ namespace ApplicationCore.Services.UserLessons
             var isApproved = await _enrollmentService
                 .IsApprovedAsync(userId, lesson.CourseId);
 
-            if (!isApproved)
+            if (isApproved)
                 throw new UnauthorizedAccessException();
 
             var existing = await _repository.FirstOrDefaultAsync(x =>

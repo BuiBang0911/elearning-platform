@@ -17,6 +17,7 @@ const LearningScreen = () => {
 
     const [activeLessonId, setActiveLessonId] = useState<number | null>(null);
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+    const [isCompleting, setIsCompleting] = useState(false);
 
     const { data: course, isLoading } = useQuery({
         queryKey: ["course", id],
@@ -73,12 +74,17 @@ const LearningScreen = () => {
 
     const handleNextLesson = async () => {
         if (!course || !activeLesson) return;
-        if (!activeLesson.isCompleted) await handleLessonToggleComplete(activeLesson);
-        const currentIndex = course.lessons.findIndex(l => l.id === activeLesson.id);
-        if (currentIndex < course.lessons.length - 1) {
-            setActiveLessonId(course.lessons[currentIndex + 1].id);
-        } else {
-            toast.success("All lessons finished!");
+        setIsCompleting(true);
+        try {
+            if (!activeLesson.isCompleted) await handleLessonToggleComplete(activeLesson);
+            const currentIndex = course.lessons.findIndex(l => l.id === activeLesson.id);
+            if (currentIndex < course.lessons.length - 1) {
+                setActiveLessonId(course.lessons[currentIndex + 1].id);
+            } else {
+                toast.success("All lessons finished!");
+            }
+        } finally {
+            setIsCompleting(false);
         }
     };
 
@@ -205,7 +211,7 @@ const LearningScreen = () => {
                                 )}
 
                                 <div className="mt-12 pt-8 border-t flex justify-end">
-                                    <Button onClick={handleNextLesson} size="lg" className="bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-200 px-8">
+                                    <Button onClick={handleNextLesson} loading={isCompleting} size="lg" className="bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-200 px-8">
                                         {activeLesson.isCompleted ? 'Next Lesson' : 'Complete and Continue'}
                                     </Button>
                                 </div>
