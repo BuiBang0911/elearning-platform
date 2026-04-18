@@ -68,21 +68,28 @@ class IngestRequest(BaseModel):
 
 @app.post("/api/ingest")
 async def ingest_endpoint(request: IngestRequest):
+    print(f"📥 [INGEST] Bắt đầu ingest request: {request.file_path} (Lesson ID: {request.lesson_id})")
     try:
         # Kiểm tra file tồn tại
         if not os.path.exists(request.file_path):
+            print(f"⚠️ [INGEST] File không tồn tại tại đường dẫn: {request.file_path}. Đang thử tìm trong data folder...")
             # Nếu không tìm thấy, thử tìm trong data folder
             alt_path = os.path.join("./data", os.path.basename(request.file_path))
             if os.path.exists(alt_path):
+                print(f"✅ [INGEST] Đã tìm thấy ở alt_path: {alt_path}")
                 request.file_path = alt_path
             else:
+                print(f"❌ [INGEST] Hoàn toàn không tìm thấy file!")
                 raise HTTPException(status_code=404, detail=f"File not found: {request.file_path}")
 
         result = ingest_file(request.file_path, lesson_id=request.lesson_id)
         if result.get("status") == "error":
+            print(f"❌ [INGEST] Lỗi từ hàm ingest_file: {result.get('message')}")
             raise HTTPException(status_code=400, detail=result.get("message"))
+        print(f"✅ [INGEST] Hoàn tất ingest thành công!")
         return result
     except Exception as e:
+        print(f"❌ [INGEST] Exception xảy ra: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 # =========================
@@ -175,7 +182,9 @@ import json
 async def chat_stream_endpoint(request: ChatRequest):
     async def generate_chat_stream():
         try:
+            print(f"🌊 [STREAM] Bắt đầu chat stream. Câu hỏi: '{request.question}'")
             current_api_key = get_next_chat_key()
+            print(f"🔑 [STREAM] Đang dùng API Key: {current_api_key[:10]}...")
             llm_fast = ChatGoogleGenerativeAI(model="models/gemini-2.5-flash", temperature=0.3, google_api_key=current_api_key)
             llm_smart = ChatGoogleGenerativeAI(model="models/gemini-2.5-flash", temperature=0.3, google_api_key=current_api_key)
 
@@ -186,6 +195,7 @@ async def chat_stream_endpoint(request: ChatRequest):
             for msg in request.chat_history:
                 if msg.role == "User": langchain_history.append(HumanMessage(content=msg.content))
                 elif msg.role == "AiAssistant": langchain_history.append(AIMessage(content=msg.content))
+            print(f"👉 [STREAM] Lịch sử trò chuyện: {len(langchain_history)} tin nhắn")
 
             # 1. Rewrite câu hỏi
             rewritten_question = await contextualize_chain.ainvoke({
@@ -194,17 +204,20 @@ async def chat_stream_endpoint(request: ChatRequest):
             })
             if not rewritten_question or not str(rewritten_question).strip():
                 rewritten_question = request.question
+            print(f"✅ [STREAM] Câu hỏi sau rewrite: '{rewritten_question}'")
 
             # 2. Retrieve tài liệu
             search_kwargs = {"k": 3}
             if request.lesson_id:
                 search_kwargs["filter"] = {"lesson_id": request.lesson_id}
+                print(f"🔍 [STREAM] Lọc theo Lesson ID: {request.lesson_id}")
 
             docs_with_scores = vector_store.similarity_search_with_score(
                 query=str(rewritten_question),
                 k=search_kwargs.get("k", 3),
                 filter=search_kwargs.get("filter")
             )
+            print(f"✅ [STREAM] Đã tìm thấy {len(docs_with_scores)} tài liệu (chunks) phù hợp")
             
             retrieved_docs = []
             source_files = set()
@@ -213,24 +226,26 @@ async def chat_stream_endpoint(request: ChatRequest):
                 source_files.add(filename)
                 doc.page_content = f"[NGUỒN: {filename}] [SCORE: {score:.4f}]\n{doc.page_content}"
                 retrieved_docs.append(doc)
+            print(f"✅ [STREAM] Nguồn được trích xuất: {list(source_files)}")
+            print(f"🚀 [STREAM] Bắt đầu trả luồng dữ liệu (Streaming)...")
 
             # 3. Stream câu trả lời
-            # Note: create_stuff_documents_chain returns the final answer when called with astream
-            # but we can use LLM directly for better control if needed.
-            # Here we follow the existing chain logic.
             async for chunk in question_answer_chain.astream({
                 "input": request.question,
                 "chat_history": langchain_history,
                 "context": retrieved_docs,
             }):
-                # LangChain's stuff_documents_chain yields strings in astream
                 if chunk:
                     yield chunk
 
             # Gửi thông tin nguồn tài liệu ở cuối (định dạng đặc biệt)
             yield f"\n\nSOURCES_METADATA:{json.dumps(list(source_files))}"
+            print(f"✅ [STREAM] Luồng dữ liệu đã hoàn tất.")
 
         except Exception as e:
+            print("❌ [STREAM] --- LỖI TRONG QUÁ TRÌNH STREAM ---")
+            print("Type:", type(e).__name__)
+            print("Message:", str(e))
             yield f"ERROR: {str(e)}"
 
     return StreamingResponse(generate_chat_stream(), media_type="text/plain")
