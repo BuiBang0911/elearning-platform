@@ -48,10 +48,12 @@ const CreateNewCourse = ({ createCourseOpen, setCreateCourseOpen, handleCoursesC
 	const handleCreateCourse = async (e: React.FormEvent) => {
 		e.preventDefault();
 
-		if (courseForm.price < 2000) {
-			toast.error("Minimum course price is 2,000 VND.");
+		if (courseForm.price > 0 && courseForm.price < 2000) {
+			toast.error("Price must be 0 (Free) or at least 2,000 VND.");
 			return;
 		}
+
+
 
 		if (!courseForm.title.trim() || courseForm.title.length < 10) {
 			toast.error("Course title must be at least 10 characters.");

@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace ApplicationCore.DTO
 {
-    public class CourseRequest : PagingRequest
+    public class CourseRequest : PagingRequest, IValidatableObject
     {
         [Required(ErrorMessage = "Course title is required")]
         [StringLength(255, MinimumLength = 10, ErrorMessage = "Title must be between 10 and 255 characters")]
@@ -24,9 +24,16 @@ namespace ApplicationCore.DTO
         [Required]
         public int CategoryId { get; set; }
 
-        [Required]
-        [Range(2000, 100000000, ErrorMessage = "Price must be at least 2,000 VND")]
+        [Range(0, 100000000, ErrorMessage = "Price must be at least 0 VND")]
         public decimal Price { get; set; } = 0;
+
+        public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+        {
+            if (Price > 0 && Price < 2000)
+            {
+                yield return new ValidationResult("Price must be 0 (Free) or at least 2,000 VND.", new[] { nameof(Price) });
+            }
+        }
     }
 
     public class CourseResponse : BaseDto
@@ -44,7 +51,7 @@ namespace ApplicationCore.DTO
         public int? CategoryId { get; set; }
     }
 
-    public class CourseUpdateRequest
+    public class CourseUpdateRequest : IValidatableObject
     {
         [Required(ErrorMessage = "Course title is required")]
         [StringLength(255, MinimumLength = 10, ErrorMessage = "Title must be between 10 and 255 characters")]
@@ -63,9 +70,16 @@ namespace ApplicationCore.DTO
         [Required]
         public int CategoryId { get; set; }
 
-        [Required]
-        [Range(2000, 100000000, ErrorMessage = "Price must be at least 2,000 VND")]
+        [Range(0, 100000000, ErrorMessage = "Price must be at least 0 VND")]
         public decimal Price { get; set; } = 0;
+
+        public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+        {
+            if (Price > 0 && Price < 2000)
+            {
+                yield return new ValidationResult("Price must be 0 (Free) or at least 2,000 VND.", new[] { nameof(Price) });
+            }
+        }
     }
 
     public class CourseDashboardResponse : CourseResponse

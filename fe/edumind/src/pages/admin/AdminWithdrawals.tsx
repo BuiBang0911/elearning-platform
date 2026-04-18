@@ -15,9 +15,9 @@ const formatCurrency = (amount: number) => {
 };
 
 const statusConfig: Record<string, { label: string; color: string; icon: typeof Clock }> = {
-    Pending: { label: "Đang chờ", color: "bg-amber-100 text-amber-800", icon: Clock },
-    Approved: { label: "Đã duyệt", color: "bg-green-100 text-green-800", icon: CheckCircle },
-    Rejected: { label: "Từ chối", color: "bg-red-100 text-red-800", icon: XCircle },
+    Pending: { label: "Pending", color: "bg-amber-100 text-amber-800", icon: Clock },
+    Approved: { label: "Approved", color: "bg-green-100 text-green-800", icon: CheckCircle },
+    Rejected: { label: "Rejected", color: "bg-red-100 text-red-800", icon: XCircle },
 };
 
 const AdminWithdrawals = () => {
@@ -41,29 +41,29 @@ const AdminWithdrawals = () => {
     useEffect(() => { fetchWithdrawals(); }, []);
 
     const handleApprove = async (id: number) => {
-        if (!confirm("Bạn đã chuyển khoản thực tế cho giáo viên? Nhấn OK để xác nhận.")) return;
+        if (!confirm("Have you physically transferred the funds to the instructor? Click OK to confirm.")) return;
         setProcessingId(id);
         try {
-            await AdminApi.approveWithdrawal(id, "Đã chuyển khoản thành công");
-            toast.success("Đã duyệt yêu cầu rút tiền!");
+            await AdminApi.approveWithdrawal(id, "Transfer successful");
+            toast.success("Withdrawal request approved!");
             fetchWithdrawals();
         } catch (err: any) {
-            toast.error(err?.response?.data?.message || "Có lỗi xảy ra!");
+            toast.error(err?.response?.data?.message || "An error occurred!");
         } finally {
             setProcessingId(null);
         }
     };
 
     const handleReject = async (id: number) => {
-        const reason = prompt("Lý do từ chối:");
+        const reason = prompt("Rejection reason:");
         if (reason === null) return;
         setProcessingId(id);
         try {
             await AdminApi.rejectWithdrawal(id, reason);
-            toast.success("Đã từ chối yêu cầu rút tiền.");
+            toast.success("Withdrawal request rejected.");
             fetchWithdrawals();
         } catch (err: any) {
-            toast.error(err?.response?.data?.message || "Có lỗi xảy ra!");
+            toast.error(err?.response?.data?.message || "An error occurred!");
         } finally {
             setProcessingId(null);
         }
@@ -82,16 +82,16 @@ const AdminWithdrawals = () => {
         <div className="space-y-8 animate-in fade-in duration-500">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-900">Quản lý rút tiền</h1>
-                    <p className="text-slate-500">Duyệt và quản lý yêu cầu rút tiền từ giáo viên</p>
+                    <h1 className="text-2xl font-bold text-slate-900">Withdrawal Management</h1>
+                    <p className="text-slate-500">Review and manage withdrawal requests from instructors</p>
                 </div>
                 <div className="flex gap-3">
                     <div className="px-4 py-2 bg-amber-50 rounded-xl border border-amber-200">
-                        <span className="text-xs text-amber-600 block">Đang chờ</span>
+                        <span className="text-xs text-amber-600 block">Pending</span>
                         <span className="text-lg font-bold text-amber-800">{pendingCount}</span>
                     </div>
                     <div className="px-4 py-2 bg-slate-50 rounded-xl border border-slate-200">
-                        <span className="text-xs text-slate-500 block">Tổng chờ</span>
+                        <span className="text-xs text-slate-500 block">Total Pending</span>
                         <span className="text-lg font-bold text-slate-800">{formatCurrency(totalPending)}</span>
                     </div>
                 </div>
@@ -100,7 +100,7 @@ const AdminWithdrawals = () => {
             <div className="relative max-w-sm">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <Input
-                    placeholder="Tìm theo tên hoặc STK..."
+                    placeholder="Search by name or account number..."
                     className="pl-10"
                     value={filter}
                     onChange={(e) => setFilter(e.target.value)}
@@ -112,7 +112,7 @@ const AdminWithdrawals = () => {
             ) : filtered.length === 0 ? (
                 <Card className="p-12 text-center border-none shadow-sm">
                     <Banknote className="w-16 h-16 mx-auto mb-4 text-slate-300" />
-                    <h3 className="text-lg font-semibold text-slate-600">Chưa có yêu cầu rút tiền</h3>
+                    <h3 className="text-lg font-semibold text-slate-600">No withdrawal requests found</h3>
                 </Card>
             ) : (
                 <div className="space-y-4">
@@ -133,25 +133,25 @@ const AdminWithdrawals = () => {
                                         <p className="text-sm text-slate-500">{w.teacherEmail}</p>
                                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-3 text-sm">
                                             <div>
-                                                <span className="text-slate-400">Số tiền</span>
+                                                <span className="text-slate-400">Amount</span>
                                                 <p className="font-bold text-lg text-slate-800">{formatCurrency(w.amount)}</p>
                                             </div>
                                             <div>
-                                                <span className="text-slate-400">Ngân hàng</span>
+                                                <span className="text-slate-400">Bank</span>
                                                 <p className="font-medium text-slate-700">{w.bankName}</p>
                                             </div>
                                             <div>
-                                                <span className="text-slate-400">Số TK</span>
+                                                <span className="text-slate-400">Acc Number</span>
                                                 <p className="font-mono text-slate-700">{w.bankAccountNumber}</p>
                                             </div>
                                             <div>
-                                                <span className="text-slate-400">Chủ TK</span>
+                                                <span className="text-slate-400">Acc Name</span>
                                                 <p className="font-medium text-slate-700">{w.bankAccountName}</p>
                                             </div>
                                         </div>
                                         <p className="text-xs text-slate-400 mt-2">
-                                            Ngày yêu cầu: {format(new Date(w.createdAt), "dd/MM/yyyy HH:mm")}
-                                            {w.processedAt && ` • Xử lý: ${format(new Date(w.processedAt), "dd/MM/yyyy HH:mm")}`}
+                                            Requested on: {format(new Date(w.createdAt), "dd/MM/yyyy HH:mm")}
+                                            {w.processedAt && ` • Processed: ${format(new Date(w.processedAt), "dd/MM/yyyy HH:mm")}`}
                                         </p>
                                         {w.adminNote && (
                                             <p className="text-sm text-slate-500 italic mt-1">📝 {w.adminNote}</p>

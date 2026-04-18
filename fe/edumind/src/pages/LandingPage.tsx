@@ -72,7 +72,7 @@ export default function LandingPage() {
               <>
                 <Link to={user?.role === UserRole.STUDENT ? "/student" : user?.role === UserRole.INSTRUCTOR ? "/instructor" : "/admin"}>
                   <Button variant="outline" className="border-blue-200 text-blue-700 hover:bg-blue-50">
-                    {user?.role === UserRole.INSTRUCTOR ? "Quản lý khóa học" : "Vào học"}
+                    {user?.role === UserRole.INSTRUCTOR ? "Manage Courses" : "Go to Study"}
                   </Button>
                 </Link>
                 <div className="flex items-center gap-2">
@@ -123,7 +123,7 @@ export default function LandingPage() {
               <Link to={isAuthenticated ? (user?.role === UserRole.STUDENT ? "/student" : user?.role === UserRole.INSTRUCTOR ? "/instructor" : "/admin") : "/register"}>
                 <Button size="lg" className="gap-2 w-full sm:w-auto bg-gradient-to-r from-blue-600 to-purple-600">
                   <GraduationCap className="w-5 h-5" />
-                  {isAuthenticated ? (user?.role === UserRole.INSTRUCTOR ? "Quản lý khóa học" : "Vào học ngay") : "Bắt đầu học ngay"}
+                  {isAuthenticated ? (user?.role === UserRole.INSTRUCTOR ? "Manage Courses" : "Start Learning") : "Join Now"}
                 </Button>
               </Link>
               
@@ -132,7 +132,7 @@ export default function LandingPage() {
                 <Link to={!isAuthenticated ? "/register?role=instructor" : "/apply-instructor"}>
                   <Button size="lg" variant="outline" className="gap-2 w-full sm:w-auto border-purple-200 text-purple-700 hover:bg-purple-50">
                     <Users className="w-5 h-5" />
-                    {instructorStatus?.status === "Pending" ? "Đang chờ duyệt giảng viên" : "Trở thành Giảng viên"}
+                    {instructorStatus?.status === "Pending" ? "Application Pending" : "Become an Instructor"}
                   </Button>
                 </Link>
               )}
@@ -141,7 +141,7 @@ export default function LandingPage() {
                 <Link to="/instructor">
                   <Button size="lg" variant="outline" className="gap-2 w-full sm:w-auto border-blue-200 text-blue-700 hover:bg-blue-50">
                     <TrendingUp className="w-5 h-5" />
-                    Kênh giảng viên
+                    Instructor Dashboard
                   </Button>
                 </Link>
               )}

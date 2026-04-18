@@ -205,6 +205,11 @@ const EditCourse = ({
 	const handleSaveEdit = async (e: React.FormEvent) => {
 		e.preventDefault();
 
+		if (editForm.price > 0 && editForm.price < 2000) {
+			toast.error("Price must be 0 (Free) or at least 2,000 VND.");
+			return;
+		}
+
 		if (!editForm.categoryId) {
 			toast.error("Please select a category for the course.");
 			return;
