@@ -114,7 +114,8 @@ namespace Web.Controllers
                 Console.WriteLine($"Celery Enqueue Error: {ex.Message}");
             }
 
-            return Ok(res);
+            var response = _mapper.Map<DocumentResponse>(res);
+            return Ok(response);
         }
 
         [HttpPost("get-in-instructor")]
