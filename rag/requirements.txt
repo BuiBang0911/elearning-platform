@@ -16,3 +16,6 @@ pdfplumber
 rapidocr-onnxruntime
 requests
 langchain-experimental
+opencv-python-headless
+scikit-learn
+numpy
