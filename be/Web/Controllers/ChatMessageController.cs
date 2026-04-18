@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using StackExchange.Redis;
 using System.Security.Claims;
 using System.Net.Http.Json;
+using Microsoft.Extensions.Configuration;
 
 namespace Web.Controllers
 {
@@ -26,8 +27,9 @@ namespace Web.Controllers
         private readonly IHttpClientFactory _clientFactory;
         private readonly IEnrollmentService _enrollmentService;
         private readonly ILessonService _lessonService;
+        private readonly IConfiguration _configuration;
 
-        public ChatMessageController(IChatMessageService chatMessageService, IAuthService authService, IMapper mapper, IHttpClientFactory clientFactory, IEnrollmentService enrollmentService, ILessonService lessonService) : base(chatMessageService, mapper)
+        public ChatMessageController(IChatMessageService chatMessageService, IAuthService authService, IMapper mapper, IHttpClientFactory clientFactory, IEnrollmentService enrollmentService, ILessonService lessonService, IConfiguration configuration) : base(chatMessageService, mapper)
         {
             _chatMessageService = chatMessageService;
             _authService = authService;
@@ -35,6 +37,7 @@ namespace Web.Controllers
             _clientFactory = clientFactory;
             _enrollmentService = enrollmentService;
             _lessonService = lessonService;
+            _configuration = configuration;
         }
 
         [Authorize]
@@ -94,7 +97,8 @@ namespace Web.Controllers
                     ChatHistory = chatHistory,
                 };
 
-                var response = await client.PostAsJsonAsync("http://localhost:8000/api/chat", payload);
+                var aiUrl = _configuration["AIService:Url"] ?? "http://localhost:8000";
+                var response = await client.PostAsJsonAsync($"{aiUrl}/api/chat", payload);
 
                 if (response.IsSuccessStatusCode)
                 {
@@ -155,7 +159,8 @@ namespace Web.Controllers
                 };
 
                 // Gọi Python Stream dùng HttpRequestMessage để hỗ trợ ResponseHeadersRead
-                var httpRequest = new HttpRequestMessage(HttpMethod.Post, "http://localhost:8000/api/chat/stream")
+                var aiUrl = _configuration["AIService:Url"] ?? "http://localhost:8000";
+                var httpRequest = new HttpRequestMessage(HttpMethod.Post, $"{aiUrl}/api/chat/stream")
                 {
                     Content = JsonContent.Create(payload)
                 };
