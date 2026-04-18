@@ -49,16 +49,18 @@ COPY --from=builder /install /usr/local
 # Copy source code
 COPY . .
 
-# Ensure data directory exists and is writable
-RUN mkdir -p /app/data && chown -R appuser:appgroup /app
+# Ensure data directory exists, scripts are executable, and permissions are set
+RUN mkdir -p /app/data && \
+    chmod +x /app/start.sh && \
+    chown -R appuser:appgroup /app
 
 EXPOSE 8000
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-    CMD curl -f http://localhost:8000/docs || exit 1
+# HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+#     CMD curl -f http://localhost:8000/docs || exit 1
 
 # Switch to non-root user
 USER appuser
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
+CMD ["./start.sh"]
