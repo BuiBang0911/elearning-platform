@@ -44,7 +44,7 @@ def process_document_task(file_path, lesson_id, document_id):
         update_document_status(document_id, 3)
         
         # 2. Thực hiện Ingest (Embedding & Vector lưu vào pgvector)
-        result = ingest_file(file_path, lesson_id=lesson_id)
+        result = ingest_file(file_path, lesson_id=lesson_id, document_id=document_id)
         
         if result.get("status") == "success":
             # 3. Thành công -> Processed (4)

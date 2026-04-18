@@ -158,7 +158,7 @@ def get_image_caption(page, img_rect):
         return None
     return None
 
-def process_pdf(pdf_path):
+def process_pdf(pdf_path, friendly_filename=None):
     full_text_content = ""
     
     try:
@@ -167,7 +167,7 @@ def process_pdf(pdf_path):
         print(f"❌ Không mở được file: {e}")
         return []
     
-    filename = os.path.basename(pdf_path)
+    filename = friendly_filename or os.path.basename(pdf_path)
     print(f"\n📄 Đang xử lý: {filename} ({len(doc)} trang)...")
 
     with pdfplumber.open(pdf_path) as pdf_plumb:
@@ -449,11 +449,25 @@ def sync_engine(pg_conn, docs, vector_store, namespace):
     # If we are doing a single file update, we might not want to delete everything else.
     # For simplicity, we keep the deletion if run_ingest is called.
 
-def ingest_file(file_path: str, lesson_id: int = None):
+def ingest_file(file_path: str, lesson_id: int = None, document_id: int = None):
     """Xử lý đồng bộ 1 file duy nhất (Local Path hoặc URL Cloud)."""
     lname = file_path.lower()
     raw_docs = []
     temp_local_path = None
+    
+    real_filename = None
+    if document_id:
+        try:
+            clean_db_url = DB_URL.replace("postgresql+psycopg2://", "postgresql://")
+            with psycopg2.connect(clean_db_url) as conn:
+                with conn.cursor() as cur:
+                    cur.execute('SELECT "FileName" FROM "Documents" WHERE "Id" = %s', (document_id,))
+                    row = cur.fetchone()
+                    if row:
+                        real_filename = row[0]
+                        print(f"📄 Lấy được tên gốc từ DB: {real_filename}")
+        except Exception as e:
+            print(f"⚠️ Không lấy được tên gốc từ Database: {e}")
 
     # Nếu là URL Cloud (Azure Blob, v.v.)
     if file_path.startswith("http://") or file_path.startswith("https://"):
@@ -479,14 +493,14 @@ def ingest_file(file_path: str, lesson_id: int = None):
             return {"status": "error", "message": f"Cloud download failed: {str(e)}"}
 
     if lname.endswith(".pdf"):
-        raw_docs = process_pdf(file_path)
+        raw_docs = process_pdf(file_path, friendly_filename=real_filename)
     elif lname.endswith(".txt"):
         loader = TextLoader(file_path, encoding="utf-8")
         raw_docs = loader.load()
         for d in raw_docs:
             d.page_content = clean_and_merge_lines(d.page_content)
             d.metadata["source"] = file_path
-            d.metadata["filename"] = os.path.basename(file_path)
+            d.metadata["filename"] = real_filename or os.path.basename(file_path)
             if lesson_id:
                 d.metadata["lesson_id"] = lesson_id
 
