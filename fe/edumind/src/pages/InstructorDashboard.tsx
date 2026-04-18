@@ -294,7 +294,7 @@ export default function InstructorDashboard() {
 												<Wallet className="w-6 h-6" />
 											</div>
 											<div>
-												<p className="text-sm font-medium text-slate-500 uppercase tracking-wider">Số dư hiện tại</p>
+												<p className="text-sm font-medium text-slate-500 uppercase tracking-wider">Current Balance</p>
 												<p className="text-2xl font-bold text-green-700">{formatCurrency(revenueStats.balance)}</p>
 											</div>
 										</div>
@@ -305,7 +305,7 @@ export default function InstructorDashboard() {
 												<DollarSign className="w-6 h-6" />
 											</div>
 											<div>
-												<p className="text-sm font-medium text-slate-500 uppercase tracking-wider">Tổng thu nhập</p>
+												<p className="text-sm font-medium text-slate-500 uppercase tracking-wider">Total Earnings</p>
 												<p className="text-2xl font-bold text-blue-700">{formatCurrency(revenueStats.totalEarned)}</p>
 											</div>
 										</div>
@@ -316,7 +316,7 @@ export default function InstructorDashboard() {
 												<Clock className="w-6 h-6" />
 											</div>
 											<div>
-												<p className="text-sm font-medium text-slate-500 uppercase tracking-wider">Đang chờ rút</p>
+												<p className="text-sm font-medium text-slate-500 uppercase tracking-wider">Pending Withdrawal</p>
 												<p className="text-2xl font-bold text-amber-700">{formatCurrency(revenueStats.pendingWithdrawal)}</p>
 											</div>
 										</div>
@@ -336,7 +336,7 @@ export default function InstructorDashboard() {
 								<Card className="p-6 border-none shadow-sm">
 									<h3 className="font-bold text-slate-800 mb-6 flex items-center gap-2">
 										<TrendingUp className="w-5 h-5 text-green-500" />
-										Doanh thu theo tháng
+										Monthly Revenue
 									</h3>
 									<div className="h-[300px]">
 										{revenueStats.monthlyRevenue.length > 0 ? (
@@ -363,14 +363,14 @@ export default function InstructorDashboard() {
 													/>
 													<Tooltip
 														contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-														formatter={(value: number) => [formatCurrency(value), 'Doanh thu']}
+														formatter={(value: number) => [formatCurrency(value), 'Revenue']}
 													/>
 													<Area type="monotone" dataKey="amount" stroke="#10b981" strokeWidth={3} fill="url(#colorRevenue)" />
 												</AreaChart>
 											</ResponsiveContainer>
 										) : (
 											<div className="h-full flex items-center justify-center text-slate-400">
-												<p>Chưa có dữ liệu doanh thu</p>
+												<p>No revenue data yet</p>
 											</div>
 										)}
 									</div>
@@ -380,18 +380,18 @@ export default function InstructorDashboard() {
 								<Card className="p-6 border-none shadow-sm">
 									<h3 className="font-bold text-slate-800 mb-6 flex items-center gap-2">
 										<DollarSign className="w-5 h-5 text-blue-500" />
-										Giao dịch gần đây
+										Recent Transactions
 									</h3>
 									{revenueStats.recentOrders.length > 0 ? (
 										<div className="overflow-x-auto">
 											<table className="w-full text-sm">
 												<thead>
 													<tr className="border-b border-slate-100">
-														<th className="text-left py-3 px-4 text-slate-500 font-medium">Học sinh</th>
-														<th className="text-left py-3 px-4 text-slate-500 font-medium">Khóa học</th>
-														<th className="text-right py-3 px-4 text-slate-500 font-medium">Tổng tiền</th>
-														<th className="text-right py-3 px-4 text-slate-500 font-medium">Nhận được (70%)</th>
-														<th className="text-right py-3 px-4 text-slate-500 font-medium">Ngày</th>
+														<th className="text-left py-3 px-4 text-slate-500 font-medium">Student</th>
+														<th className="text-left py-3 px-4 text-slate-500 font-medium">Course</th>
+														<th className="text-right py-3 px-4 text-slate-500 font-medium">Total Amount</th>
+														<th className="text-right py-3 px-4 text-slate-500 font-medium">Earnings (70%)</th>
+														<th className="text-right py-3 px-4 text-slate-500 font-medium">Date</th>
 													</tr>
 												</thead>
 												<tbody>
@@ -410,7 +410,7 @@ export default function InstructorDashboard() {
 									) : (
 										<div className="py-12 text-center text-slate-400">
 											<DollarSign className="w-12 h-12 mx-auto mb-3 opacity-20" />
-											<p>Chưa có giao dịch nào</p>
+											<p>No transactions yet</p>
 										</div>
 									)}
 								</Card>
@@ -418,7 +418,7 @@ export default function InstructorDashboard() {
 						) : (
 							<Card className="p-12 text-center border-none shadow-sm">
 								<Wallet className="w-16 h-16 mx-auto mb-4 text-slate-300" />
-								<h3 className="text-lg font-semibold text-slate-600 mb-2">Đang tải dữ liệu doanh thu...</h3>
+								<h3 className="text-lg font-semibold text-slate-600 mb-2">Loading revenue data...</h3>
 							</Card>
 						)}
 					</TabsContent>
@@ -560,7 +560,6 @@ export default function InstructorDashboard() {
 			)}
 
 			{/* Analytics Dialog */}
-			<AiAssistant></AiAssistant>
 		</div>
 	);
 }

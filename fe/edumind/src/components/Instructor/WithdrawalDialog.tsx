@@ -39,15 +39,15 @@ const WithdrawalDialog = ({ balance, minAmount = 0, onSuccess }: WithdrawalDialo
     const handleSubmit = async () => {
         const amount = Number(formData.amount);
         if (!amount || amount < minAmount) {
-            toast.error(`Số tiền rút tối thiểu là ${formatCurrency(minAmount)}`);
+            toast.error(`Minimum withdrawal amount is ${formatCurrency(minAmount)}`);
             return;
         }
         if (amount > balance) {
-            toast.error("Số dư không đủ");
+            toast.error("Insufficient balance");
             return;
         }
         if (!formData.bankName || !formData.bankAccountNumber || !formData.bankAccountName) {
-            toast.error("Vui lòng điền đầy đủ thông tin ngân hàng");
+            toast.error("Please fill in all bank details");
             return;
         }
 
@@ -59,12 +59,12 @@ const WithdrawalDialog = ({ balance, minAmount = 0, onSuccess }: WithdrawalDialo
                 bankAccountNumber: formData.bankAccountNumber,
                 bankAccountName: formData.bankAccountName,
             });
-            toast.success("Yêu cầu rút tiền đã được gửi thành công!");
+            toast.success("Withdrawal request sent successfully!");
             setOpen(false);
             setFormData({ amount: "", bankName: "", bankAccountNumber: "", bankAccountName: "" });
             onSuccess();
         } catch (error: any) {
-            const message = error?.response?.data?.message || "Có lỗi xảy ra.";
+            const message = error?.response?.data?.message || "An error occurred.";
             toast.error(message);
         } finally {
             setLoading(false);
@@ -79,53 +79,53 @@ const WithdrawalDialog = ({ balance, minAmount = 0, onSuccess }: WithdrawalDialo
                     className="gap-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
                 >
                     <Banknote className="w-4 h-4" />
-                    Yêu cầu rút tiền
+                    Request Withdrawal
                 </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[480px]">
                 <DialogHeader>
-                    <DialogTitle className="text-xl">Yêu cầu rút tiền</DialogTitle>
+                    <DialogTitle className="text-xl">Withdrawal Request</DialogTitle>
                     <DialogDescription>
-                        Số dư hiện tại: <strong className="text-green-600">{formatCurrency(balance)}</strong>
+                        Current balance: <strong className="text-green-600">{formatCurrency(balance)}</strong>
                         <br />
-                        Tối thiểu: {formatCurrency(minAmount)}
+                        Minimum: {formatCurrency(minAmount)}
                     </DialogDescription>
                 </DialogHeader>
 
                 <div className="space-y-4 py-4">
                     <div className="space-y-2">
-                        <Label htmlFor="amount">Số tiền rút (VNĐ)</Label>
+                        <Label htmlFor="amount">Withdrawal Amount (VND)</Label>
                         <Input
                             id="amount"
                             type="number"
-                            placeholder="Nhập số tiền..."
+                            placeholder="Enter amount..."
                             value={formData.amount}
                             onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
                         />
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="bankName">Tên ngân hàng</Label>
+                        <Label htmlFor="bankName">Bank Name</Label>
                         <Input
                             id="bankName"
-                            placeholder="Ví dụ: Vietcombank, MB Bank..."
+                            placeholder="e.g. Chase, Bank of America..."
                             value={formData.bankName}
                             onChange={(e) => setFormData({ ...formData, bankName: e.target.value })}
                         />
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="bankAccountNumber">Số tài khoản</Label>
+                        <Label htmlFor="bankAccountNumber">Account Number</Label>
                         <Input
                             id="bankAccountNumber"
-                            placeholder="Nhập số tài khoản..."
+                            placeholder="Enter account number..."
                             value={formData.bankAccountNumber}
                             onChange={(e) => setFormData({ ...formData, bankAccountNumber: e.target.value })}
                         />
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="bankAccountName">Tên chủ tài khoản</Label>
+                        <Label htmlFor="bankAccountName">Account Holder Name</Label>
                         <Input
                             id="bankAccountName"
-                            placeholder="NGUYEN VAN A..."
+                            placeholder="e.g. JOHN DOE"
                             value={formData.bankAccountName}
                             onChange={(e) => setFormData({ ...formData, bankAccountName: e.target.value })}
                         />
@@ -134,11 +134,11 @@ const WithdrawalDialog = ({ balance, minAmount = 0, onSuccess }: WithdrawalDialo
 
                 <DialogFooter>
                     <Button variant="outline" onClick={() => setOpen(false)}>
-                        Hủy
+                        Cancel
                     </Button>
                     <Button onClick={handleSubmit} disabled={loading} className="gap-2 bg-green-600 hover:bg-green-700">
                         {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Banknote className="w-4 h-4" />}
-                        Gửi yêu cầu
+                        Submit Request
                     </Button>
                 </DialogFooter>
             </DialogContent>
