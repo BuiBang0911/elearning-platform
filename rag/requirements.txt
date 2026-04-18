@@ -8,8 +8,9 @@ langchain-google-genai
 langchain-postgres
 psycopg2-binary
 sqlalchemy
-pypdf
-sentence-transformers
+celery
+redis
+Pillow
 google-generativeai
 pymupdf 
 pdfplumber
