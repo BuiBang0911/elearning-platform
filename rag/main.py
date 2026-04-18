@@ -27,20 +27,37 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
     raise ValueError("Thiếu DATABASE_URL")
 
-api_keys_str = os.getenv("GOOGLE_API_KEYS", "")
-API_KEYS = [k.strip() for k in api_keys_str.split(",") if k.strip()]
+def load_keys(env_var_name):
+    keys_str = os.getenv(env_var_name, "")
+    keys = [k.strip() for k in keys_str.split(",") if k.strip()]
+    if not keys:
+        single_key = os.getenv("GOOGLE_API_KEY")
+        if single_key:
+            keys = [single_key.strip()]
+    return keys
 
-if not API_KEYS:
-    single_key = os.getenv("GOOGLE_API_KEY")
-    if single_key:
-        API_KEYS = [single_key.strip()]
-    else:
-        raise ValueError("Thiếu cấu hình GOOGLE_API_KEYS trong file .env")
+CHAT_KEYS = load_keys("GOOGLE_API_KEYS_CHAT")
+if not CHAT_KEYS:
+    # Fallback to old format
+    CHAT_KEYS = load_keys("GOOGLE_API_KEYS")
+    if not CHAT_KEYS:
+        raise ValueError("Thiếu cấu hình GOOGLE_API_KEYS_CHAT trong file .env")
 
-key_iterator = itertools.cycle(API_KEYS)
+EMBEDDING_KEYS = load_keys("GOOGLE_API_KEYS_EMBEDDING")
+if not EMBEDDING_KEYS:
+    # Fallback to old format
+    EMBEDDING_KEYS = load_keys("GOOGLE_API_KEYS")
+    if not EMBEDDING_KEYS:
+        raise ValueError("Thiếu cấu hình GOOGLE_API_KEYS_EMBEDDING trong file .env")
 
-def get_next_key():
-    return next(key_iterator)
+chat_key_iterator = itertools.cycle(CHAT_KEYS)
+embedding_key_iterator = itertools.cycle(EMBEDDING_KEYS)
+
+def get_next_chat_key():
+    return next(chat_key_iterator)
+
+def get_next_embedding_key():
+    return next(embedding_key_iterator)
 
 app = FastAPI()
 from ingest import ingest_file
@@ -74,7 +91,7 @@ async def ingest_endpoint(request: IngestRequest):
 # Dùng key đầu tiên cho Embedding (Embedding ít bị giới hạn rate limit hơn)
 embeddings = GoogleGenerativeAIEmbeddings(
     model="models/gemini-embedding-001",
-    google_api_key=API_KEYS[0],
+    google_api_key=EMBEDDING_KEYS[0],
 )
 
 # Tạo SQLAlchemy engine với pool_pre_ping để tránh lỗi SSL connection closed unexpectedly
@@ -158,7 +175,7 @@ import json
 async def chat_stream_endpoint(request: ChatRequest):
     async def generate_chat_stream():
         try:
-            current_api_key = get_next_key()
+            current_api_key = get_next_chat_key()
             llm_fast = ChatGoogleGenerativeAI(model="models/gemini-2.5-flash", temperature=0.3, google_api_key=current_api_key)
             llm_smart = ChatGoogleGenerativeAI(model="models/gemini-2.5-flash", temperature=0.3, google_api_key=current_api_key)
 
@@ -222,7 +239,7 @@ async def chat_stream_endpoint(request: ChatRequest):
 async def chat_endpoint(request: ChatRequest):
     try:
         # Lấy key tiếp theo cho request này để tránh Rate Limit
-        current_api_key = get_next_key()
+        current_api_key = get_next_chat_key()
         print(f"🔑 Đang dùng API Key: {current_api_key[:10]}...")
 
         # Khởi tạo model bên trong endpoint để dùng key mới

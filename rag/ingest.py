@@ -5,6 +5,10 @@ import hashlib
 import datetime
 import io
 import shutil
+import gc
+import base64
+import time
+import itertools
 import fitz  # PyMuPDF
 import psycopg2
 import psycopg2.extras
@@ -15,9 +19,9 @@ from PIL import Image, ImageEnhance, ImageOps
 from langchain_community.document_loaders import TextLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_experimental.text_splitter import SemanticChunker
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
 from langchain_postgres import PGVector
-from rapidocr_onnxruntime import RapidOCR
+from langchain_core.messages import HumanMessage
 from langchain_core.documents import Document
 from sqlalchemy import create_engine
 
@@ -32,13 +36,24 @@ if DEBUG_MODE:
     os.makedirs(DEBUG_FOLDER, exist_ok=True)
     print(f"🐞 DEBUG MODE: ON. Ảnh sẽ được lưu vào '{DEBUG_FOLDER}'")
 
-# 1. Load môi trường
+# 1. Load môi trường & API Keys
 load_dotenv()
 DB_URL = os.getenv("DATABASE_URL")
 COLLECTION_NAME = "my_docs" 
 
-# --- 1. KHỞI TẠO OCR ---
-ocr = RapidOCR()
+keys_str = os.getenv("GOOGLE_API_KEYS_EMBEDDING", "")
+EMBEDDING_KEYS = [k.strip() for k in keys_str.split(",") if k.strip()]
+if not EMBEDDING_KEYS:
+    fallback = os.getenv("GOOGLE_API_KEYS", os.getenv("GOOGLE_API_KEY", ""))
+    EMBEDDING_KEYS = [k.strip() for k in fallback.split(",") if k.strip()]
+
+if not EMBEDDING_KEYS:
+    raise ValueError("Thiếu cấu hình GOOGLE_API_KEYS_EMBEDDING!")
+
+embedding_key_iterator = itertools.cycle(EMBEDDING_KEYS)
+
+def get_next_embedding_key():
+    return next(embedding_key_iterator)
 
 # --- 2. CÁC HÀM XỬ LÝ TEXT & PDF ---
 
@@ -72,96 +87,12 @@ def clean_and_merge_lines(text):
     return text
 
 def adaptive_text_sorting(ocr_result):
-    """
-    Tự động phát hiện bố cục:
-    - Nếu có khoảng trắng dọc xuyên suốt -> Đọc theo CỘT (Sơ đồ).
-    - Nếu text trải dài liên tục -> Đọc theo DÒNG (Văn bản thường).
-    """
-    if not ocr_result: return ""
-    
-    # 1. Chuẩn bị dữ liệu
-    boxes = []
-    min_x, max_x = 10000, 0
-    
-    for item in ocr_result:
-        box, text = item[0], item[1]
-        xs = [pt[0] for pt in box]
-        ys = [pt[1] for pt in box]
-        x1, x2 = min(xs), max(xs)
-        y1, y2 = min(ys), max(ys)
-        
-        boxes.append({
-            "text": text,
-            "x1": x1, "x2": x2,
-            "y1": y1, "y2": y2,
-            "cx": (x1+x2)/2, "cy": (y1+y2)/2
-        })
-        min_x = min(min_x, x1)
-        max_x = max(max_x, x2)
-
-    # 2. KIỂM TRA "KHE HỞ DỌC" (VERTICAL GAPS)
-    width = int(max_x - min_x) + 1
-    if width <= 0: return ""
-    
-    x_projection = [0] * width 
-    
-    for b in boxes:
-        start = int(b['x1'] - min_x)
-        end = int(b['x2'] - min_x)
-        for k in range(max(0, start), min(width, end)):
-            x_projection[k] = 1
-
-    GAP_THRESHOLD = 30
-    has_vertical_split = False
-    current_gap = 0
-    
-    margin = int(width * 0.1) 
-    for val in x_projection[margin : width - margin]:
-        if val == 0:
-            current_gap += 1
-        else:
-            if current_gap > GAP_THRESHOLD:
-                has_vertical_split = True
-                break
-            current_gap = 0
-            
-    if current_gap > GAP_THRESHOLD: has_vertical_split = True
-
-    # 3. QUYẾT ĐỊNH CHIẾN THUẬT
-    if has_vertical_split:
-        print("         ⚡ Phát hiện bố cục CỘT -> Gom nhóm dọc.")
-        boxes.sort(key=lambda k: k['cx'])
-        columns = []
-        current_col = [boxes[0]]
-        
-        COL_MARGIN = 50 
-        
-        for i in range(1, len(boxes)):
-            prev, curr = current_col[-1], boxes[i]
-            if abs(curr['cx'] - prev['cx']) < COL_MARGIN:
-                current_col.append(curr)
-            else:
-                columns.append(current_col)
-                current_col = [curr]
-        if current_col: columns.append(current_col)
-
-        final_text = []
-        for col in columns:
-            col.sort(key=lambda k: k['cy'])
-            col_text = " ".join([b['text'] for b in col])
-            final_text.append(col_text)
-            
-        return "\n".join(final_text)
-    else:
-        print("         📝 Phát hiện bố cục VĂN BẢN -> Đọc theo dòng.")
-        boxes.sort(key=lambda k: (int(k['cy'] / 15), k['cx'])) 
-        return " ".join([b['text'] for b in boxes])
+    """(Đã bỏ sử dụng cho Gemini Vision)"""
+    return ""
     
 def process_image_for_ocr(img_bytes, debug_name=None):
     """
-    1. Tiền xử lý (Nền trắng, Tương phản).
-    2. Chạy OCR.
-    3. Sắp xếp thông minh (Adaptive Sorting).
+    Gửi ảnh cho mô hình Gemini 1.5 Flash Vision.
     """
     try:
         image = Image.open(io.BytesIO(img_bytes))
@@ -175,27 +106,39 @@ def process_image_for_ocr(img_bytes, debug_name=None):
         else:
             image = image.convert('RGB')
 
-        image = ImageOps.grayscale(image)
-        enhancer = ImageEnhance.Contrast(image)
-        image = enhancer.enhance(2.0) 
-
-        print("         🔍 Ảnh đã được tiền xử lý cho OCR.")
-        if DEBUG_MODE and debug_name:
-            try:
-                image.save(os.path.join(DEBUG_FOLDER, "proc_" + debug_name))
-            except: pass
-
         with io.BytesIO() as output:
             image.save(output, format="PNG")
             processed_bytes = output.getvalue()
+            
+        base64_image = base64.b64encode(processed_bytes).decode('utf-8')
+        api_key = get_next_embedding_key()
         
-        result, _ = ocr(processed_bytes)
+        print("         🤖 Gửi ảnh cho Gemini Vision xử lý...")
+        llm = ChatGoogleGenerativeAI(
+            model="gemini-1.5-flash",
+            temperature=0.1,
+            google_api_key=api_key
+        )
         
-        if result:
-            return adaptive_text_sorting(result)
+        msg = HumanMessage(
+            content=[
+                {"type": "text", "text": "Trích xuất toàn bộ chữ (text) và giải thích chi tiết nội dung sơ đồ, bảng biểu trong hình ảnh này. Trả về dưới dạng text. Không bịa đặt thông tin. Nếu không có gì quan trọng, hãy trả về 'KHÔNG_CÓ_GÌ'."},
+                {"type": "image_url", "image_url": f"data:image/png;base64,{base64_image}"}
+            ]
+        )
+        
+        # Thêm sleep nhỏ để tránh rate limit nếu PDF có quá nhiều ảnh liên tục
+        time.sleep(4)
+        response = llm.invoke([msg])
+        
+        if response and response.content:
+            res_content = response.content.strip()
+            if res_content == 'KHÔNG_CÓ_GÌ' or res_content == '':
+                return ""
+            return res_content
             
     except Exception as e:
-        print(f"      ⚠️ Lỗi xử lý ảnh: {e}")
+        print(f"      ⚠️ Lỗi xử lý ảnh với Gemini: {e}")
     return ""
 
 def get_image_caption(page, img_rect):
@@ -328,6 +271,14 @@ def process_pdf(pdf_path):
             # Gộp nội dung
             page_content = clean_raw + " " + table_content + " " + ocr_content
             full_text_content += page_content + " "
+            
+            # Giải phóng RAM cực mạnh sau mỗi trang
+            del page
+            del plumb_page
+            del clean_raw
+            del table_content
+            del ocr_content
+            gc.collect()
 
     if full_text_content.strip():
         print(f"   ✅ Xong file. Tổng: {len(full_text_content)} ký tự.")
@@ -382,7 +333,7 @@ def run_ingest():
         return 
 
     print(f"\n📚 Đang chia nhỏ (Chunking) {len(raw_docs)} trang tài liệu bằng Semantic Chunker...")
-    embeddings_for_chunking = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001")
+    embeddings_for_chunking = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001", google_api_key=get_next_embedding_key())
     text_splitter = SemanticChunker(embeddings_for_chunking, breakpoint_threshold_type="percentile")
     docs = text_splitter.split_documents(raw_docs)
     print(f"✂️ Đã chia thành {len(docs)} đoạn nhỏ thuật toán ngữ nghĩa (chunks).")
@@ -396,7 +347,7 @@ def run_ingest():
         )
         doc.page_content = enriched_content
 
-    embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001")
+    embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001", google_api_key=get_next_embedding_key())
     
     # Tạo engine với pool_pre_ping để tránh lỗi SSL connection
     engine = create_engine(DB_URL, pool_pre_ping=True, pool_recycle=300)
@@ -542,7 +493,7 @@ def ingest_file(file_path: str, lesson_id: int = None):
     if not raw_docs:
         return {"status": "error", "message": "File format not supported or empty"}
 
-    embeddings_for_chunking = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001")
+    embeddings_for_chunking = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001", google_api_key=get_next_embedding_key())
     text_splitter = SemanticChunker(embeddings_for_chunking, breakpoint_threshold_type="percentile")
     docs = text_splitter.split_documents(raw_docs)
 
@@ -553,7 +504,7 @@ def ingest_file(file_path: str, lesson_id: int = None):
         if lesson_id:
             doc.metadata["lesson_id"] = lesson_id
 
-    embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001")
+    embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001", google_api_key=get_next_embedding_key())
     
     # Tạo engine với pool_pre_ping
     engine = create_engine(DB_URL, pool_pre_ping=True, pool_recycle=300)
