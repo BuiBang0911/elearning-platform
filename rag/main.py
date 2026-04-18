@@ -60,6 +60,17 @@ def get_next_embedding_key():
     return next(embedding_key_iterator)
 
 app = FastAPI()
+
+# Cấu hình CORS để Frontend (Web) có thể gọi được API
+from fastapi.middleware.cors import CORSMiddleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Trong thực tế nên cấu hình danh sách domain cụ thể
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 from ingest import ingest_file
 
 class IngestRequest(BaseModel):
