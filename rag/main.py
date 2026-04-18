@@ -201,6 +201,16 @@ async def chat_stream_endpoint(request: ChatRequest):
             print(f"🌊 [STREAM] Bắt đầu chat stream. Câu hỏi: '{request.question}'")
             current_api_key = get_next_chat_key()
             print(f"🔑 [STREAM] Đang dùng API Key: {current_api_key[:10]}...")
+            
+            # Tạo bộ nhúng cục bộ để dùng chung Chat Key cho tác vụ Embed text tìm kiếm
+            local_embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001", google_api_key=current_api_key)
+            local_vector_store = PGVector(
+                embeddings=local_embeddings,
+                collection_name="my_docs",
+                connection=engine,
+                use_jsonb=True,
+            )
+
             llm_fast = ChatGoogleGenerativeAI(model="models/gemini-2.5-flash", temperature=0.3, google_api_key=current_api_key)
             llm_smart = ChatGoogleGenerativeAI(model="models/gemini-2.5-flash", temperature=0.3, google_api_key=current_api_key)
 
@@ -228,7 +238,7 @@ async def chat_stream_endpoint(request: ChatRequest):
                 search_kwargs["filter"] = {"lesson_id": request.lesson_id}
                 print(f"🔍 [STREAM] Lọc theo Lesson ID: {request.lesson_id}")
 
-            docs_with_scores = vector_store.similarity_search_with_score(
+            docs_with_scores = local_vector_store.similarity_search_with_score(
                 query=str(rewritten_question),
                 k=search_kwargs.get("k", 3),
                 filter=search_kwargs.get("filter")
@@ -273,7 +283,19 @@ async def chat_endpoint(request: ChatRequest):
         current_api_key = get_next_chat_key()
         print(f"🔑 Đang dùng API Key: {current_api_key[:10]}...")
 
-        # Khởi tạo model bên trong endpoint để dùng key mới
+        # Tạo vector store riêng rẽ phục vụ riêng cho Chat Key này
+        local_embeddings = GoogleGenerativeAIEmbeddings(
+            model="models/gemini-embedding-001",
+            google_api_key=current_api_key,
+        )
+        local_vector_store = PGVector(
+            embeddings=local_embeddings,
+            collection_name="my_docs",
+            connection=engine,
+            use_jsonb=True,
+        )
+
+        # Khởi tạo model AI Generative
         llm_fast = ChatGoogleGenerativeAI(
             model="models/gemini-2.5-flash",
             temperature=0.3,
@@ -329,7 +351,7 @@ async def chat_endpoint(request: ChatRequest):
         if not rewritten_question.strip():
             rewritten_question = request.question
 
-        docs_with_scores = vector_store.similarity_search_with_score(query=rewritten_question, k=3)
+        docs_with_scores = local_vector_store.similarity_search_with_score(query=rewritten_question, k=3)
         
         print("✅ Retrieved docs with scores:", len(docs_with_scores))
 
