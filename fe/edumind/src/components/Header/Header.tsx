@@ -12,7 +12,7 @@ export default function Header() {
             <header className="flex items-center py-2.5">
                 {/* Logo */}
                 <div className="flex items-center gap-1.5 cursor-pointer" onClick={() => navigate("/")}>
-                    <img src="/favicon.svg" alt="Edumind" />
+                    <img src="/assets/images/logo.png" alt="Edumind" className="w-14 h-14 object-contain" />
                     <span className="text-xl font-bold text-[#000000]">
                         EDUMIND
                     </span>

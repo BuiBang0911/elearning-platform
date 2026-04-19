@@ -91,6 +91,19 @@ namespace ApplicationCore.Services.Dashboard
                 })
                 .ToListAsync();
 
+            // SỬA ĐỔI: Lấy danh sách khóa học tốt nhất (Top 3 theo số lượng học viên)
+            var topCourses = await coursesQuery
+                .OrderByDescending(c => _context.Enrollments.Count(e => e.CourseId == c.Id))
+                .Take(3)
+                .Select(c => new TopCourseDto
+                {
+                    Id = c.Id,
+                    Title = c.Title,
+                    Rating = c.Rating,
+                    StudentCount = _context.Enrollments.Count(e => e.CourseId == c.Id)
+                })
+                .ToListAsync();
+
             return new InstructorDashboardStatsDto
             {
                 TotalCourses = totalCourses,
@@ -99,7 +112,8 @@ namespace ApplicationCore.Services.Dashboard
                 TotalMaterials = totalMaterials,
                 AiUsage = aiUsage,
                 EnrollmentTrends = trend,
-                RecentReviews = recentReviews
+                RecentReviews = recentReviews,
+                TopCourses = topCourses
             };
         }
 

@@ -13,6 +13,15 @@ namespace ApplicationCore.DTOs
         public AiUsageDto AiUsage { get; set; }
         public List<MonthlyEnrollmentDto> EnrollmentTrends { get; set; }
         public List<RecentReviewDto> RecentReviews { get; set; }
+        public List<TopCourseDto> TopCourses { get; set; }
+    }
+
+    public class TopCourseDto
+    {
+        public int Id { get; set; }
+        public string Title { get; set; }
+        public int StudentCount { get; set; }
+        public double Rating { get; set; }
     }
 
     public class AiUsageDto

@@ -96,12 +96,20 @@ const ApplyInstructor: React.FC = () => {
                         <p className="text-red-700">{statusData.adminNote}</p>
                     </div>
                 )}
-                <button
-                    onClick={() => setStatusData(null)}
-                    className="px-8 py-3 bg-orange-500 text-white rounded-xl hover:bg-orange-600 transition-all font-medium"
-                >
-                    Re-apply Now
-                </button>
+                <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                    <button
+                        onClick={() => setStatusData(null)}
+                        className="px-8 py-3 bg-orange-500 text-white rounded-xl hover:bg-orange-600 transition-all font-medium transition-transform active:scale-95"
+                    >
+                        Re-apply Now
+                    </button>
+                    <button
+                        onClick={() => navigate("/")}
+                        className="px-8 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-all font-medium transition-transform active:scale-95"
+                    >
+                        Back to Home
+                    </button>
+                </div>
             </div>
         );
     }
@@ -110,6 +118,17 @@ const ApplyInstructor: React.FC = () => {
         <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 py-12 px-4 flex items-center justify-center">
             <div className="max-w-4xl w-full bg-white shadow-2xl rounded-3xl overflow-hidden flex flex-col md:flex-row border border-white/20 backdrop-blur-sm">
                 <div className="md:w-1/3 bg-gradient-to-br from-blue-600 to-purple-700 p-10 text-white flex flex-col justify-center relative overflow-hidden">
+                    {/* Home Button */}
+                    <button 
+                        onClick={() => navigate("/")}
+                        className="absolute top-6 left-6 flex items-center gap-2 text-white/80 hover:text-white transition-colors z-20 group text-sm font-medium"
+                    >
+                        <svg className="w-4 h-4 transition-transform group-hover:-translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                        </svg>
+                        Home
+                    </button>
+
                     {/* Decorative Background Elements */}
                     <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 w-32 h-32 bg-white/10 rounded-full blur-2xl"></div>
                     <div className="absolute bottom-0 left-0 translate-y-1/2 -translate-x-1/2 w-32 h-32 bg-white/10 rounded-full blur-2xl"></div>

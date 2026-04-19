@@ -11,9 +11,9 @@ const AuthHeader = ({ rightText, rightLink, rightLabel }: Props) => {
         <div className="sm:flex-col md:flex justify-between items-center mb-10">
             <div className="flex items-center gap-2 font-bold text-lg justify-center">
                 <img
-                    src="/favicon.svg"
+                    src="/assets/images/logo.png"
                     alt="logo"
-                    className="w-12.5 h-12.5 mr-2"
+                    className="w-16 h-16 mr-2 object-contain"
                 />
                 <span className="text-[20px] font-bold">EDUMIND</span>
             </div>

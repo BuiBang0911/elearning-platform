@@ -455,39 +455,64 @@ export default function InstructorDashboard() {
 								</div>
 							</Card>
 
-							{/* AI Section with Real Data */}
-							<Card className="p-6 border-none shadow-sm space-y-4">
-								<h3 className="font-bold text-slate-800 mb-2 flex items-center gap-2">
-									<Brain className="w-5 h-5 text-purple-500" />
-									AI Assistant Performance
-								</h3>
-								<p className="text-slate-500 text-sm mb-6">Metrics for AI interactions within your courses</p>
-
-								<div className="grid grid-cols-2 gap-4">
-									<div className="p-5 bg-blue-50/50 rounded-2xl border border-blue-100/50">
-										<div className="flex items-center gap-3 text-blue-600 mb-2">
-											<MessageSquare className="w-5 h-5" />
-											<span className="text-sm font-semibold uppercase tracking-tight">Total Queries</span>
-										</div>
-										<p className="text-3xl font-bold text-slate-900">{stats.aiUsage.totalQuestions}</p>
-									</div>
-
-									<div className="p-5 bg-purple-50/50 rounded-2xl border border-purple-100/50">
-										<div className="flex items-center gap-3 text-purple-600 mb-2">
-											<Clock className="w-5 h-5" />
-											<span className="text-sm font-semibold uppercase tracking-tight">Avg Response</span>
-										</div>
-										<p className="text-3xl font-bold text-slate-900">{stats.aiUsage.avgResponseTimeSeconds}s</p>
-									</div>
+							{/* Top Performing Courses */}
+							<Card className="p-6 border-none shadow-sm space-y-6">
+								<div>
+									<h3 className="font-bold text-slate-800 mb-2 flex items-center gap-2">
+										<TrendingUp className="w-5 h-5 text-emerald-500" />
+										Top Performing Courses
+									</h3>
+									<p className="text-slate-500 text-sm">Your courses with the highest engagement</p>
 								</div>
 
-								<div className="mt-8 p-4 bg-slate-50 rounded-xl">
-									<div className="flex items-center justify-between mb-2">
-										<span className="text-sm font-medium text-slate-600">Response Efficiency</span>
-										<span className="text-sm font-bold text-green-600">98.2%</span>
-									</div>
-									<div className="w-full bg-slate-200 rounded-full h-1.5">
-										<div className="bg-green-500 h-1.5 rounded-full" style={{ width: '98.2%' }} />
+								<div className="space-y-4">
+									{stats.topCourses.length > 0 ? (
+										stats.topCourses.map((course, i) => (
+											<div key={course.id} className="group relative flex items-center justify-between p-4 bg-slate-50 rounded-2xl hover:bg-blue-50 transition-all border border-transparent hover:border-blue-100">
+												<div className="flex items-center gap-4">
+													<div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center font-bold text-slate-400 group-hover:text-blue-500 transition-colors">
+														#{i + 1}
+													</div>
+													<div>
+														<h4 className="font-bold text-slate-800 line-clamp-1 group-hover:text-blue-600 transition-colors">
+															{course.title}
+														</h4>
+														<div className="flex items-center gap-3 mt-0.5">
+															<span className="text-xs font-medium text-slate-500 flex items-center gap-1">
+																<Users className="w-3 h-3" />
+																{course.studentCount} students
+															</span>
+															<span className="text-xs font-bold text-amber-500 flex items-center gap-1">
+																<Star className="w-3 h-3 fill-current" />
+																{course.rating}
+															</span>
+														</div>
+													</div>
+												</div>
+												<Button 
+													variant="ghost" 
+													size="sm" 
+													className="opacity-0 group-hover:opacity-100 transition-opacity text-blue-600 hover:text-blue-700 hover:bg-blue-100/50"
+													onClick={() => handleOpenAnalytics(course.id, course.title)}
+												>
+													Details
+												</Button>
+											</div>
+										))
+									) : (
+										<div className="py-12 text-center text-slate-400">
+											<p>Upload courses to start seeing analytics!</p>
+										</div>
+									)}
+								</div>
+
+								<div className="pt-4 mt-auto">
+									<div className="bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl p-4 text-white shadow-lg shadow-blue-200/50">
+										<p className="text-xs font-medium opacity-80 uppercase tracking-wider mb-1">Growth Tip</p>
+										<p className="text-sm font-medium leading-relaxed">
+											Your top course has <strong>{stats.topCourses[0]?.studentCount || 0}</strong> students. 
+											Keep promoting it to reach even more learners! 🚀
+										</p>
 									</div>
 								</div>
 							</Card>

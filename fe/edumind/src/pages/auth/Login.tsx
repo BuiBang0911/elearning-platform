@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Brain } from "lucide-react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import FullPageLoader from "../../components/PostLoading/FullPageLoader";
 import { Card } from "../../components/ui/card";
@@ -96,9 +95,7 @@ const Login = () => {
             <Card className="w-full max-w-md p-8">
                 <div className="text-center mb-8">
                     <div className="inline-flex items-center gap-2 mb-4">
-                        <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-                            <Brain className="w-7 h-7 text-white" />
-                        </div>
+                        <img src="/assets/images/logo.png" alt="EduMind" className="w-16 h-16 object-contain" />
                         <span className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                             EduMind
                         </span>

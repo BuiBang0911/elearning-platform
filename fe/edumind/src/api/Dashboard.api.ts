@@ -17,6 +17,12 @@ export interface InstructorDashboardStats {
     rating: number;
     date: string;
   }[];
+  topCourses: {
+    id: number;
+    title: string;
+    studentCount: number;
+    rating: number;
+  }[];
 }
 
 export interface CourseDetailStats {

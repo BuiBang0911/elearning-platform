@@ -38,20 +38,23 @@ namespace ApplicationCore.Services.Courses
                 orderBy: x => x.LessonId
             )).Select(x => x.LessonId).ToHashSet();
 
-            var courses = await _repository.GetPagedListAsync(
-                where: x => x.Enrollments.Any(e => e.UserId == studentId)
-                            && (!teacherId.HasValue || x.LecturerId == teacherId),
-                orderBy: x => x.CreatedAt,
-                page: pagingRequest?.PageIndex ?? 0,
-                count: pagingRequest?.PageSize ?? int.MaxValue,
-                relatedEntities: new Expression<Func<Course, object>>[]
-                {
-                    x => x.Enrollments,
-                    x => x.Lessons
-                }
-            );
+            var query = _context.Courses
+                .Include(x => x.Enrollments)
+                .Include(x => x.Lessons)
+                    .ThenInclude(l => l.Documents)
+                .Where(x => x.Enrollments.Any(e => e.UserId == studentId)
+                            && (!teacherId.HasValue || x.LecturerId == teacherId))
+                .OrderBy(x => x.CreatedAt);
 
-            var result = courses.Items.Select(c => new CourseByStudentDashboard
+            int page = pagingRequest?.PageIndex ?? 0;
+            int count = pagingRequest?.PageSize ?? int.MaxValue;
+
+            var courses = await query
+                .Skip(page * count)
+                .Take(count)
+                .ToListAsync();
+
+            var result = courses.Select(c => new CourseByStudentDashboard
             {
                 Id = c.Id,
                 Title = c.Title,
@@ -70,7 +73,7 @@ namespace ApplicationCore.Services.Courses
                     Content = l.Content,
 
                     isCompleted = completedLessonIds.Contains(l.Id),
-                    Documents = l.Documents.Select(d => new DocumentResponse
+                    Documents = (l.Documents ?? new List<Document>()).Select(d => new DocumentResponse
                     {
                         Id = d.Id,
                         LessonId = d.LessonId,
