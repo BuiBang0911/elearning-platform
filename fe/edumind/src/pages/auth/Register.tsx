@@ -7,6 +7,7 @@ import FullPageLoader from "../../components/PostLoading/FullPageLoader";
 import { UserRole } from "../../interfaces/auth";
 import AuthApi from "../../api/auth.api";
 import { toast } from "sonner";
+import { useState } from "react";
 
 export default function RegisterPage() {
 	const navigate = useNavigate();
@@ -49,10 +50,10 @@ export default function RegisterPage() {
 		catch (err: any) {
 			console.error("Registration failed:", err);
 			setIsLoading(false);
-			
+
 			const errorData = err.response?.data;
 			let errorMessage = "Registration failed. Please try again.";
-			
+
 			if (typeof errorData === "string") {
 				errorMessage = errorData;
 			} else if (errorData?.errors) {
@@ -60,7 +61,7 @@ export default function RegisterPage() {
 			} else if (errorData?.title) {
 				errorMessage = errorData.title;
 			}
-			
+
 			toast.error(errorMessage);
 		}
 	};
@@ -173,8 +174,8 @@ export default function RegisterPage() {
 							<p className="text-red-500 text-xs mt-1">{errors.confirmPassword}</p>
 						)}
 					</div>
-					<Button 
-						type="submit" 
+					<Button
+						type="submit"
 						loading={isLoading}
 						className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:opacity-90 transition-opacity h-12 text-lg font-bold shadow-lg shadow-blue-200"
 					>
