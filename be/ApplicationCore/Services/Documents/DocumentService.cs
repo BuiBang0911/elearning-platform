@@ -1,4 +1,4 @@
-﻿using ApplicationCore.Data;
+using ApplicationCore.Data;
 using ApplicationCore.DTO;
 using ApplicationCore.Services.Storage;
 using Infrastructure.Data;
@@ -40,7 +40,10 @@ namespace ApplicationCore.Services.Documents
                 LessonTitle = x.Lesson.Title,
 
                 CourseId = x.Lesson.Course.Id,
-                CourseTitle = x.Lesson.Course.Title
+                CourseTitle = x.Lesson.Course.Title,
+                
+                Size = x.Size,
+                Status = x.Status
             });
 
             var res = new PagedList<DocumentResponse>(query, pageIndex, pageSize, query.Count());
