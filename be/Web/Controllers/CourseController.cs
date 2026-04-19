@@ -282,5 +282,16 @@ namespace Web.Controllers
 
             return Ok(courseDetail);
         }
+
+        [HttpGet("recommended-for-student")]
+        [Authorize(Roles = $"{nameof(UserRole.Student)}")]
+        public async Task<IActionResult> GetRecommendedCourses([FromQuery] int top = 5)
+        {
+            var userId = _authService?.UserId;
+            if (userId == null) return Unauthorized();
+
+            var recommendations = await _courseService.GetRecommendedCoursesAsync(userId.Value, top);
+            return Ok(recommendations);
+        }
     }
 }

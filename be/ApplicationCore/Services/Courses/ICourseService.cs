@@ -17,5 +17,6 @@ namespace ApplicationCore.Services.Courses
         Task<IPagedList<CourseListDto>> GetAllCoursesForStudentAsync(int? studentId, string? searchQuery = null, int pageNumber = 1, int pageSize = 10);
         Task<CourseDetailForStudentDto?> GetCourseDetailForStudentAsync(int courseId, int? studentId);
         Task UpdateCourseRatingAsync(int courseId);
+        Task<List<CourseListDto>> GetRecommendedCoursesAsync(int studentId, int top = 5);
     }
 }

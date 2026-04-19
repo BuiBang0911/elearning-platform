@@ -107,7 +107,10 @@ const getCourseDetailForStudent = async (id: number | string): Promise<CourseDet
   return res.data;
 }
 
-
+const getRecommendedCourses = async (top: number = 5): Promise<CourseListDto[]> => {
+  const res = await api.get(`/Course/recommended-for-student`, { params: { top } });
+  return res.data;
+}
 
 const CourseApi = {
   getAll,
@@ -124,6 +127,7 @@ const CourseApi = {
   getTopRatedCourses,
   getAllCoursesForStudent,
   getCourseDetailForStudent,
+  getRecommendedCourses,
 };
 
 export default CourseApi;

@@ -289,5 +289,78 @@ namespace ApplicationCore.Services.Courses
                 }
             }
         }
+
+        public async Task<List<CourseListDto>> GetRecommendedCoursesAsync(int studentId, int top = 5)
+        {
+            var cacheKey = $"recommend:u{studentId}:t{top}";
+            var cached = await _cacheService.GetAsync<List<CourseListDto>>(cacheKey);
+            if (cached != null) return cached;
+
+            var enrolledCourseIds = await _context.Enrollments
+                .Where(e => e.UserId == studentId)
+                .Select(e => e.CourseId)
+                .ToListAsync();
+
+            var userPreferences = await _context.Enrollments
+                .Where(e => e.UserId == studentId)
+                .Include(e => e.Course)
+                .Select(e => new { e.Course.CategoryId, e.Course.Level, e.Course.LecturerId })
+                .ToListAsync();
+
+            var favoriteCategories = userPreferences.GroupBy(x => x.CategoryId).OrderByDescending(g => g.Count()).Select(g => g.Key).Take(2).ToList();
+            var favoriteLevel = userPreferences.GroupBy(x => x.Level).OrderByDescending(g => g.Count()).Select(g => g.Key).FirstOrDefault();
+            var favoriteLecturers = userPreferences.GroupBy(x => x.LecturerId).Select(g => g.Key).ToHashSet();
+
+            var potentialCourses = await _context.Courses
+                .Include(c => c.Category)
+                .Include(c => c.Lecturer)
+                .Where(c => !enrolledCourseIds.Contains(c.Id))
+                .ToListAsync();
+
+            var potentialCourseIds = potentialCourses.Select(c => c.Id).ToList();
+            var enrollmentCounts = await _context.Enrollments
+                .Where(e => potentialCourseIds.Contains(e.CourseId))
+                .GroupBy(e => e.CourseId)
+                .Select(g => new { CourseId = g.Key, Count = g.Count() })
+                .ToDictionaryAsync(x => x.CourseId, x => x.Count);
+
+            // 4. Tính điểm
+            var recommended = potentialCourses.Select(c => {
+                var count = enrollmentCounts.GetValueOrDefault(c.Id, 0);
+                return new
+                {
+                    Course = c,
+                    Score = (favoriteCategories.Contains(c.CategoryId) ? 10 : 0) +
+                            (c.Level == favoriteLevel ? 5 : 0) +
+                            (favoriteLecturers.Contains(c.LecturerId) ? 3 : 0) +
+                            (c.Rating * 2) +
+                            (count * 0.1) // Không còn N+1
+                };
+            })
+            .OrderByDescending(x => x.Score)
+            .Take(top)
+            .Select(x => new CourseListDto
+            {
+                Id = x.Course.Id,
+                Title = x.Course.Title,
+                Description = x.Course.Description,
+                LectureName = x.Course.Lecturer?.FullName,
+                CreatedAt = x.Course.CreatedAt,
+                Thumbnail = x.Course.Thumbnail,
+                Level = x.Course.Level,
+                Rating = x.Course.Rating,
+                Price = x.Course.Price,
+                CategoryName = x.Course.Category?.Name,
+                TotalStudents = enrollmentCounts.GetValueOrDefault(x.Course.Id, 0), // Không còn N+1
+                IsEnrolled = false,
+                Progress = 0
+            })
+            .ToList();
+
+            // Cache kết quả trong 1 giờ
+            await _cacheService.SetAsync(cacheKey, recommended, TimeSpan.FromHours(1));
+
+            return recommended;
+        }
     }
 }

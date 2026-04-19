@@ -4,57 +4,54 @@ import { TabsContent } from "../ui/tabs";
 import { Button } from "../ui/button";
 import { CourseCardSkeleton } from "../ui/skeleton";
 import { useEffect, useState } from "react";
-import { type CourseResponse } from "../../interfaces/Course";
+import { type CourseListDto } from "../../interfaces/Course";
 import CourseApi from "../../api/Course.api";
 import { Link } from "react-router-dom";
-import type { PagedList } from "../../interfaces";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
-import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "../ui/pagination";
 
 const RecommendCourse = () => {
     const [isLoadingRecommended, setIsLoadingRecommended] = useState(false);
-    const [itemsPerPage, setItemsPerPage] = useState(6);
-    const [currentPage, setCurrentPage] = useState(1);
-    const [paginatedRecommended, setPaginatedRecommended] = useState<PagedList<CourseResponse>>({
-        items: [],
-        pageIndex: currentPage,
-        pageSize: itemsPerPage,
-        totalCount: 0,
-    });
+    const [limit, setLimit] = useState(6);
+    const [recommendedItems, setRecommendedItems] = useState<CourseListDto[]>([]);
 
     useEffect(() => {
         const fetchRecommended = async () => {
             setIsLoadingRecommended(true);
-            const res = await CourseApi.getTopRatedCourses({ pageIndex: currentPage - 1, pageSize: itemsPerPage });
-            setPaginatedRecommended(res);
-            setIsLoadingRecommended(false);
+            try {
+                const res = await CourseApi.getRecommendedCourses(limit);
+                setRecommendedItems(res);
+            } catch (error) {
+                console.error("Failed to fetch recommendations", error);
+            } finally {
+                setIsLoadingRecommended(false);
+            }
         }
         fetchRecommended();
-    }, [currentPage, itemsPerPage])
+    }, [limit])
 
     return (<TabsContent value="recommended" className="space-y-4">
         <div className="grid sm:grid-cols-3 gap-4">
             {isLoadingRecommended ? (
-                Array.from({ length: 10 }).map((_, i) => (
+                Array.from({ length: 6 }).map((_, i) => (
                     <CourseCardSkeleton key={i} />
                 ))
             ) : (
-                paginatedRecommended.items.map((course) => (
+                recommendedItems.map((course) => (
                     <Card key={course.id} className="overflow-hidden hover:shadow-lg transition-shadow">
                         <img
                             src={course.thumbnail || '/assets/images/sample-thumnail-course.jpg'}
                             alt={course.title}
-                            className="w-full h-60 object-contain bg-gray-100"
+                            className="w-full h-48 object-cover bg-gray-100"
                         />
                         <div className="p-4">
                             <Badge className="mb-2">{course.categoryName}</Badge>
-                            <h3 className="font-semibold mb-2">{course.title}</h3>
+                            <h3 className="font-semibold mb-2 line-clamp-1">{course.title}</h3>
                             <p className="text-sm text-gray-600 mb-3 line-clamp-2">
                                 {course.description}
                             </p>
                             <div className="flex items-center justify-between text-sm text-gray-500 mb-3">
-                                <span>{course.lectureName}</span>
-                                <span>⭐ {course.rating}</span>
+                                <span className="truncate max-w-[120px]">{course.lectureName}</span>
+                                <span className="flex items-center gap-1">⭐ {course.rating}</span>
                             </div>
                             <Link to={`/student/course/${course.id}`}>
                                 <Button variant="outline" className="w-full">
@@ -66,56 +63,32 @@ const RecommendCourse = () => {
                 ))
             )}
         </div>
-        {paginatedRecommended.totalCount > paginatedRecommended.pageSize && (
-            <div className="flex items-center justify-between mt-6">
-                <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-600">Items per page:</span>
-                    <Select
-                        value={itemsPerPage.toString()}
-                        onValueChange={(value) => {
-                            setItemsPerPage(Number(value));
-                            setCurrentPage(1);
-                        }}
-                    >
-                        <SelectTrigger className="w-20">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="6">6</SelectItem>
-                            <SelectItem value="12">12</SelectItem>
-                            <SelectItem value="18">18</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
-                <Pagination>
-                    <PaginationContent>
-                        <PaginationItem>
-                            <PaginationPrevious
-                                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                                className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
-                            />
-                        </PaginationItem>
-                        {Array.from({ length: Math.ceil(paginatedRecommended.totalCount / itemsPerPage) }, (_, i) => i + 1).map((page) => (
-                            <PaginationItem key={page}>
-                                <PaginationLink
-                                    onClick={() => setCurrentPage(page)}
-                                    isActive={page === currentPage}
-                                    className="cursor-pointer"
-                                >
-                                    {page}
-                                </PaginationLink>
-                            </PaginationItem>
-                        ))}
-                        <PaginationItem>
-                            <PaginationNext
-                                onClick={() => setCurrentPage(Math.min(Math.ceil(paginatedRecommended.totalCount / itemsPerPage), currentPage + 1))}
-                                className={currentPage === Math.ceil(paginatedRecommended.totalCount / itemsPerPage) ? "pointer-events-none opacity-50" : "cursor-pointer"}
-                            />
-                        </PaginationItem>
-                    </PaginationContent>
-                </Pagination>
+        
+        {!isLoadingRecommended && recommendedItems.length === 0 && (
+            <div className="text-center py-12 bg-white rounded-lg border-2 border-dashed">
+                <p className="text-gray-500">No recommendations found yet. Start exploring courses!</p>
             </div>
         )}
+
+        <div className="flex items-center justify-between mt-6">
+            <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-600">Show:</span>
+                <Select
+                    value={limit.toString()}
+                    onValueChange={(value) => setLimit(Number(value))}
+                >
+                    <SelectTrigger className="w-20">
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="3">3</SelectItem>
+                        <SelectItem value="6">6</SelectItem>
+                        <SelectItem value="12">12</SelectItem>
+                    </SelectContent>
+                </Select>
+            </div>
+            <p className="text-sm text-gray-500 italic">Personalized based on your learning journey 🚀</p>
+        </div>
     </TabsContent>)
 }
 
