@@ -1,7 +1,6 @@
 fastapi
 uvicorn
 python-dotenv
-langchain
 langchain-core
 langchain-community
 langchain-google-genai
@@ -11,10 +10,13 @@ sqlalchemy
 celery
 redis
 Pillow
-google-generativeai
-pymupdf 
+pymupdf
 pdfplumber
 requests
 langchain-experimental
 scikit-learn
 numpy
+tenacity
+google-api-core
+pydantic
+langchain-classic

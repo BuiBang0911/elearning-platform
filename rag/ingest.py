@@ -15,9 +15,8 @@ import psycopg2.extras
 import pdfplumber
 import requests
 from dotenv import load_dotenv
-from PIL import Image, ImageEnhance, ImageOps
+from PIL import Image
 from langchain_community.document_loaders import TextLoader
-from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_experimental.text_splitter import SemanticChunker
 from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
 from langchain_postgres import PGVector

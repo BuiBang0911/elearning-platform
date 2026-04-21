@@ -1,5 +1,4 @@
 import os
-import time
 import itertools
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel

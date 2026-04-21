@@ -1,6 +1,5 @@
 import os
 import psycopg2
-import logging
 from celery.utils.log import get_task_logger
 from celery_app import app
 from ingest import ingest_file
