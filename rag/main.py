@@ -16,6 +16,9 @@ from langchain_core.messages import HumanMessage, AIMessage
 from langchain_core.output_parsers import StrOutputParser
 from langchain_classic.chains.combine_documents import create_stuff_documents_chain
 from sqlalchemy import create_engine
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+import google.api_core.exceptions
+import requests
 
 # =========================
 # 1. LOAD ENV & API KEYS
@@ -58,6 +61,14 @@ def get_next_chat_key():
 
 def get_next_embedding_key():
     return next(embedding_key_iterator)
+
+def retry_on_429():
+    return retry(
+        stop=stop_after_attempt(5),
+        wait=wait_exponential(multiplier=1, min=4, max=60),
+        retry=retry_if_exception_type((google.api_core.exceptions.ResourceExhausted, requests.exceptions.HTTPError)),
+        before_sleep=lambda retry_state: print(f"⚠️ Chat API Rate Limit. Retrying {retry_state.attempt_number}...")
+    )
 
 app = FastAPI()
 
@@ -224,10 +235,15 @@ async def chat_stream_endpoint(request: ChatRequest):
             print(f"👉 [STREAM] Lịch sử trò chuyện: {len(langchain_history)} tin nhắn")
 
             # 1. Rewrite câu hỏi
-            rewritten_question = await contextualize_chain.ainvoke({
-                "input": request.question,
-                "chat_history": langchain_history
-            })
+            @retry_on_429()
+            async def _rewrite():
+                return await contextualize_chain.ainvoke({
+                    "input": request.question,
+                    "chat_history": langchain_history
+                })
+            
+            rewritten_question = await _rewrite()
+            
             if not rewritten_question or not str(rewritten_question).strip():
                 rewritten_question = request.question
             print(f"✅ [STREAM] Câu hỏi sau rewrite: '{rewritten_question}'")
@@ -238,11 +254,15 @@ async def chat_stream_endpoint(request: ChatRequest):
                 search_kwargs["filter"] = {"lesson_id": request.lesson_id}
                 print(f"🔍 [STREAM] Lọc theo Lesson ID: {request.lesson_id}")
 
-            docs_with_scores = local_vector_store.similarity_search_with_score(
-                query=str(rewritten_question),
-                k=search_kwargs.get("k", 3),
-                filter=search_kwargs.get("filter")
-            )
+            @retry_on_429()
+            def _search():
+                return local_vector_store.similarity_search_with_score(
+                    query=str(rewritten_question),
+                    k=search_kwargs.get("k", 3),
+                    filter=search_kwargs.get("filter")
+                )
+            
+            docs_with_scores = _search()
             print(f"✅ [STREAM] Đã tìm thấy {len(docs_with_scores)} tài liệu (chunks) phù hợp")
             
             retrieved_docs = []
@@ -334,10 +354,14 @@ async def chat_endpoint(request: ChatRequest):
         # =====================
         # STEP 1: REWRITE CÂU HỎI
         # =====================
-        rewritten_question = contextualize_chain.invoke({
-            "input": request.question,
-            "chat_history": langchain_history
-        })
+        @retry_on_429()
+        def _rewrite_sync():
+            return contextualize_chain.invoke({
+                "input": request.question,
+                "chat_history": langchain_history
+            })
+
+        rewritten_question = _rewrite_sync()
 
         if not rewritten_question or not rewritten_question.strip():
             rewritten_question = request.question
@@ -351,7 +375,11 @@ async def chat_endpoint(request: ChatRequest):
         if not rewritten_question.strip():
             rewritten_question = request.question
 
-        docs_with_scores = local_vector_store.similarity_search_with_score(query=rewritten_question, k=3)
+        @retry_on_429()
+        def _search_sync():
+            return local_vector_store.similarity_search_with_score(query=rewritten_question, k=3)
+
+        docs_with_scores = _search_sync()
         
         print("✅ Retrieved docs with scores:", len(docs_with_scores))
 
@@ -378,11 +406,15 @@ async def chat_endpoint(request: ChatRequest):
         # =====================
         # STEP 4: GỌI AI TRẢ LỜI
         # =====================
-        raw_answer = question_answer_chain.invoke({
-            "input": request.question,
-            "chat_history": langchain_history,
-            "context": retrieved_docs,
-        })
+        @retry_on_429()
+        def _answer_sync():
+            return question_answer_chain.invoke({
+                "input": request.question,
+                "chat_history": langchain_history,
+                "context": retrieved_docs,
+            })
+
+        raw_answer = _answer_sync()
 
         # Chuẩn hóa kết quả trả về
         if hasattr(raw_answer, "content"):

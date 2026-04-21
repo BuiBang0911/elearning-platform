@@ -24,6 +24,8 @@ from langchain_postgres import PGVector
 from langchain_core.messages import HumanMessage
 from langchain_core.documents import Document
 from sqlalchemy import create_engine
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+import google.api_core.exceptions
 
 # --- CẤU HÌNH DEBUG ---
 DEBUG_MODE = False  # Chuyển sang False để tắt debug
@@ -54,6 +56,19 @@ embedding_key_iterator = itertools.cycle(EMBEDDING_KEYS)
 
 def get_next_embedding_key():
     return next(embedding_key_iterator)
+
+# --- 2. CONFIG RETRY CHO GOOGLE API ---
+def retry_on_429():
+    """
+    Decorator để retry khi gặp lỗi 429 (Rate Limit).
+    Lưu ý: google.api_core.exceptions.ResourceExhausted là lỗi 429.
+    """
+    return retry(
+        stop=stop_after_attempt(6),
+        wait=wait_exponential(multiplier=1, min=5, max=60),
+        retry=retry_if_exception_type((google.api_core.exceptions.ResourceExhausted, requests.exceptions.HTTPError)),
+        before_sleep=lambda retry_state: print(f"⚠️ Chạm giới hạn Rate Limit. Đang thử lại lần {retry_state.attempt_number} sau {retry_state.next_action.sleep} giây...")
+    )
 
 # --- 2. CÁC HÀM XỬ LÝ TEXT & PDF ---
 
@@ -128,8 +143,13 @@ def process_image_for_ocr(img_bytes, debug_name=None):
         )
         
         # Thêm sleep nhỏ để tránh rate limit nếu PDF có quá nhiều ảnh liên tục
-        time.sleep(4)
-        response = llm.invoke([msg])
+        time.sleep(2)
+        
+        @retry_on_429()
+        def _invoke_llm():
+            return llm.invoke([msg])
+            
+        response = _invoke_llm()
         
         if response and response.content:
             res_content = response.content.strip()
@@ -508,8 +528,13 @@ def ingest_file(file_path: str, lesson_id: int = None, document_id: int = None):
         return {"status": "error", "message": "File format not supported or empty"}
 
     embeddings_for_chunking = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001", google_api_key=get_next_embedding_key())
-    text_splitter = SemanticChunker(embeddings_for_chunking, breakpoint_threshold_type="percentile")
-    docs = text_splitter.split_documents(raw_docs)
+    
+    @retry_on_429()
+    def _split_docs():
+        text_splitter = SemanticChunker(embeddings_for_chunking, breakpoint_threshold_type="percentile")
+        return text_splitter.split_documents(raw_docs)
+
+    docs = _split_docs()
 
     for doc in docs:
         filename = doc.metadata.get("filename", "unknown")
@@ -531,26 +556,40 @@ def ingest_file(file_path: str, lesson_id: int = None, document_id: int = None):
     
     namespace = f"pgvector/{COLLECTION_NAME}"
     
-    # Chạy sync chỉ cho file này
-    current_ids = []
-    for i, doc in enumerate(docs):
-        source_file = doc.metadata.get("filename", "unknown")
-        # ID sẽ luôn có độ dài cố định là 32 ký tự
-        record_id = hashlib.md5(f"{source_file}-{doc.page_content}".encode()).hexdigest()
-        checksum = compute_checksum(doc.page_content)
-        current_ids.append(record_id)
+    # Chạy sync theo batch (size=20) để tránh 429
+    batch_size = 20
+    total_chunks = len(docs)
+    print(f"📦 Bắt đầu lưu {total_chunks} chunks vào Vector Store (Batch size: {batch_size})...")
+    
+    for i in range(0, total_chunks, batch_size):
+        batch = docs[i:i + batch_size]
+        batch_ids = []
+        batch_records = []
         
-        # Upsert record and vector
-        vector_store.add_documents([doc], ids=[record_id])
+        for doc in batch:
+            source_file = doc.metadata.get("filename", "unknown")
+            record_id = hashlib.md5(f"{source_file}-{doc.page_content}".encode()).hexdigest()
+            checksum = compute_checksum(doc.page_content)
+            batch_ids.append(record_id)
+            batch_records.append((record_id, namespace, source_file, checksum, datetime.datetime.utcnow()))
+
+        @retry_on_429()
+        def _add_batch():
+            vector_store.add_documents(batch, ids=batch_ids)
+        
+        _add_batch()
+
+        # Upsert metadata records
         with pg_conn.cursor() as cur:
-            cur.execute("""
+            psycopg2.extras.execute_values(cur, """
                 INSERT INTO ingest_records(record_id, namespace, source, checksum, updated_at)
-                VALUES (%s, %s, %s, %s, %s)
+                VALUES %s
                 ON CONFLICT (record_id) DO UPDATE
                 SET checksum = EXCLUDED.checksum, updated_at = EXCLUDED.updated_at
-            """, (record_id, namespace, source_file, checksum, datetime.datetime.utcnow()))
-    
-    pg_conn.commit()
+            """, batch_records)
+        
+        pg_conn.commit()
+        print(f"   ✅ Đã xong {min(i + batch_size, total_chunks)}/{total_chunks} chunks.")
     pg_conn.close()
     
     # Dọn dẹp file tạm nếu là download từ Cloud
