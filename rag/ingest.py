@@ -22,6 +22,7 @@ from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGener
 from langchain_postgres import PGVector
 from langchain_core.messages import HumanMessage
 from langchain_core.documents import Document
+from langchain_core.embeddings import Embeddings
 from sqlalchemy import create_engine
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 import google.api_core.exceptions
@@ -59,15 +60,55 @@ def get_next_embedding_key():
 # --- 2. CONFIG RETRY CHO GOOGLE API ---
 def retry_on_429():
     """
-    Decorator để retry khi gặp lỗi 429 (Rate Limit).
-    Lưu ý: google.api_core.exceptions.ResourceExhausted là lỗi 429.
+    Decorator để retry khi gặp lỗi 429 (Rate Limit) với chiến lược chờ đợi lâu hơn.
     """
     return retry(
-        stop=stop_after_attempt(6),
-        wait=wait_exponential(multiplier=1, min=5, max=60),
+        stop=stop_after_attempt(10),
+        wait=wait_exponential(multiplier=2, min=10, max=120),
         retry=retry_if_exception_type((google.api_core.exceptions.ResourceExhausted, requests.exceptions.HTTPError)),
-        before_sleep=lambda retry_state: print(f"⚠️ Chạm giới hạn Rate Limit. Đang thử lại lần {retry_state.attempt_number} sau {retry_state.next_action.sleep} giây...")
+        before_sleep=lambda retry_state: print(f"⚠️ [RATE LIMIT] Chạm giới hạn (429). Đang thử lại lần {retry_state.attempt_number} sau {retry_state.next_action.sleep:.1f} giây...")
     )
+
+# --- 3. CLASS XOAY TUA KEY CHO EMBEDDING ---
+
+class RotatedGoogleEmbeddings(Embeddings):
+    """
+    Wrapper cho GoogleGenerativeAIEmbeddings giúp xoay tua API Key cho từng request.
+    Điều này cực kỳ quan trọng đối với SemanticChunker vì nó gọi API liên tục.
+    """
+    def __init__(self, model, api_keys):
+        self.model = model
+        self.api_keys = api_keys
+        self.key_iterator = itertools.cycle(api_keys)
+        print(f"🔄 [EMBEDDINGS] Đã khởi tạo RotatedEmbeddings với {len(api_keys)} keys.")
+
+    def _get_embeddings_instance(self, api_key=None):
+        key = api_key or next(self.key_iterator)
+        return GoogleGenerativeAIEmbeddings(
+            model=self.model,
+            google_api_key=key
+        )
+
+    def embed_documents(self, texts):
+        current_key = next(self.key_iterator)
+        # In log ẩn bớt key để bảo mật
+        print(f"🧩 [EMBEDDINGS] Embedding {len(texts)} chunks dùng key: ...{current_key[-6:]}")
+        
+        @retry_on_429()
+        def _embed():
+            return self._get_embeddings_instance(api_key=current_key).embed_documents(texts)
+        
+        return _embed()
+
+    def embed_query(self, text):
+        current_key = next(self.key_iterator)
+        print(f"🔍 [EMBEDDINGS] Embedding query dùng key: ...{current_key[-6:]}")
+        
+        @retry_on_429()
+        def _embed():
+            return self._get_embeddings_instance(api_key=current_key).embed_query(text)
+        
+        return _embed()
 
 # --- 2. CÁC HÀM XỬ LÝ TEXT & PDF ---
 
@@ -127,7 +168,7 @@ def process_image_for_ocr(img_bytes, debug_name=None):
         base64_image = base64.b64encode(processed_bytes).decode('utf-8')
         api_key = get_next_embedding_key()
         
-        print("         🤖 Gửi ảnh cho Gemini Vision xử lý...")
+        print(f"         🤖 [OCR] Gửi ảnh cho Gemini Vision xử lý (Dùng key: ...{api_key[-6:]})...")
         llm = ChatGoogleGenerativeAI(
             model="models/gemini-2.5-flash",
             temperature=0.1,
@@ -351,11 +392,12 @@ def run_ingest():
         print("⚠️ Không tìm thấy file nào hoặc file rỗng!")
         return 
 
-    print(f"\n📚 Đang chia nhỏ (Chunking) {len(raw_docs)} trang tài liệu bằng Semantic Chunker...")
-    embeddings_for_chunking = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001", google_api_key=get_next_embedding_key())
-    text_splitter = SemanticChunker(embeddings_for_chunking, breakpoint_threshold_type="percentile")
+    print(f"\n📚 [CHUNK] Đang chia nhỏ (Chunking) {len(raw_docs)} trang tài liệu bằng Semantic Chunker...")
+    rotated_embeddings = RotatedGoogleEmbeddings(model="models/gemini-embedding-001", api_keys=EMBEDDING_KEYS)
+    
+    text_splitter = SemanticChunker(rotated_embeddings, breakpoint_threshold_type="percentile")
     docs = text_splitter.split_documents(raw_docs)
-    print(f"✂️ Đã chia thành {len(docs)} đoạn nhỏ thuật toán ngữ nghĩa (chunks).")
+    print(f"✂️ [CHUNK] Đã chia thành {len(docs)} đoạn nhỏ thuật toán ngữ nghĩa (chunks).")
 
     for doc in docs:
         filename = doc.metadata.get("filename", "unknown")
@@ -526,14 +568,16 @@ def ingest_file(file_path: str, lesson_id: int = None, document_id: int = None):
     if not raw_docs:
         return {"status": "error", "message": "File format not supported or empty"}
 
-    embeddings_for_chunking = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001", google_api_key=get_next_embedding_key())
+    rotated_embeddings = RotatedGoogleEmbeddings(model="models/gemini-embedding-001", api_keys=EMBEDDING_KEYS)
     
     @retry_on_429()
     def _split_docs():
-        text_splitter = SemanticChunker(embeddings_for_chunking, breakpoint_threshold_type="percentile")
+        print(f"✂️ [INGEST_FILE] Đang thực hiện Semantic Chunking cho file: {os.path.basename(file_path)}")
+        text_splitter = SemanticChunker(rotated_embeddings, breakpoint_threshold_type="percentile")
         return text_splitter.split_documents(raw_docs)
 
     docs = _split_docs()
+    print(f"✅ [INGEST_FILE] Đã tách xong {len(docs)} chunks.")
 
     for doc in docs:
         filename = doc.metadata.get("filename", "unknown")
@@ -542,7 +586,8 @@ def ingest_file(file_path: str, lesson_id: int = None, document_id: int = None):
         if lesson_id:
             doc.metadata["lesson_id"] = lesson_id
 
-    embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001", google_api_key=get_next_embedding_key())
+    # Dùng rotated embeddings cho cả việc lưu trữ (nếu cần embedding lại)
+    embeddings = rotated_embeddings
     
     # Tạo engine với pool_pre_ping
     engine = create_engine(DB_URL, pool_pre_ping=True, pool_recycle=300)

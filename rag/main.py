@@ -18,6 +18,7 @@ from sqlalchemy import create_engine
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 import google.api_core.exceptions
 import requests
+from langchain_core.embeddings import Embeddings
 
 # =========================
 # 1. LOAD ENV & API KEYS
@@ -63,11 +64,14 @@ def get_next_embedding_key():
 
 def retry_on_429():
     return retry(
-        stop=stop_after_attempt(5),
-        wait=wait_exponential(multiplier=1, min=4, max=60),
+        stop=stop_after_attempt(8),
+        wait=wait_exponential(multiplier=2, min=10, max=100),
         retry=retry_if_exception_type((google.api_core.exceptions.ResourceExhausted, requests.exceptions.HTTPError)),
-        before_sleep=lambda retry_state: print(f"⚠️ Chat API Rate Limit. Retrying {retry_state.attempt_number}...")
+        before_sleep=lambda retry_state: print(f"⚠️ [CHAT RATE LIMIT] Chạm giới hạn API. Đang thử lại lần {retry_state.attempt_number}...")
     )
+
+# --- 2. CLASS XOAY TUA KEY (Dùng chung logic với ingest.py) ---
+from ingest import RotatedGoogleEmbeddings
 
 app = FastAPI()
 
@@ -121,10 +125,10 @@ async def ingest_endpoint(request: IngestRequest):
 # =========================
 # 2. EMBEDDING + VECTOR STORE
 # =========================
-# Dùng key đầu tiên cho Embedding (Embedding ít bị giới hạn rate limit hơn)
-embeddings = GoogleGenerativeAIEmbeddings(
+# Sử dụng Rotated Embeddings cho global (để khởi tạo retriever ban đầu)
+embeddings = RotatedGoogleEmbeddings(
     model="models/gemini-embedding-001",
-    google_api_key=EMBEDDING_KEYS[0],
+    api_keys=EMBEDDING_KEYS,
 )
 
 # Tạo SQLAlchemy engine với pool_pre_ping để tránh lỗi SSL connection closed unexpectedly
@@ -212,8 +216,11 @@ async def chat_stream_endpoint(request: ChatRequest):
             current_api_key = get_next_chat_key()
             print(f"🔑 [STREAM] Đang dùng API Key: {current_api_key[:10]}...")
             
-            # Tạo bộ nhúng cục bộ để dùng chung Chat Key cho tác vụ Embed text tìm kiếm
-            local_embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001", google_api_key=current_api_key)
+            # Sử dụng Rotated Embeddings cho từng request stream
+            local_embeddings = RotatedGoogleEmbeddings(
+                model="models/gemini-embedding-001", 
+                api_keys=CHAT_KEYS # Dùng chung toàn bộ key khả dụng cho request này
+            )
             local_vector_store = PGVector(
                 embeddings=local_embeddings,
                 collection_name="my_docs",
@@ -302,10 +309,10 @@ async def chat_endpoint(request: ChatRequest):
         current_api_key = get_next_chat_key()
         print(f"🔑 Đang dùng API Key: {current_api_key[:10]}...")
 
-        # Tạo vector store riêng rẽ phục vụ riêng cho Chat Key này
-        local_embeddings = GoogleGenerativeAIEmbeddings(
+        # Tạo bộ xoay tua embeddings cho request chat này
+        local_embeddings = RotatedGoogleEmbeddings(
             model="models/gemini-embedding-001",
-            google_api_key=current_api_key,
+            api_keys=CHAT_KEYS,
         )
         local_vector_store = PGVector(
             embeddings=local_embeddings,
