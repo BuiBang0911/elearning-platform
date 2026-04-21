@@ -9,7 +9,7 @@ import AdminApi from "../../api/admin.api";
 import type { AdminRevenueOverview } from "../../interfaces/Payment";
 
 const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'VND' }).format(amount);
 };
 
 const AdminRevenueOverviewPage = () => {
@@ -31,21 +31,21 @@ const AdminRevenueOverviewPage = () => {
     }, []);
 
     if (loading || !data) {
-        return <FullPageLoader isFullPage={false} />;
+        return <FullPageLoader isFullPage={false} message="Loading..." />;
     }
 
     const cards = [
-        { label: "Tổng doanh thu", value: formatCurrency(data.totalRevenue), icon: DollarSign, color: "bg-blue-500", bg: "bg-blue-50" },
-        { label: "Nền tảng (30%)", value: formatCurrency(data.platformRevenue), icon: TrendingUp, color: "bg-purple-500", bg: "bg-purple-50" },
-        { label: "Giáo viên (70%)", value: formatCurrency(data.teacherRevenue), icon: Users, color: "bg-green-500", bg: "bg-green-50" },
-        { label: "Tổng đơn hàng", value: data.totalOrders.toString(), icon: ShoppingCart, color: "bg-orange-500", bg: "bg-orange-50" },
+        { label: "Total Revenue", value: formatCurrency(data.totalRevenue), icon: DollarSign, color: "bg-blue-500", bg: "bg-blue-50" },
+        { label: "Platform (30%)", value: formatCurrency(data.platformRevenue), icon: TrendingUp, color: "bg-purple-500", bg: "bg-purple-50" },
+        { label: "Instructor (70%)", value: formatCurrency(data.teacherRevenue), icon: Users, color: "bg-green-500", bg: "bg-green-50" },
+        { label: "Total Orders", value: data.totalOrders.toString(), icon: ShoppingCart, color: "bg-orange-500", bg: "bg-orange-50" },
     ];
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
             <div>
-                <h1 className="text-2xl font-bold text-slate-900">Tổng quan doanh thu</h1>
-                <p className="text-slate-500">Thống kê doanh thu toàn nền tảng</p>
+                <h1 className="text-2xl font-bold text-slate-900">Revenue Overview</h1>
+                <p className="text-slate-500">Platform-wide revenue statistics</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -69,8 +69,8 @@ const AdminRevenueOverviewPage = () => {
                 <Card className="p-6 border-none shadow-sm bg-gradient-to-r from-amber-50 to-orange-50 border-l-4 border-l-amber-400">
                     <div className="flex items-center justify-between">
                         <div>
-                            <h3 className="font-semibold text-amber-800">Yêu cầu rút tiền đang chờ</h3>
-                            <p className="text-sm text-amber-600">{data.pendingWithdrawals} yêu cầu • Tổng: {formatCurrency(data.pendingWithdrawalAmount)}</p>
+                            <h3 className="font-semibold text-amber-800">Pending Withdrawal Requests</h3>
+                            <p className="text-sm text-amber-600">{data.pendingWithdrawals} requests • Total: {formatCurrency(data.pendingWithdrawalAmount)}</p>
                         </div>
                     </div>
                 </Card>
@@ -78,8 +78,8 @@ const AdminRevenueOverviewPage = () => {
 
             {/* Revenue Chart */}
             <Card className="p-8 border-none shadow-sm">
-                <h3 className="text-lg font-bold text-slate-800 mb-2">Doanh thu theo tháng</h3>
-                <p className="text-slate-500 text-sm mb-8">6 tháng gần nhất</p>
+                <h3 className="text-lg font-bold text-slate-800 mb-2">Monthly Revenue</h3>
+                <p className="text-slate-500 text-sm mb-8">Last 6 months</p>
                 <div className="h-[350px]">
                     {data.monthlyRevenue.length > 0 ? (
                         <ResponsiveContainer width="100%" height="100%">
@@ -99,14 +99,14 @@ const AdminRevenueOverviewPage = () => {
                                 />
                                 <Tooltip
                                     contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                                    formatter={(value: number) => [formatCurrency(value), 'Doanh thu']}
+                                    formatter={(value: number) => [formatCurrency(value), 'Revenue']}
                                 />
                                 <Area type="monotone" dataKey="amount" stroke="#3b82f6" strokeWidth={3} fillOpacity={1} fill="url(#adminColorRevenue)" />
                             </AreaChart>
                         </ResponsiveContainer>
                     ) : (
                         <div className="h-full flex items-center justify-center text-slate-400">
-                            <p>Chưa có dữ liệu doanh thu</p>
+                            <p>No revenue data available</p>
                         </div>
                     )}
                 </div>

@@ -11,7 +11,7 @@ import { format } from "date-fns";
 import FullPageLoader from "../../components/PostLoading/FullPageLoader";
 
 const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'VND' }).format(amount);
 };
 
 const statusConfig: Record<string, { label: string; color: string; icon: typeof Clock }> = {
@@ -108,7 +108,7 @@ const AdminWithdrawals = () => {
             </div>
 
             {loading ? (
-                <FullPageLoader isFullPage={false} />
+                <FullPageLoader isFullPage={false} message="Loading..." />
             ) : filtered.length === 0 ? (
                 <Card className="p-12 text-center border-none shadow-sm">
                     <Banknote className="w-16 h-16 mx-auto mb-4 text-slate-300" />
