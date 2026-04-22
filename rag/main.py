@@ -151,14 +151,31 @@ retriever = vector_store.as_retriever(search_kwargs={"k": 3})
 # 3. PROMPTS
 # =========================
 
-contextualize_q_system_prompt = """
-Dựa trên lịch sử trò chuyện và câu hỏi mới nhất của người dùng,
-hãy tạo một câu hỏi độc lập có thể hiểu được mà không cần xem lại lịch sử.
-KHÔNG trả lời câu hỏi, chỉ viết lại nó nếu cần thiết.
+# --- Combined Preprocess Prompt ---
+combined_preprocess_system_prompt = """
+Bạn là trợ lý thông minh của hệ thống E-learning EduMind.
+Nhiệm vụ của bạn là phân tích câu hỏi của người dùng và lịch sử trò chuyện để thực hiện 2 việc cùng lúc:
+
+1. PHÂN LOẠI Ý ĐỊNH (Intent):
+   - GREETING: Chào hỏi, cảm ơn, xã giao (VD: "Chào bạn", "Cảm ơn nhé").
+   - COURSE_QUERY: Câu hỏi về kiến thức bài học, tài liệu, bài tập (VD: "Giải thích thuật toán Dijkstra", "Bài này làm thế nào?").
+   - OFFENSIVE: Nội dung thô tục, xúc phạm, không phù hợp.
+   - OOD: Câu hỏi ngoài lề (VD: "Thời tiết hôm nay thế nào?", "Hôm nay ăn gì?", "Kể chuyện cười đi").
+
+2. VIẾT LẠI CÂU HỎI (Rewriting):
+   - CHỈ thực hiện nếu intent là COURSE_QUERY.
+   - Tạo một câu hỏi độc lập, rõ ràng, đầy đủ ngữ nghĩa dựa trên lịch sử để dùng cho việc tìm kiếm tài liệu.
+
+BẮT BUỘC TRẢ VỀ ĐỊNH DẠNG JSON:
+{
+  "intent": "GREETING" | "COURSE_QUERY" | "OFFENSIVE" | "OOD",
+  "rewritten_query": "Câu hỏi sau khi viết lại (chỉ có nếu là COURSE_QUERY)",
+  "direct_response": "Lời phản hồi nhanh, lịch sự nếu là GREETING hoặc OOD. Nếu là OFFENSIVE, hãy trả lời nhắc nhở lịch sự."
+}
 """
 
-contextualize_q_prompt = ChatPromptTemplate.from_messages([
-    ("system", contextualize_q_system_prompt),
+combined_preprocess_prompt = ChatPromptTemplate.from_messages([
+    ("system", combined_preprocess_system_prompt),
     MessagesPlaceholder("chat_history"),
     ("human", "{input}"),
 ])
@@ -212,15 +229,43 @@ import json
 async def chat_stream_endpoint(request: ChatRequest):
     async def generate_chat_stream():
         try:
-            print(f"🌊 [STREAM] Bắt đầu chat stream. Câu hỏi: '{request.question}'")
+            print(f"🌊 [STREAM] Bắt đầu xử lý. Câu hỏi: '{request.question}'")
             current_api_key = get_next_chat_key()
-            print(f"🔑 [STREAM] Đang dùng API Key: {current_api_key[:10]}...")
             
-            # Sử dụng Rotated Embeddings cho từng request stream
-            local_embeddings = RotatedGoogleEmbeddings(
-                model="models/gemini-embedding-001", 
-                api_keys=CHAT_KEYS # Dùng chung toàn bộ key khả dụng cho request này
-            )
+            # 1. TIỀN XỬ LÝ (Intent + Rewrite) - CHỈ 1 REQUEST LLM
+            llm_fast = ChatGoogleGenerativeAI(model="models/gemini-1.5-flash", temperature=0.1, google_api_key=current_api_key)
+            from langchain_core.output_parsers import JsonOutputParser
+            
+            preprocess_chain = combined_preprocess_prompt | llm_fast | JsonOutputParser()
+            
+            langchain_history = []
+            for msg in request.chat_history:
+                if msg.role == "User": langchain_history.append(HumanMessage(content=msg.content))
+                elif msg.role == "AiAssistant": langchain_history.append(AIMessage(content=msg.content))
+
+            @retry_on_429()
+            async def _preprocess():
+                return await preprocess_chain.ainvoke({
+                    "input": request.question,
+                    "chat_history": langchain_history
+                })
+            
+            preprocess_res = await _preprocess()
+            intent = preprocess_res.get("intent", "COURSE_QUERY")
+            print(f"🎯 [STREAM] Intent xác định: {intent}")
+
+            # 2. XỬ LÝ THEO INTENT
+            if intent != "COURSE_QUERY":
+                # Trả về kết quả trực tiếp, không qua RAG
+                direct_response = preprocess_res.get("direct_response", "Tôi có thể giúp bạn gì về bài học này không?")
+                yield direct_response
+                return
+
+            rewritten_question = preprocess_res.get("rewritten_query", request.question)
+            print(f"✅ [STREAM] Câu hỏi sau rewrite: '{rewritten_question}'")
+
+            # 3. RETRIEVAL (Nếu là COURSE_QUERY)
+            local_embeddings = RotatedGoogleEmbeddings(model="models/gemini-embedding-001", api_keys=CHAT_KEYS)
             local_vector_store = PGVector(
                 embeddings=local_embeddings,
                 collection_name="my_docs",
@@ -228,38 +273,10 @@ async def chat_stream_endpoint(request: ChatRequest):
                 use_jsonb=True,
             )
 
-            llm_fast = ChatGoogleGenerativeAI(model="models/gemini-2.5-flash", temperature=0.3, google_api_key=current_api_key)
-            llm_smart = ChatGoogleGenerativeAI(model="models/gemini-2.5-flash", temperature=0.3, google_api_key=current_api_key)
-
-            contextualize_chain = contextualize_q_prompt | llm_fast | StrOutputParser()
-            question_answer_chain = create_stuff_documents_chain(llm_smart, qa_prompt)
-
-            langchain_history = []
-            for msg in request.chat_history:
-                if msg.role == "User": langchain_history.append(HumanMessage(content=msg.content))
-                elif msg.role == "AiAssistant": langchain_history.append(AIMessage(content=msg.content))
-            print(f"👉 [STREAM] Lịch sử trò chuyện: {len(langchain_history)} tin nhắn")
-
-            # 1. Rewrite câu hỏi
-            @retry_on_429()
-            async def _rewrite():
-                return await contextualize_chain.ainvoke({
-                    "input": request.question,
-                    "chat_history": langchain_history
-                })
-            
-            rewritten_question = await _rewrite()
-            
-            if not rewritten_question or not str(rewritten_question).strip():
-                rewritten_question = request.question
-            print(f"✅ [STREAM] Câu hỏi sau rewrite: '{rewritten_question}'")
-
-            # 2. Retrieve tài liệu
             search_kwargs = {"k": 3}
             if request.lesson_id:
                 search_kwargs["filter"] = {"lesson_id": request.lesson_id}
-                print(f"🔍 [STREAM] Lọc theo Lesson ID: {request.lesson_id}")
-
+            
             @retry_on_429()
             def _search():
                 return local_vector_store.similarity_search_with_score(
@@ -269,7 +286,7 @@ async def chat_stream_endpoint(request: ChatRequest):
                 )
             
             docs_with_scores = _search()
-            print(f"✅ [STREAM] Đã tìm thấy {len(docs_with_scores)} tài liệu (chunks) phù hợp")
+            print(f"✅ [STREAM] Tìm thấy {len(docs_with_scores)} tài liệu phù hợp.")
             
             retrieved_docs = []
             source_files = set()
@@ -278,42 +295,65 @@ async def chat_stream_endpoint(request: ChatRequest):
                 source_files.add(filename)
                 doc.page_content = f"[NGUỒN: {filename}] [SCORE: {score:.4f}]\n{doc.page_content}"
                 retrieved_docs.append(doc)
-            print(f"✅ [STREAM] Nguồn được trích xuất: {list(source_files)}")
-            print(f"🚀 [STREAM] Bắt đầu trả luồng dữ liệu (Streaming)...")
 
-            # 3. Stream câu trả lời
+            # 4. STREAM CÂU TRẢ LỜI RAG
+            llm_smart = ChatGoogleGenerativeAI(model="models/gemini-1.5-flash", temperature=0.3, google_api_key=current_api_key)
+            question_answer_chain = create_stuff_documents_chain(llm_smart, qa_prompt)
+
             async for chunk in question_answer_chain.astream({
                 "input": request.question,
                 "chat_history": langchain_history,
                 "context": retrieved_docs,
             }):
-                if chunk:
-                    yield chunk
+                if chunk: yield chunk
 
-            # Gửi thông tin nguồn tài liệu ở cuối (định dạng đặc biệt)
             yield f"\n\nSOURCES_METADATA:{json.dumps(list(source_files))}"
-            print(f"✅ [STREAM] Luồng dữ liệu đã hoàn tất.")
+            print(f"✅ [STREAM] Luồng dữ liệu hoàn tất.")
 
         except Exception as e:
-            print("❌ [STREAM] --- LỖI TRONG QUÁ TRÌNH STREAM ---")
-            print("Type:", type(e).__name__)
-            print("Message:", str(e))
-            yield f"ERROR: {str(e)}"
+            print(f"❌ [STREAM] LỖI: {str(e)}")
+            yield f"ERROR: Có lỗi xảy ra trong quá trình xử lý câu hỏi của bạn."
+
+    return StreamingResponse(generate_chat_stream(), media_type="text/plain")
 
     return StreamingResponse(generate_chat_stream(), media_type="text/plain")
 
 @app.post("/api/chat")
 async def chat_endpoint(request: ChatRequest):
     try:
-        # Lấy key tiếp theo cho request này để tránh Rate Limit
         current_api_key = get_next_chat_key()
-        print(f"🔑 Đang dùng API Key: {current_api_key[:10]}...")
+        from langchain_core.output_parsers import JsonOutputParser
+        
+        # 1. TIỀN XỬ LÝ ĐỒNG BỘ
+        llm_fast = ChatGoogleGenerativeAI(model="models/gemini-1.5-flash", temperature=0.1, google_api_key=current_api_key)
+        preprocess_chain = combined_preprocess_prompt | llm_fast | JsonOutputParser()
 
-        # Tạo bộ xoay tua embeddings cho request chat này
-        local_embeddings = RotatedGoogleEmbeddings(
-            model="models/gemini-embedding-001",
-            api_keys=CHAT_KEYS,
-        )
+        langchain_history = []
+        for msg in request.chat_history:
+            if msg.role == "User": langchain_history.append(HumanMessage(content=msg.content))
+            elif msg.role == "AiAssistant": langchain_history.append(AIMessage(content=msg.content))
+
+        @retry_on_429()
+        def _preprocess_sync():
+            return preprocess_chain.invoke({
+                "input": request.question,
+                "chat_history": langchain_history
+            })
+
+        preprocess_res = _preprocess_sync()
+        intent = preprocess_res.get("intent", "COURSE_QUERY")
+        print(f"🎯 [CHAT] Intent: {intent}")
+
+        if intent != "COURSE_QUERY":
+            return {
+                "answer": preprocess_res.get("direct_response", "Chào bạn, tôi có thể giúp gì cho bài học này?"),
+                "sources": []
+            }
+
+        rewritten_question = preprocess_res.get("rewritten_query", request.question)
+
+        # 2. RETRIEVAL
+        local_embeddings = RotatedGoogleEmbeddings(model="models/gemini-embedding-001", api_keys=CHAT_KEYS)
         local_vector_store = PGVector(
             embeddings=local_embeddings,
             collection_name="my_docs",
@@ -321,97 +361,31 @@ async def chat_endpoint(request: ChatRequest):
             use_jsonb=True,
         )
 
-        # Khởi tạo model AI Generative
-        llm_fast = ChatGoogleGenerativeAI(
-            model="models/gemini-2.5-flash",
-            temperature=0.3,
-            google_api_key=current_api_key,
-        )
-        
-        llm_smart = ChatGoogleGenerativeAI(
-            model="models/gemini-2.5-flash",
-            temperature=0.3,
-            google_api_key=current_api_key,
-        )
-
-        # Khởi tạo lại các chain với LLM mới
-        contextualize_chain = (
-            contextualize_q_prompt
-            | llm_fast
-            | StrOutputParser()
-        )
-
-        question_answer_chain = create_stuff_documents_chain(
-            llm_smart,
-            qa_prompt
-        )
-
-        # Convert history sang định dạng của LangChain
-        langchain_history = []
-        for msg in request.chat_history:
-            if msg.role == "User":
-                langchain_history.append(HumanMessage(content=msg.content))
-            elif msg.role == "AiAssistant":
-                langchain_history.append(AIMessage(content=msg.content))
-
-        print("👉 --- CHAT REQUEST ---")
-        print("👉 History length:", len(langchain_history))
-
-        # =====================
-        # STEP 1: REWRITE CÂU HỎI
-        # =====================
-        @retry_on_429()
-        def _rewrite_sync():
-            return contextualize_chain.invoke({
-                "input": request.question,
-                "chat_history": langchain_history
-            })
-
-        rewritten_question = _rewrite_sync()
-
-        if not rewritten_question or not rewritten_question.strip():
-            rewritten_question = request.question
-
-        print("✅ Rewritten:", rewritten_question)
-
-        # =====================
-        # STEP 2: RETRIEVE TÀI LIỆU
-        # =====================
-        rewritten_question = str(rewritten_question)
-        if not rewritten_question.strip():
-            rewritten_question = request.question
-
         @retry_on_429()
         def _search_sync():
-            return local_vector_store.similarity_search_with_score(query=rewritten_question, k=3)
+            search_kwargs = {"k": 3}
+            if request.lesson_id:
+                search_kwargs["filter"] = {"lesson_id": request.lesson_id}
+            return local_vector_store.similarity_search_with_score(
+                query=str(rewritten_question),
+                k=search_kwargs.get("k", 3),
+                filter=search_kwargs.get("filter")
+            )
 
         docs_with_scores = _search_sync()
         
-        print("✅ Retrieved docs with scores:", len(docs_with_scores))
-
-        # =====================
-        # STEP 3: BUILD CONTEXT & GẮN NGUỒN VÀ SCORE
-        # =====================
-        source_files = set() # Dùng set để lọc các tên file bị trùng
+        source_files = set()
         retrieved_docs = []
+        for doc, score in docs_with_scores:
+            filename = doc.metadata.get("filename", "Tài liệu không tên")
+            source_files.add(filename)
+            doc.page_content = f"[NGUỒN: {filename}] [SCORE: {score:.4f}]\n{doc.page_content}"
+            retrieved_docs.append(doc)
 
-        for i, (doc, score) in enumerate(docs_with_scores):
-            if hasattr(doc, "page_content"):
-                # Lấy tên file từ metadata đã lưu lúc ingest
-                filename = doc.metadata.get("filename", "Tài liệu không tên")
-                source_files.add(filename)
-                
-                # BẮT BUỘC: Gắn thẻ nguồn và score lên đầu đoạn text để AI đọc và trích xuất
-                doc.page_content = f"[NGUỒN: {filename}] [SCORE: {score:.4f}]\n{doc.page_content}"
-                retrieved_docs.append(doc)
-            else:
-                print(f"⚠️ Doc {i} is not Document. Type:", type(doc))
+        # 3. GENERATE ANSWER
+        llm_smart = ChatGoogleGenerativeAI(model="models/gemini-1.5-flash", temperature=0.3, google_api_key=current_api_key)
+        question_answer_chain = create_stuff_documents_chain(llm_smart, qa_prompt)
 
-        print(f"✅ Context formatted with sources: {list(source_files)}")
-
-        # =====================
-        # STEP 4: GỌI AI TRẢ LỜI
-        # =====================
         @retry_on_429()
         def _answer_sync():
             return question_answer_chain.invoke({
@@ -421,16 +395,8 @@ async def chat_endpoint(request: ChatRequest):
             })
 
         raw_answer = _answer_sync()
+        answer = raw_answer.content if hasattr(raw_answer, "content") else str(raw_answer)
 
-        # Chuẩn hóa kết quả trả về
-        if hasattr(raw_answer, "content"):
-            answer = raw_answer.content
-        else:
-            answer = str(raw_answer)
-
-        print("✅ Answer generated")
-
-        # Trả về câu trả lời và mảng chứa tên file
         return {
             "answer": answer,
             "sources": list(source_files)
