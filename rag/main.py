@@ -297,7 +297,7 @@ async def chat_stream_endpoint(request: ChatRequest):
                 retrieved_docs.append(doc)
 
             # 4. STREAM CÂU TRẢ LỜI RAG (Dùng model mạnh hơn: PRO)
-            llm_smart = ChatGoogleGenerativeAI(model="models/gemini-1.5-pro", temperature=0.3, google_api_key=current_api_key)
+            llm_smart = ChatGoogleGenerativeAI(model="models/gemini-1.5-flash", temperature=0.3, google_api_key=current_api_key)
             question_answer_chain = create_stuff_documents_chain(llm_smart, qa_prompt)
 
             async for chunk in question_answer_chain.astream({
@@ -383,7 +383,7 @@ async def chat_endpoint(request: ChatRequest):
             retrieved_docs.append(doc)
 
         # 3. GENERATE ANSWER (Dùng model mạnh hơn: PRO)
-        llm_smart = ChatGoogleGenerativeAI(model="models/gemini-1.5-pro", temperature=0.3, google_api_key=current_api_key)
+        llm_smart = ChatGoogleGenerativeAI(model="models/gemini-1.5-flash", temperature=0.3, google_api_key=current_api_key)
         question_answer_chain = create_stuff_documents_chain(llm_smart, qa_prompt)
 
         @retry_on_429()
