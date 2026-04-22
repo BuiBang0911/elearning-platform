@@ -5,8 +5,7 @@ namespace ApplicationCore.DTO
 {
     public class LoginRequest
     {
-        [Required(ErrorMessage = "Email is required")]
-        [EmailAddress(ErrorMessage = "Invalid email format")]
+        [Required(ErrorMessage = "Username is required")]
         public string Email { get; set; }
 
         [Required(ErrorMessage = "Password is required")]
@@ -17,8 +16,7 @@ namespace ApplicationCore.DTO
 
     public class RegisterRequest
     {
-        [Required(ErrorMessage = "Email is required")]
-        [EmailAddress(ErrorMessage = "Invalid email format")]
+        [Required(ErrorMessage = "Username is required")]
         [MaxLength(255)]
         public string Email { get; set; }
 

@@ -17,50 +17,47 @@ const Login = () => {
     const navigate = useNavigate();
     const { refreshUser } = useAuth();
 
-    const [email, setEmail] = useState("");
+    const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
     const [isLoading, setIsLoading] = useState(false);
 
     const [searchParams] = useSearchParams();
     // const roleFromUrl = searchParams.get("role") || "student";
 
-    const [errors, setErrors] = useState({ email: "", password: "" });
+    const [errors, setErrors] = useState({ username: "", password: "" });
 
     const validate = () => {
         let valid = true;
-        const newErrors = { email: "", password: "" };
-
-        if (!email.trim()) {
-            newErrors.email = "Email is required";
-            valid = false;
-        } else if (!/\S+@\S+\.\S+/.test(email)) {
-            newErrors.email = "Invalid email format";
+        const newErrors = { username: "", password: "" };
+ 
+        if (!username.trim()) {
+            newErrors.username = "Username is required";
             valid = false;
         }
-
+ 
         if (!password) {
             newErrors.password = "Password is required";
             valid = false;
         }
-
+ 
         setErrors(newErrors);
         return valid;
     };
 
     const handleSubmit = async () => {
         if (!validate()) return;
-
+ 
         try {
             setIsLoading(true);
-
+ 
             // Fetch user role from context after successful login
-            await AuthApi.login({ email, password, role: UserRole.STUDENT }); // Backend ignores role anyway but interface expects it
-
+            await AuthApi.login({ email: username, password, role: UserRole.STUDENT }); // Backend ignores role anyway but interface expects it
+ 
             const userData = await AuthApi.getMe();
             await refreshUser(); // Ensure context is updated
-
+ 
             toast.success("Login successful!");
-
+ 
             // Dynamic redirection based on user role
             if (userData.role === UserRole.ADMIN) {
                 navigate("/admin", { replace: true });
@@ -70,10 +67,10 @@ const Login = () => {
         } catch (err: any) {
             console.error("Login failed:", err);
             setIsLoading(false);
-
+ 
             const errorData = err.response?.data;
             let errorMessage = "Login failed. Please check your credentials.";
-
+ 
             if (typeof errorData === "string") {
                 errorMessage = errorData;
             } else if (errorData?.errors) {
@@ -81,7 +78,7 @@ const Login = () => {
             } else if (errorData?.title) {
                 errorMessage = errorData.title;
             }
-
+ 
             toast.error(errorMessage);
         }
     };
@@ -111,17 +108,17 @@ const Login = () => {
                     className="space-y-6"
                 >
                     <div>
-                        <Label htmlFor="email">Email Address</Label>
+                        <Label htmlFor="username">Username</Label>
                         <Input
-                            id="email"
-                            type="email"
-                            placeholder="you@example.com"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
+                            id="username"
+                            type="text"
+                            placeholder="Username"
+                            value={username}
+                            onChange={(e) => setUsername(e.target.value)}
                             required
                             className="mt-1"
                         />
-                        {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
+                        {errors.username && <p className="text-red-500 text-xs mt-1">{errors.username}</p>}
                     </div>
                     <div>
                         <div className="flex items-center justify-between mb-1">

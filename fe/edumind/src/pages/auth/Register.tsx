@@ -15,13 +15,13 @@ export default function RegisterPage() {
 	// const roleFromUrl = searchParams.get("role") || "student";
 
 	const [name, setName] = useState("");
-	const [email, setEmail] = useState("");
+	const [username, setUsername] = useState("");
 	const [password, setPassword] = useState("");
 	const [confirmPassword, setConfirmPassword] = useState("");
 
 	const [errors, setErrors] = useState<FormErrors>({
 		fullName: "",
-		email: "",
+		username: "",
 		password: "",
 		confirmPassword: "",
 	});
@@ -30,7 +30,7 @@ export default function RegisterPage() {
 
 	type FormErrors = {
 		fullName?: string;
-		email?: string;
+		username?: string;
 		password?: string;
 		confirmPassword?: string;
 	};
@@ -42,7 +42,7 @@ export default function RegisterPage() {
 		}
 		try {
 			setIsLoading(true);
-			await AuthApi.register({ email, fullName: name, password, role });
+			await AuthApi.register({ email: username, fullName: name, password, role });
 			setIsLoading(false);
 			toast.success("Registration successful! Please login.");
 			navigate("/login");
@@ -73,8 +73,8 @@ export default function RegisterPage() {
 			newErrors.fullName = "Full name is required";
 		}
 
-		if (!email.trim()) {
-			newErrors.email = "Email is required";
+		if (!username.trim()) {
+			newErrors.username = "Username is required";
 		}
 
 		if (!password) {
@@ -130,18 +130,18 @@ export default function RegisterPage() {
 						)}
 					</div>
 					<div>
-						<Label htmlFor="email">Email Address</Label>
+						<Label htmlFor="username">Username</Label>
 						<Input
-							id="email"
-							type="email"
-							placeholder="you@example.com"
-							value={email}
-							onChange={(e) => setEmail(e.target.value)}
+							id="username"
+							type="text"
+							placeholder="Choose a username"
+							value={username}
+							onChange={(e) => setUsername(e.target.value)}
 							required
 							className="mt-1"
 						/>
-						{errors.email && (
-							<p className="text-red-500 text-xs mt-1">{errors.email}</p>
+						{errors.username && (
+							<p className="text-red-500 text-xs mt-1">{errors.username}</p>
 						)}
 					</div>
 					<div>
