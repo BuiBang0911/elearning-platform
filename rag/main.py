@@ -293,7 +293,10 @@ async def chat_stream_endpoint(request: ChatRequest):
             for doc, score in docs_with_scores:
                 filename = doc.metadata.get("filename", "Tài liệu không tên")
                 source_files.add(filename)
-                doc.page_content = f"[NGUỒN: {filename}] [SCORE: {score:.4f}]\n{doc.page_content}"
+                
+                # Fix lỗi "unsupported format string passed to NoneType.__format__" nếu score là None
+                score_val = score if score is not None else 0.0
+                doc.page_content = f"[NGUỒN: {filename}] [SCORE: {score_val:.4f}]\n{doc.page_content}"
                 retrieved_docs.append(doc)
 
             # 4. STREAM CÂU TRẢ LỜI RAG (Dùng model mạnh hơn: PRO)
@@ -379,7 +382,10 @@ async def chat_endpoint(request: ChatRequest):
         for doc, score in docs_with_scores:
             filename = doc.metadata.get("filename", "Tài liệu không tên")
             source_files.add(filename)
-            doc.page_content = f"[NGUỒN: {filename}] [SCORE: {score:.4f}]\n{doc.page_content}"
+            
+            # Fix lỗi "unsupported format string passed to NoneType.__format__" nếu score là None
+            score_val = score if score is not None else 0.0
+            doc.page_content = f"[NGUỒN: {filename}] [SCORE: {score_val:.4f}]\n{doc.page_content}"
             retrieved_docs.append(doc)
 
         # 3. GENERATE ANSWER (Dùng model mạnh hơn: PRO)

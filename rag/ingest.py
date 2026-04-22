@@ -18,7 +18,7 @@ import json
 import redis
 from datetime import timedelta
 from dotenv import load_dotenv
-from PIL import Image
+from PIL import Image, ImageEnhance, ImageFilter
 from langchain_community.document_loaders import TextLoader
 from langchain_experimental.text_splitter import SemanticChunker
 from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
@@ -40,6 +40,25 @@ if DEBUG_MODE:
         except: pass
     os.makedirs(DEBUG_FOLDER, exist_ok=True)
     print(f"🐞 DEBUG MODE: ON. Ảnh sẽ được lưu vào '{DEBUG_FOLDER}'")
+
+def add_overlap_to_docs(docs, overlap_size=300):
+    """
+    Vì SemanticChunker không hỗ trợ overlap, ta tự thêm thủ công bằng cách:
+    Lấy một đoạn cuối của chunk n-1 gắn vào đầu của chunk n.
+    """
+    if len(docs) <= 1:
+        return docs
+        
+    for i in range(1, len(docs)):
+        prev_content = docs[i-1].page_content
+        # Lấy phần đuôi của trang trước (ví dụ 300 ký tự cuối)
+        # Lưu ý: Cần xử lý cẩn thận để không làm hỏng metadata gốc
+        overlap_text = prev_content[-overlap_size:] if len(prev_content) > overlap_size else prev_content
+        
+        # Thêm vào đầu chunk hiện tại với một đánh dấu rõ ràng
+        docs[i].page_content = f"...{overlap_text}\n\n[TIẾP NỐI]:\n{docs[i].page_content}"
+    
+    return docs
 
 # 1. Load môi trường & API Keys
 load_dotenv()
@@ -173,8 +192,12 @@ class RotatedGoogleEmbeddings(Embeddings):
                     
             except Exception as e:
                 print(f"❌ [API ERROR] Lỗi khi embedding batch: {e}")
-                # Nếu lỗi, trả về kết quả rỗng cho batch này hoặc raise tùy logic
-                continue
+                # Nếu batch thất bại hoàn toàn, chúng ta nên raise lỗi để tránh trả về list có phần tử None
+                raise e
+
+        # Kiểm tra cuối cùng để đảm bảo không có None nào lọt lưới
+        if any(v is None for v in results):
+            raise ValueError("❌ Một số đoạn văn bản không được embedding thành công.")
 
         return results
 
@@ -254,6 +277,13 @@ def process_image_for_ocr(img_bytes, context=None, debug_name=None):
             image = bg
         else:
             image = image.convert('RGB')
+            
+        # --- ENHANCEMENT: Làm sắc nét ảnh để Gemini đọc chữ nhỏ tốt hơn ---
+        # 1. Tăng tương phản
+        enhancer = ImageEnhance.Contrast(image)
+        image = enhancer.enhance(1.5)
+        # 2. Làm sắc nét (Sharpen)
+        image = image.filter(ImageFilter.SHARPEN)
 
         with io.BytesIO() as output:
             image.save(output, format="PNG")
@@ -263,6 +293,7 @@ def process_image_for_ocr(img_bytes, context=None, debug_name=None):
         api_key = get_next_embedding_key()
         
         prompt = "Trích xuất toàn bộ chữ (text) và giải thích chi tiết nội dung sơ đồ, bảng biểu trong hình ảnh này."
+        prompt += "\nĐặc biệt chú ý trích xuất chính xác các dòng chữ nhỏ, nhãn nút (button labels), thông báo hệ thống (system messages) và các hằng số kỹ thuật."
         if context:
             prompt += f"\n\nNGỮ CẢNH (Context) xung quanh hình ảnh này trong tài liệu: \"{context}\".\nHãy sử dụng ngữ cảnh này để giải thích hình ảnh một cách chính xác hơn, tránh giải thích lặp lại những gì đã nói rõ trong văn bản nếu hình ảnh chỉ là ví dụ minh họa."
         
@@ -391,7 +422,8 @@ def process_pdf(pdf_path, friendly_filename=None):
                                     header_title = f"HÌNH ẢNH (Trang {page_num})"
                                     
                                 clip_rect = rect + (-10, -10, 10, 10)
-                                pix = page.get_pixmap(clip=clip_rect, matrix=fitz.Matrix(3, 3))
+                                # Tăng độ phân giải lên Matrix(4,4) để đọc chữ nhỏ rõ hơn (Mù chữ kỹ thuật FIX)
+                                pix = page.get_pixmap(clip=clip_rect, matrix=fitz.Matrix(4, 4))
                                 
                                 ddbg_name = f"p{page_num}_img{img_index}_{rect_idx}.png"
                                 text_in_image = process_image_for_ocr(
@@ -424,7 +456,8 @@ def process_pdf(pdf_path, friendly_filename=None):
             if not processed_any_image and len(clean_raw) < 300:
                 print(f"   📸 Trang {page_num} ít text -> Thử chụp toàn trang...")
                 try:
-                    pix = page.get_pixmap(matrix=fitz.Matrix(3, 3))
+                    # Tăng Matrix(4,4) cho snapshot để tránh bỏ sót text nhỏ
+                    pix = page.get_pixmap(matrix=fitz.Matrix(4, 4))
                     ddbg_name = f"p{page_num}_snapshot.png"
                     full_page_ocr = process_image_for_ocr(
                         pix.tobytes("png"), 
@@ -506,7 +539,11 @@ def run_ingest():
     
     text_splitter = SemanticChunker(rotated_embeddings, breakpoint_threshold_type="percentile")
     docs = text_splitter.split_documents(raw_docs)
-    print(f"✂️ [CHUNK] Đã chia thành {len(docs)} đoạn nhỏ thuật toán ngữ nghĩa (chunks).")
+    
+    # [TỰ ĐỘNG THÊM OVERLAP] - Fix lỗi cắt nát ngữ cảnh
+    docs = add_overlap_to_docs(docs, overlap_size=300)
+    
+    print(f"✂️ [CHUNK] Đã chia thành {len(docs)} đoạn nhỏ thuật toán ngữ nghĩa (có manual overlap).")
 
     for doc in docs:
         filename = doc.metadata.get("filename", "unknown")
@@ -517,7 +554,8 @@ def run_ingest():
         )
         doc.page_content = enriched_content
 
-    embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001", google_api_key=get_next_embedding_key())
+    # Dùng rotated embeddings cho cả việc lưu trữ để tránh Rate Limit khi tạo Vector
+    embeddings = rotated_embeddings
     
     # Tạo engine với pool_pre_ping để tránh lỗi SSL connection
     engine = create_engine(DB_URL, pool_pre_ping=True, pool_recycle=300)
@@ -686,7 +724,10 @@ def ingest_file(file_path: str, lesson_id: int = None, document_id: int = None):
         return text_splitter.split_documents(raw_docs)
 
     docs = _split_docs()
-    print(f"✅ [INGEST_FILE] Đã tách xong {len(docs)} chunks.")
+    # [TỰ ĐỘNG THÊM OVERLAP] - Fix lỗi cắt nát ngữ cảnh
+    docs = add_overlap_to_docs(docs, overlap_size=300)
+    
+    print(f"✅ [INGEST_FILE] Đã tách xong {len(docs)} chunks (có manual overlap).")
 
     for doc in docs:
         filename = doc.metadata.get("filename", "unknown")
