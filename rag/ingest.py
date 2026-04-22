@@ -14,6 +14,9 @@ import psycopg2
 import psycopg2.extras
 import pdfplumber
 import requests
+import json
+import redis
+from datetime import timedelta
 from dotenv import load_dotenv
 from PIL import Image
 from langchain_community.document_loaders import TextLoader
@@ -69,18 +72,44 @@ def retry_on_429():
         before_sleep=lambda retry_state: print(f"⚠️ [RATE LIMIT] Chạm giới hạn (429). Đang thử lại lần {retry_state.attempt_number} sau {retry_state.next_action.sleep:.1f} giây...")
     )
 
-# --- 3. CLASS XOAY TUA KEY CHO EMBEDDING ---
+# --- 3. CLASS XOAY TUA KEY CHO EMBEDDING + REDIS CACHE ---
+
+# Cấu hình Redis Cache & Rate Limit
+REDIS_URL = os.getenv("EMBEDDING_CACHE_URL", os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0"))
+ENABLE_CACHE = os.getenv("ENABLE_EMBEDDING_CACHE", "true").lower() == "true"
+TTL_INGESTION = int(os.getenv("EMBEDDING_CACHE_TTL_INGEST", 2 * 24 * 60 * 60))
+TTL_QUERY = int(os.getenv("EMBEDDING_CACHE_TTL_QUERY", 30 * 24 * 60 * 60))
+SUB_BATCH_SIZE = int(os.getenv("EMBEDDING_SUB_BATCH_SIZE", 50))
+
+try:
+    if ENABLE_CACHE:
+        redis_client = redis.from_url(REDIS_URL, decode_responses=True)
+        print(f"🚀 [REDIS] Đã kết nối cache tại: {REDIS_URL}")
+    else:
+        print("ℹ️ [REDIS] Cache đã bị tắt qua biến môi trường.")
+        redis_client = None
+except Exception as e:
+    print(f"⚠️ [REDIS] Không thể kết nối Redis, cache sẽ bị tắt: {e}")
+    redis_client = None
 
 class RotatedGoogleEmbeddings(Embeddings):
     """
-    Wrapper cho GoogleGenerativeAIEmbeddings giúp xoay tua API Key cho từng request.
-    Điều này cực kỳ quan trọng đối với SemanticChunker vì nó gọi API liên tục.
+    Wrapper cho GoogleGenerativeAIEmbeddings giúp:
+    1. Xoay tua API Key.
+    2. Cache kết quả vào Redis để tiết kiệm RAM & Quota.
+    3. Chia nhỏ Batch (Sub-batching) để né 429.
     """
     def __init__(self, model, api_keys):
         self.model = model
         self.api_keys = api_keys
         self.key_iterator = itertools.cycle(api_keys)
-        print(f"🔄 [EMBEDDINGS] Đã khởi tạo RotatedEmbeddings với {len(api_keys)} keys.")
+        self.model_name_short = model.split("/")[-1]
+        print(f"🔄 [EMBEDDINGS] Khởi tạo với {len(api_keys)} keys. Model: {self.model}")
+
+    def _get_cache_key(self, text, prefix="doc"):
+        """Tạo key cache dựa trên hash của text và model."""
+        text_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
+        return f"emb:{prefix}:{self.model_name_short}:{text_hash}"
 
     def _get_embeddings_instance(self, api_key=None):
         key = api_key or next(self.key_iterator)
@@ -90,25 +119,90 @@ class RotatedGoogleEmbeddings(Embeddings):
         )
 
     def embed_documents(self, texts):
-        current_key = next(self.key_iterator)
-        # In log ẩn bớt key để bảo mật
-        print(f"🧩 [EMBEDDINGS] Embedding {len(texts)} chunks dùng key: ...{current_key[-6:]}")
+        if not texts: return []
         
-        @retry_on_429()
-        def _embed():
-            return self._get_embeddings_instance(api_key=current_key).embed_documents(texts)
+        results = [None] * len(texts)
+        missing_indices = []
         
-        return _embed()
+        # 1. Kiểm tra Cache trước (Dùng MGET để tối ưu)
+        if redis_client:
+            keys = [self._get_cache_key(t, "doc") for t in texts]
+            cached_values = redis_client.mget(keys)
+            for i, val in enumerate(cached_values):
+                if val:
+                    results[i] = json.loads(val)
+                else:
+                    missing_indices.append(i)
+        else:
+            missing_indices = list(range(len(texts)))
+
+        if not missing_indices:
+            print(f"⚡ [CACHE] Hit 100% cho {len(texts)} segments.")
+            return results
+
+        print(f"🧩 [EMBEDDINGS] Cache miss {len(missing_indices)}/{len(texts)}. Đang gọi API...")
+
+        # 2. Xử lý các đoạn chưa có trong Cache theo Sub-batch (né 429)
+        for i in range(0, len(missing_indices), SUB_BATCH_SIZE):
+            batch_indices = missing_indices[i : i + SUB_BATCH_SIZE]
+            batch_texts = [texts[idx] for idx in batch_indices]
+            
+            current_key = next(self.key_iterator)
+            print(f"   -> Batch {i//SUB_BATCH_SIZE + 1}: Embedding {len(batch_texts)} đoạn dùng key: ...{current_key[-6:]}")
+            
+            @retry_on_429()
+            def _embed_batch():
+                return self._get_embeddings_instance(api_key=current_key).embed_documents(batch_texts)
+            
+            try:
+                batch_vectors = _embed_batch()
+                
+                # Lưu vào results và Redis
+                pipeline = redis_client.pipeline() if redis_client else None
+                for idx, vector in zip(batch_indices, batch_vectors):
+                    results[idx] = vector
+                    if pipeline:
+                        k = self._get_cache_key(texts[idx], "doc")
+                        pipeline.setex(k, TTL_INGESTION, json.dumps(vector))
+                
+                if pipeline: pipeline.execute()
+                
+                # Nghỉ tay một chút nếu còn batch tiếp theo để tránh 429
+                if i + SUB_BATCH_SIZE < len(missing_indices):
+                    time.sleep(1.5)
+                    
+            except Exception as e:
+                print(f"❌ [API ERROR] Lỗi khi embedding batch: {e}")
+                # Nếu lỗi, trả về kết quả rỗng cho batch này hoặc raise tùy logic
+                continue
+
+        return results
 
     def embed_query(self, text):
+        # 1. Check Cache cho Query (TTL dài hơn)
+        cache_key = self._get_cache_key(text, "qry")
+        if redis_client:
+            cached = redis_client.get(cache_key)
+            if cached:
+                # Refresh TTL khi hit (Sliding Expiration)
+                redis_client.expire(cache_key, TTL_QUERY)
+                return json.loads(cached)
+
+        # 2. Call API
         current_key = next(self.key_iterator)
-        print(f"🔍 [EMBEDDINGS] Embedding query dùng key: ...{current_key[-6:]}")
+        print(f"🔍 [EMBEDDINGS] Cache miss Query...{current_key[-6:]}")
         
         @retry_on_429()
         def _embed():
             return self._get_embeddings_instance(api_key=current_key).embed_query(text)
         
-        return _embed()
+        vector = _embed()
+        
+        # 3. Store Cache
+        if redis_client:
+            redis_client.setex(cache_key, TTL_QUERY, json.dumps(vector))
+            
+        return vector
 
 # --- 2. CÁC HÀM XỬ LÝ TEXT & PDF ---
 
@@ -145,7 +239,7 @@ def adaptive_text_sorting(ocr_result):
     """(Đã bỏ sử dụng cho Gemini Vision)"""
     return ""
     
-def process_image_for_ocr(img_bytes, debug_name=None):
+def process_image_for_ocr(img_bytes, context=None, debug_name=None):
     """
     Gửi ảnh cho mô hình Gemini 1.5 Flash Vision.
     """
@@ -168,16 +262,23 @@ def process_image_for_ocr(img_bytes, debug_name=None):
         base64_image = base64.b64encode(processed_bytes).decode('utf-8')
         api_key = get_next_embedding_key()
         
+        prompt = "Trích xuất toàn bộ chữ (text) và giải thích chi tiết nội dung sơ đồ, bảng biểu trong hình ảnh này."
+        if context:
+            prompt += f"\n\nNGỮ CẢNH (Context) xung quanh hình ảnh này trong tài liệu: \"{context}\".\nHãy sử dụng ngữ cảnh này để giải thích hình ảnh một cách chính xác hơn, tránh giải thích lặp lại những gì đã nói rõ trong văn bản nếu hình ảnh chỉ là ví dụ minh họa."
+        
+        prompt += "\n\nYêu cầu: Trả về kết quả dưới dạng text ngắn gọn, súc tích, tập trung vào thông tin bổ sung mà hình ảnh cung cấp. Không bịa đặt thông tin. Nếu hình ảnh không chứa thông tin gì quan trọng, hãy trả về 'KHÔNG_CÓ_GÌ'."
+
         print(f"         🤖 [OCR] Gửi ảnh cho Gemini Vision xử lý (Dùng key: ...{api_key[-6:]})...")
         llm = ChatGoogleGenerativeAI(
             model="models/gemini-2.5-flash",
             temperature=0.1,
-            google_api_key=api_key
+            google_api_key=api_key,
+            max_output_tokens=300 # Giới hạn độ dài câu trả lời để tránh loãng thông tin
         )
         
         msg = HumanMessage(
             content=[
-                {"type": "text", "text": "Trích xuất toàn bộ chữ (text) và giải thích chi tiết nội dung sơ đồ, bảng biểu trong hình ảnh này. Trả về dưới dạng text. Không bịa đặt thông tin. Nếu không có gì quan trọng, hãy trả về 'KHÔNG_CÓ_GÌ'."},
+                {"type": "text", "text": prompt},
                 {"type": "image_url", "image_url": f"data:image/png;base64,{base64_image}"}
             ]
         )
@@ -292,8 +393,12 @@ def process_pdf(pdf_path, friendly_filename=None):
                                 clip_rect = rect + (-10, -10, 10, 10)
                                 pix = page.get_pixmap(clip=clip_rect, matrix=fitz.Matrix(3, 3))
                                 
-                                dbg_name = f"p{page_num}_img{img_index}_{rect_idx}.png"
-                                text_in_image = process_image_for_ocr(pix.tobytes("png"), debug_name=dbg_name)
+                                ddbg_name = f"p{page_num}_img{img_index}_{rect_idx}.png"
+                                text_in_image = process_image_for_ocr(
+                                    pix.tobytes("png"), 
+                                    context=clean_raw, 
+                                    debug_name=ddbg_name
+                                )
                                 
                                 if not text_in_image:
                                     print("⚠️ RỖNG (Không đọc được chữ).")
@@ -320,8 +425,12 @@ def process_pdf(pdf_path, friendly_filename=None):
                 print(f"   📸 Trang {page_num} ít text -> Thử chụp toàn trang...")
                 try:
                     pix = page.get_pixmap(matrix=fitz.Matrix(3, 3))
-                    dbg_name = f"p{page_num}_snapshot.png"
-                    full_page_ocr = process_image_for_ocr(pix.tobytes("png"), debug_name=dbg_name)
+                    ddbg_name = f"p{page_num}_snapshot.png"
+                    full_page_ocr = process_image_for_ocr(
+                        pix.tobytes("png"), 
+                        context=clean_raw, 
+                        debug_name=ddbg_name
+                    )
                     
                     if len(full_page_ocr) > len(clean_raw) + 50:
                         print(f"      ✅ Snapshot lấy thêm được {len(full_page_ocr)} ký tự.")
