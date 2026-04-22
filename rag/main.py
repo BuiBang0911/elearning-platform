@@ -167,11 +167,11 @@ Nhiệm vụ của bạn là phân tích câu hỏi của người dùng và l�
    - Tạo một câu hỏi độc lập, rõ ràng, đầy đủ ngữ nghĩa dựa trên lịch sử để dùng cho việc tìm kiếm tài liệu.
 
 BẮT BUỘC TRẢ VỀ ĐỊNH DẠNG JSON:
-{
+{{
   "intent": "GREETING" | "COURSE_QUERY" | "OFFENSIVE" | "OOD",
   "rewritten_query": "Câu hỏi sau khi viết lại (chỉ có nếu là COURSE_QUERY)",
   "direct_response": "Lời phản hồi nhanh, lịch sự nếu là GREETING hoặc OOD. Nếu là OFFENSIVE, hãy trả lời nhắc nhở lịch sự."
-}
+}}
 """
 
 combined_preprocess_prompt = ChatPromptTemplate.from_messages([
@@ -296,8 +296,8 @@ async def chat_stream_endpoint(request: ChatRequest):
                 doc.page_content = f"[NGUỒN: {filename}] [SCORE: {score:.4f}]\n{doc.page_content}"
                 retrieved_docs.append(doc)
 
-            # 4. STREAM CÂU TRẢ LỜI RAG
-            llm_smart = ChatGoogleGenerativeAI(model="models/gemini-1.5-flash", temperature=0.3, google_api_key=current_api_key)
+            # 4. STREAM CÂU TRẢ LỜI RAG (Dùng model mạnh hơn: PRO)
+            llm_smart = ChatGoogleGenerativeAI(model="models/gemini-1.5-pro", temperature=0.3, google_api_key=current_api_key)
             question_answer_chain = create_stuff_documents_chain(llm_smart, qa_prompt)
 
             async for chunk in question_answer_chain.astream({
@@ -382,8 +382,8 @@ async def chat_endpoint(request: ChatRequest):
             doc.page_content = f"[NGUỒN: {filename}] [SCORE: {score:.4f}]\n{doc.page_content}"
             retrieved_docs.append(doc)
 
-        # 3. GENERATE ANSWER
-        llm_smart = ChatGoogleGenerativeAI(model="models/gemini-1.5-flash", temperature=0.3, google_api_key=current_api_key)
+        # 3. GENERATE ANSWER (Dùng model mạnh hơn: PRO)
+        llm_smart = ChatGoogleGenerativeAI(model="models/gemini-1.5-pro", temperature=0.3, google_api_key=current_api_key)
         question_answer_chain = create_stuff_documents_chain(llm_smart, qa_prompt)
 
         @retry_on_429()
