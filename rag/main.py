@@ -233,7 +233,7 @@ async def chat_stream_endpoint(request: ChatRequest):
             current_api_key = get_next_chat_key()
             
             # 1. TIỀN XỬ LÝ (Intent + Rewrite) - CHỈ 1 REQUEST LLM
-            llm_fast = ChatGoogleGenerativeAI(model="models/gemini-1.5-flash", temperature=0.1, google_api_key=current_api_key)
+            llm_fast = ChatGoogleGenerativeAI(model="models/gemini-2.5-flash", temperature=0.1, google_api_key=current_api_key)
             from langchain_core.output_parsers import JsonOutputParser
             
             preprocess_chain = combined_preprocess_prompt | llm_fast | JsonOutputParser()
@@ -297,7 +297,7 @@ async def chat_stream_endpoint(request: ChatRequest):
                 retrieved_docs.append(doc)
 
             # 4. STREAM CÂU TRẢ LỜI RAG (Dùng model mạnh hơn: PRO)
-            llm_smart = ChatGoogleGenerativeAI(model="models/gemini-1.5-flash", temperature=0.3, google_api_key=current_api_key)
+            llm_smart = ChatGoogleGenerativeAI(model="models/gemini-2.5-flash", temperature=0.3, google_api_key=current_api_key)
             question_answer_chain = create_stuff_documents_chain(llm_smart, qa_prompt)
 
             async for chunk in question_answer_chain.astream({
@@ -325,7 +325,7 @@ async def chat_endpoint(request: ChatRequest):
         from langchain_core.output_parsers import JsonOutputParser
         
         # 1. TIỀN XỬ LÝ ĐỒNG BỘ
-        llm_fast = ChatGoogleGenerativeAI(model="models/gemini-1.5-flash", temperature=0.1, google_api_key=current_api_key)
+        llm_fast = ChatGoogleGenerativeAI(model="models/gemini-2.5-flash", temperature=0.1, google_api_key=current_api_key)
         preprocess_chain = combined_preprocess_prompt | llm_fast | JsonOutputParser()
 
         langchain_history = []
@@ -383,7 +383,7 @@ async def chat_endpoint(request: ChatRequest):
             retrieved_docs.append(doc)
 
         # 3. GENERATE ANSWER (Dùng model mạnh hơn: PRO)
-        llm_smart = ChatGoogleGenerativeAI(model="models/gemini-1.5-flash", temperature=0.3, google_api_key=current_api_key)
+        llm_smart = ChatGoogleGenerativeAI(model="models/gemini-2.5-flash", temperature=0.3, google_api_key=current_api_key)
         question_answer_chain = create_stuff_documents_chain(llm_smart, qa_prompt)
 
         @retry_on_429()
