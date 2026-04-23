@@ -27,7 +27,7 @@ from langchain_core.messages import HumanMessage
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 from sqlalchemy import create_engine
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type, retry_if_exception
 import google.api_core.exceptions
 
 # --- CẤU HÌNH DEBUG ---
@@ -97,13 +97,14 @@ def get_next_embedding_key():
 # --- 2. CONFIG RETRY CHO GOOGLE API ---
 def retry_on_429():
     """
-    Decorator để retry khi gặp lỗi 429 (Rate Limit) với chiến lược chờ đợi lâu hơn.
+    Decorator để retry khi gặp lỗi 429 (Rate Limit).
+    Cải tiến: Bắt mọi lỗi chứa 429/ResourceExhausted và tăng thời gian chờ.
     """
     return retry(
-        stop=stop_after_attempt(10),
-        wait=wait_exponential(multiplier=2, min=10, max=120),
-        retry=retry_if_exception_type((google.api_core.exceptions.ResourceExhausted, requests.exceptions.HTTPError)),
-        before_sleep=lambda retry_state: print(f"⚠️ [RATE LIMIT] Chạm giới hạn (429). Đang thử lại lần {retry_state.attempt_number} sau {retry_state.next_action.sleep:.1f} giây...")
+        stop=stop_after_attempt(15),
+        wait=wait_exponential(multiplier=2, min=15, max=180),
+        retry=retry_if_exception(lambda e: "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e) or "quota" in str(e).lower()),
+        before_sleep=lambda retry_state: print(f"⚠️ [RATE LIMIT] Thử lại lần {retry_state.attempt_number} với Key tiếp theo...")
     )
 
 # --- 3. CLASS XOAY TUA KEY CHO EMBEDDING + REDIS CACHE ---
@@ -181,11 +182,11 @@ class RotatedGoogleEmbeddings(Embeddings):
             batch_indices = missing_indices[i : i + SUB_BATCH_SIZE]
             batch_texts = [texts[idx] for idx in batch_indices]
             
-            current_key = next(self.key_iterator)
-            print(f"   -> Batch {i//SUB_BATCH_SIZE + 1}: Embedding {len(batch_texts)} đoạn dùng key: ...{current_key[-6:]}")
-            
             @retry_on_429()
             def _embed_batch():
+                # Lấy key mới ngay trong hàm retry để mỗi lần thử lại là một key khác
+                current_key = next(self.key_iterator)
+                print(f"   -> Batch {i//SUB_BATCH_SIZE + 1}: Dùng key ...{current_key[-6:]}")
                 return self._get_embeddings_instance(api_key=current_key).embed_documents(batch_texts)
             
             try:
@@ -201,9 +202,9 @@ class RotatedGoogleEmbeddings(Embeddings):
                 
                 if pipeline: pipeline.execute()
                 
-                # Nghỉ tay một chút nếu còn batch tiếp theo để tránh 429
+                # Nghỉ tay một chút nếu còn batch tiếp theo để tránh 429 (Tăng lên 2s)
                 if i + SUB_BATCH_SIZE < len(missing_indices):
-                    time.sleep(1.5)
+                    time.sleep(2.0)
                     
             except Exception as e:
                 print(f"❌ [API ERROR] Lỗi khi embedding batch: {e}")
@@ -226,12 +227,11 @@ class RotatedGoogleEmbeddings(Embeddings):
                 redis_client.expire(cache_key, TTL_QUERY)
                 return json.loads(cached)
 
-        # 2. Call API
-        current_key = next(self.key_iterator)
-        print(f"🔍 [EMBEDDINGS] Cache miss Query...{current_key[-6:]}")
-        
+        # 2. Call API với Retry xoay key
         @retry_on_429()
         def _embed():
+            current_key = next(self.key_iterator)
+            print(f"🔍 [EMBEDDINGS] Cache miss Query. Dùng key ...{current_key[-6:]}")
             return self._get_embeddings_instance(api_key=current_key).embed_query(text)
         
         vector = _embed()
