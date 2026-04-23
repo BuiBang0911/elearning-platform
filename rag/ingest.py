@@ -101,10 +101,10 @@ def retry_on_429():
     Cải tiến: Bắt mọi lỗi chứa 429/ResourceExhausted và tăng thời gian chờ.
     """
     return retry(
-        stop=stop_after_attempt(15),
+        stop=stop_after_attempt(50),
         wait=wait_exponential(multiplier=2, min=15, max=180),
         retry=retry_if_exception(lambda e: "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e) or "quota" in str(e).lower()),
-        before_sleep=lambda retry_state: print(f"⚠️ [RATE LIMIT] Thử lại lần {retry_state.attempt_number} với Key tiếp theo...")
+        before_sleep=lambda retry_state: print(f"⚠️ [RATE LIMIT] Lần thử {retry_state.attempt_number}/50. Đang đổi Key và chờ...")
     )
 
 # --- 3. CLASS XOAY TUA KEY CHO EMBEDDING + REDIS CACHE ---
