@@ -41,24 +41,39 @@ if DEBUG_MODE:
     os.makedirs(DEBUG_FOLDER, exist_ok=True)
     print(f"🐞 DEBUG MODE: ON. Ảnh sẽ được lưu vào '{DEBUG_FOLDER}'")
 
-def add_overlap_to_docs(docs, overlap_size=300):
+def add_overlap_to_docs(docs, threshold=200, max_merge_size=1000):
     """
-    Vì SemanticChunker không hỗ trợ overlap, ta tự thêm thủ công bằng cách:
-    Lấy một đoạn cuối của chunk n-1 gắn vào đầu của chunk n.
+    Tối ưu hóa Chunking thủ công:
+    1. Gộp các chunk quá ngắn (< threshold) vào chunk trước đó nếu tổng độ dài < max_merge_size.
+    2. Thêm overlap động: min(300, 20% độ dài chunk trước). 
+    3. Không dùng các ký tự lạ (..., [TIẾP NỐI]) để tránh làm nhiễu model Embedding.
     """
     if len(docs) <= 1:
         return docs
         
-    for i in range(1, len(docs)):
-        prev_content = docs[i-1].page_content
-        # Lấy phần đuôi của trang trước (ví dụ 300 ký tự cuối)
-        # Lưu ý: Cần xử lý cẩn thận để không làm hỏng metadata gốc
-        overlap_text = prev_content[-overlap_size:] if len(prev_content) > overlap_size else prev_content
-        
-        # Thêm vào đầu chunk hiện tại với một đánh dấu rõ ràng
-        docs[i].page_content = f"...{overlap_text}\n\n[TIẾP NỐI]:\n{docs[i].page_content}"
+    new_docs = [docs[0]]
     
-    return docs
+    for i in range(1, len(docs)):
+        current_doc = docs[i]
+        prev_doc = new_docs[-1]
+        
+        current_len = len(current_doc.page_content)
+        prev_len = len(prev_doc.page_content)
+        
+        # 1. Gộp chunk ngắn nếu không vượt quá giới hạn kích thước
+        if current_len < threshold and (prev_len + current_len) < max_merge_size:
+            prev_doc.page_content += f"\n{current_doc.page_content}"
+            continue
+            
+        # 2. Tính toán overlap động nguyên bản (không chèn text gây nhiễu)
+        overlap_size = int(min(300, prev_len * 0.2))
+        overlap_text = prev_doc.page_content[-overlap_size:]
+        
+        # Chỉ dùng xuống dòng để phân tách overlap, model sẽ tự hiểu ngữ cảnh lặp lại
+        current_doc.page_content = f"{overlap_text}\n\n{current_doc.page_content}"
+        new_docs.append(current_doc)
+    
+    return new_docs
 
 # 1. Load môi trường & API Keys
 load_dotenv()
@@ -541,7 +556,7 @@ def run_ingest():
     docs = text_splitter.split_documents(raw_docs)
     
     # [TỰ ĐỘNG THÊM OVERLAP] - Fix lỗi cắt nát ngữ cảnh
-    docs = add_overlap_to_docs(docs, overlap_size=300)
+    docs = add_overlap_to_docs(docs, threshold=200)
     
     print(f"✂️ [CHUNK] Đã chia thành {len(docs)} đoạn nhỏ thuật toán ngữ nghĩa (có manual overlap).")
 
@@ -725,7 +740,7 @@ def ingest_file(file_path: str, lesson_id: int = None, document_id: int = None):
 
     docs = _split_docs()
     # [TỰ ĐỘNG THÊM OVERLAP] - Fix lỗi cắt nát ngữ cảnh
-    docs = add_overlap_to_docs(docs, overlap_size=300)
+    docs = add_overlap_to_docs(docs, threshold=200)
     
     print(f"✅ [INGEST_FILE] Đã tách xong {len(docs)} chunks (có manual overlap).")
 
