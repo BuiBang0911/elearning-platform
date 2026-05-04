@@ -452,7 +452,7 @@ def process_pdf(pdf_path, friendly_filename=None):
                                 elif len(text_in_image) <= 5:
                                     print(f"⚠️ RÁC (Len={len(text_in_image)}): '{text_in_image}'")
                                 else:
-                                    print(f"🎉 OK! ({len(text_in_image)} chars).")
+                                    print(f"🎉 OK! ({len(text_in_image)} chars): '{text_in_image}'.")
                                     ocr_content += (
                                         f"\n\n=== [{header_title}] ===\n"
                                         f"{text_in_image}\n"
