@@ -307,13 +307,19 @@ def process_image_for_ocr(img_bytes, context=None, debug_name=None):
         base64_image = base64.b64encode(processed_bytes).decode('utf-8')
         api_key = get_next_embedding_key()
         
-        prompt = "Trích xuất toàn bộ chữ (text) và giải thích chi tiết nội dung sơ đồ, bảng biểu trong hình ảnh này."
-        prompt += "\nĐặc biệt chú ý trích xuất chính xác các dòng chữ nhỏ, nhãn nút (button labels), thông báo hệ thống (system messages) và các hằng số kỹ thuật."
-        if context:
-            prompt += f"\n\nNGỮ CẢNH (Context) xung quanh hình ảnh này trong tài liệu: \"{context}\".\nHãy sử dụng ngữ cảnh này để giải thích hình ảnh một cách chính xác hơn, tránh giải thích lặp lại những gì đã nói rõ trong văn bản nếu hình ảnh chỉ là ví dụ minh họa."
-        
-        prompt += "\n\nYêu cầu: Trả về kết quả dưới dạng text ngắn gọn, súc tích, tập trung vào thông tin bổ sung mà hình ảnh cung cấp. Không bịa đặt thông tin. Nếu hình ảnh không chứa thông tin gì quan trọng, hãy trả về 'KHÔNG_CÓ_GÌ'."
+        prompt = "Bạn là một chuyên gia OCR và phân tích tài liệu kỹ thuật chuyên nghiệp."
+        prompt += "\n\nNHIỆM VỤ CỦA BẠN:"
+        prompt += "\n1. TRÍCH XUẤT CHỮ: Liệt kê chính xác toàn bộ văn bản xuất hiện trong hình ảnh. Không bỏ sót bất kỳ dòng chữ nào, kể cả chữ nhỏ, nhãn nút (labels) hay các thông báo hệ thống."
+        prompt += "\n2. PHÂN TÍCH SƠ ĐỒ: Mô tả chi tiết cấu trúc sơ đồ, các khối (blocks), mũi tên chỉ hướng và mối quan hệ giữa các thành phần. Giải thích luồng dữ liệu hoặc logic đang hiển thị."
 
+        if context:
+            prompt += f"\n\nNGỮ CẢNH TÀI LIỆU: \"{context}\""
+            prompt += "\nHãy sử dụng ngữ cảnh này để nhận diện các thuật ngữ chuyên môn trong ảnh, nhưng TUYỆT ĐỐI KHÔNG tóm tắt hay lược bỏ nội dung ảnh chỉ vì nó đã xuất hiện trong văn bản."
+
+        prompt += "\n\nYÊU CẦU ĐỊNH DẠNG:"
+        prompt += "\n- Trả về nội dung đầy đủ, chi tiết, không cần tiêu đề rườm rà."
+        prompt += "\n- Nếu ảnh là sơ đồ, hãy dùng các gạch đầu dòng để mô tả từng bước."
+        prompt += "\n- Nếu hình ảnh hoàn toàn không có thông tin (ảnh trống, ảnh nhiễu), chỉ khi đó mới trả về 'KHÔNG_CÓ_GÌ'."
         print(f"         🤖 [OCR] Gửi ảnh cho Gemini Vision xử lý (Dùng key: ...{api_key[-6:]})...")
         llm = ChatGoogleGenerativeAI(
             model="models/gemini-2.5-flash",
