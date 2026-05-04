@@ -57,6 +57,7 @@ namespace Web.Controllers
         [EnableRateLimiting("AiPolicy")]
         public async Task<IActionResult> AskAiAssistant([FromBody] AskAiRequest askAiRequest)
         {
+            //
             var userId = _authService.UserId;
             if (userId == null) return BadRequest();
 
