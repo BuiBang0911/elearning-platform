@@ -60,7 +60,6 @@ namespace Web.Controllers
             var userId = _authService.UserId;
             if (userId == null) return BadRequest();
 
-            // Verify enrollment
             var lesson = await _lessonService.FirstOrDefaultAsync(l => l.Id == askAiRequest.LessonId);
             if (lesson == null) return NotFound("Lesson not found");
             
