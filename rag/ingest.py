@@ -32,14 +32,14 @@ import google.api_core.exceptions
 
 # --- CẤU HÌNH DEBUG ---
 DEBUG_MODE = False  # Chuyển sang False để tắt debug
-DEBUG_FOLDER = "./debug_output"
+DEBUG_FOLDER = os.path.join(os.path.dirname(__file__), "debug_output")
 
 if DEBUG_MODE:
     if os.path.exists(DEBUG_FOLDER):
         try: shutil.rmtree(DEBUG_FOLDER)
         except: pass
     os.makedirs(DEBUG_FOLDER, exist_ok=True)
-    print(f"🐞 DEBUG MODE: ON. Ảnh sẽ được lưu vào '{DEBUG_FOLDER}'")
+    print(f"DEBUG MODE: ON. Image will be saved to '{DEBUG_FOLDER}'")
 
 def add_overlap_to_docs(docs, threshold=200, max_merge_size=1000):
     """
@@ -304,54 +304,61 @@ def process_image_for_ocr(img_bytes, context=None, debug_name=None):
             image.save(output, format="PNG")
             processed_bytes = output.getvalue()
             
+        # --- NEW: Save image for debugging ---
+        if DEBUG_MODE and debug_name:
+            save_path = os.path.join(DEBUG_FOLDER, debug_name)
+            try:
+                with open(save_path, "wb") as f:
+                    f.write(processed_bytes)
+                print(f"[DEBUG] Saved image: {save_path}")
+            except Exception as e:
+                print(f"[DEBUG] Error saving image: {e}")
+
         base64_image = base64.b64encode(processed_bytes).decode('utf-8')
         api_key = get_next_embedding_key()
         
-        prompt = "Bạn là một chuyên gia OCR và phân tích tài liệu kỹ thuật chuyên nghiệp."
-        prompt += "\n\nNHIỆM VỤ CỦA BẠN:"
-        prompt += "\n1. TRÍCH XUẤT CHỮ: Liệt kê chính xác toàn bộ văn bản xuất hiện trong hình ảnh. Không bỏ sót bất kỳ dòng chữ nào, kể cả chữ nhỏ, nhãn nút (labels) hay các thông báo hệ thống."
-        prompt += "\n2. PHÂN TÍCH SƠ ĐỒ: Mô tả chi tiết cấu trúc sơ đồ, các khối (blocks), mũi tên chỉ hướng và mối quan hệ giữa các thành phần. Giải thích luồng dữ liệu hoặc logic đang hiển thị."
-
-        if context:
-            prompt += f"\n\nNGỮ CẢNH TÀI LIỆU: \"{context}\""
-            prompt += "\nHãy sử dụng ngữ cảnh này để nhận diện các thuật ngữ chuyên môn trong ảnh, nhưng TUYỆT ĐỐI KHÔNG tóm tắt hay lược bỏ nội dung ảnh chỉ vì nó đã xuất hiện trong văn bản."
-
-        prompt += "\n\nYÊU CẦU ĐỊNH DẠNG:"
-        prompt += "\n- Trả về nội dung đầy đủ, chi tiết, không cần tiêu đề rườm rà."
-        prompt += "\n- Nếu ảnh là sơ đồ, hãy dùng các gạch đầu dòng để mô tả từng bước."
-        prompt += "\n- Nếu hình ảnh hoàn toàn không có thông tin (ảnh trống, ảnh nhiễu), chỉ khi đó mới trả về 'KHÔNG_CÓ_GÌ'."
-        print(f"         🤖 [OCR] Gửi ảnh cho Gemini Vision xử lý (Dùng key: ...{api_key[-6:]})...")
-        llm = ChatGoogleGenerativeAI(
-            model="models/gemini-2.5-flash",
-            temperature=0.1,
-            google_api_key=api_key,
-            max_output_tokens=300 # Giới hạn độ dài câu trả lời để tránh loãng thông tin
-        )
+        prompt = "Trích xuất các ý chính và nội dung quan trọng từ ảnh này."
+        prompt += "\n- Yêu cầu: Súc tích nhất có thể, chỉ lấy văn bản cốt lõi và mô tả sơ đồ cực ngắn (nếu có). Không rườm rà."
         
-        msg = HumanMessage(
-            content=[
-                {"type": "text", "text": prompt},
-                {"type": "image_url", "image_url": f"data:image/png;base64,{base64_image}"}
-            ]
-        )
+        if context:
+            prompt += f"\n- Ngữ cảnh: \"{context}\" (Dùng để nhận diện thuật ngữ)."
+            
+        prompt += "\n- Nếu ảnh trống hoặc không có thông tin hữu ích, chỉ trả về 'KHÔNG_CÓ_GÌ'."
+        from google import genai
+        from google.genai import types
+        
+        print(f"         [OCR] Sending image to Gemini Vision (Key: ...{api_key[-6:]})...")
+        
+        client = genai.Client(api_key=api_key)
         
         # Thêm sleep nhỏ để tránh rate limit nếu PDF có quá nhiều ảnh liên tục
         time.sleep(2)
         
         @retry_on_429()
         def _invoke_llm():
-            return llm.invoke([msg])
+            return client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=[
+                    types.Part.from_bytes(data=processed_bytes, mime_type="image/png"),
+                    prompt
+                ],
+                config=types.GenerateContentConfig(
+                    temperature=0.1,
+                    max_output_tokens=8192,
+                    thinking_config=types.ThinkingConfig(thinking_budget=0)  # Tat thinking de toan bo token danh cho output
+                )
+            )
             
         response = _invoke_llm()
         
-        if response and response.content:
-            res_content = response.content.strip()
-            if res_content == 'KHÔNG_CÓ_GÌ' or res_content == '':
+        if response and hasattr(response, 'text') and response.text:
+            res_content = response.text.strip()
+            if res_content == 'KHÔNG_CÓ_GÌ' or res_content == 'EMPTY_IMAGE' or res_content == '':
                 return ""
             return res_content
             
     except Exception as e:
-        print(f"      ⚠️ Lỗi xử lý ảnh với Gemini: {e}")
+        print(f"      [ERROR] Gemini processing error: {e}")
     return ""
 
 def get_image_caption(page, img_rect):
@@ -377,11 +384,11 @@ def process_pdf(pdf_path, friendly_filename=None):
     try:
         doc = fitz.open(pdf_path)
     except Exception as e:
-        print(f"❌ Không mở được file: {e}")
+        print(f"Error opening file: {e}")
         return []
     
     filename = friendly_filename or os.path.basename(pdf_path)
-    print(f"\n📄 Đang xử lý: {filename} ({len(doc)} trang)...")
+    print(f"\nProcessing: {filename} ({len(doc)} pages)...")
 
     with pdfplumber.open(pdf_path) as pdf_plumb:
         for i, page in enumerate(doc):
@@ -397,7 +404,7 @@ def process_pdf(pdf_path, friendly_filename=None):
                 plumb_page = pdf_plumb.pages[i]
                 tables = plumb_page.extract_tables()
                 if tables:
-                    print(f"   --- Trang {page_num}: Bắt được {len(tables)} bảng biểu.")
+                    print(f"   --- Page {page_num}: Found {len(tables)} tables.")
                     for tbl in tables:
                         table_content += "\n\n=== [BẢNG BIỂU DỮ LIỆU] ===\n"
                         for r_idx, row in enumerate(tbl):
@@ -408,7 +415,7 @@ def process_pdf(pdf_path, friendly_filename=None):
                                 table_content += "| " + " | ".join(["---"] * len(clean_row)) + " |\n"
                         table_content += "==============================\n"
             except Exception as e:
-                print(f"   ⚠️ Lỗi khi đọc bảng trang {page_num}: {e}")
+                print(f"   [ERROR] Table reading error on page {page_num}: {e}")
             
             # 2. Xử lý Ảnh
             image_list = page.get_images(full=True)
@@ -416,7 +423,7 @@ def process_pdf(pdf_path, friendly_filename=None):
             processed_any_image = False
             
             if image_list:
-                print(f"   --- Trang {page_num}: Có {len(image_list)} ảnh.")
+                print(f"   --- Page {page_num}: Found {len(image_list)} images.")
                 
                 for img_index, img in enumerate(image_list):
                     try:
@@ -425,20 +432,20 @@ def process_pdf(pdf_path, friendly_filename=None):
                         
                         for rect_idx, rect in enumerate(rects):
                             w, h = rect.width, rect.height
-                            print(f"      🖼️  Ảnh {img_index}.{rect_idx} ({w:.0f}x{h:.0f}): ", end="")
+                            print(f"      Image {img_index}.{rect_idx} ({w:.0f}x{h:.0f}): ", end="")
                             
                             if w < 50 or h < 50: 
-                                print("❌ BỎ QUA (Quá nhỏ)")
+                                print("SKIP (Too small)")
                                 continue
                             
-                            print("✅ CẮT & OCR...", end=" ")
+                            print("CROP & OCR...", end=" ")
                             
                             try:
                                 caption = get_image_caption(page, rect)
                             
                                 if caption:
                                     header_title = f"HÌNH ẢNH: {caption}"
-                                    print(f"      🏷️  Tìm thấy caption: '{caption[:30]}...'")
+                                    print(f"      Caption found: '{caption[:30]}...'")
                                 else:
                                     header_title = f"HÌNH ẢNH (Trang {page_num})"
                                     
@@ -454,11 +461,11 @@ def process_pdf(pdf_path, friendly_filename=None):
                                 )
                                 
                                 if not text_in_image:
-                                    print("⚠️ RỖNG (Không đọc được chữ).")
+                                    print("EMPTY (No text detected).")
                                 elif len(text_in_image) <= 5:
-                                    print(f"⚠️ RÁC (Len={len(text_in_image)}): '{text_in_image}'")
+                                    print(f"JUNK (Len={len(text_in_image)}): '{text_in_image}'")
                                 else:
-                                    print(f"🎉 OK! ({len(text_in_image)} chars): '{text_in_image}'.")
+                                    print(f"      OK! ({len(text_in_image)} chars): '{text_in_image}'.")
                                     ocr_content += (
                                         f"\n\n=== [{header_title}] ===\n"
                                         f"{text_in_image}\n"
@@ -467,15 +474,15 @@ def process_pdf(pdf_path, friendly_filename=None):
                                     processed_any_image = True
                                     
                             except Exception as inner_e:
-                                print(f"❌ Lỗi hàm OCR: {inner_e}")
+                                print(f"Error in OCR function: {inner_e}")
 
                     except Exception as e:
-                        print(f"\n      ❌ Lỗi vòng lặp ảnh: {e}")
+                        print(f"\n      [ERROR] Image loop error: {e}")
                         continue
 
             # 3. Fallback Snapshot
             if not processed_any_image and len(clean_raw) < 300:
-                print(f"   📸 Trang {page_num} ít text -> Thử chụp toàn trang...")
+                print(f"   Page {page_num} has little text -> Trying full page snapshot...")
                 try:
                     # Tăng Matrix(4,4) cho snapshot để tránh bỏ sót text nhỏ
                     pix = page.get_pixmap(matrix=fitz.Matrix(4, 4))
@@ -487,7 +494,7 @@ def process_pdf(pdf_path, friendly_filename=None):
                     )
                     
                     if len(full_page_ocr) > len(clean_raw) + 50:
-                        print(f"      ✅ Snapshot lấy thêm được {len(full_page_ocr)} ký tự.")
+                        print(f"      [OK] Snapshot extracted {len(full_page_ocr)} characters.")
                         ocr_content += f"\n\n=== [SCAN TOÀN TRANG {page_num}] ===\n{full_page_ocr}\n==============================\n"
                 except: pass
 
@@ -504,7 +511,7 @@ def process_pdf(pdf_path, friendly_filename=None):
             gc.collect()
 
     if full_text_content.strip():
-        print(f"   ✅ Xong file. Tổng: {len(full_text_content)} ký tự.")
+        print(f"   File processing completed. Total: {len(full_text_content)} characters.")
         return [Document(
             page_content=full_text_content,
             metadata={
@@ -548,7 +555,7 @@ def load_all_documents():
     return docs
 
 def run_ingest():
-    print("🔄 Đang quét thư mục data...")
+    print("Scanning data directory...")
     raw_docs = load_all_documents()
     
     if not raw_docs:
@@ -564,7 +571,7 @@ def run_ingest():
     # [TỰ ĐỘNG THÊM OVERLAP] - Fix lỗi cắt nát ngữ cảnh
     docs = add_overlap_to_docs(docs, threshold=200)
     
-    print(f"✂️ [CHUNK] Đã chia thành {len(docs)} đoạn nhỏ thuật toán ngữ nghĩa (có manual overlap).")
+    print(f"Chunking completed. Created {len(docs)} segments with manual overlap.")
 
     for doc in docs:
         filename = doc.metadata.get("filename", "unknown")
@@ -637,7 +644,7 @@ def sync_engine(pg_conn, docs, vector_store, namespace):
             cur.execute("DELETE FROM ingest_records WHERE namespace = %s AND record_id = %s", (namespace, record_id))
             conn.commit()
 
-    print("\n🚀 Bắt đầu đồng bộ dữ liệu...")
+    print("\nStarting data synchronization...")
 
     existing = load_existing(pg_conn, namespace)
     current_record_ids = set()
@@ -774,7 +781,7 @@ def ingest_file(file_path: str, lesson_id: int = None, document_id: int = None):
     # Chạy sync theo batch (size=20) để tránh 429
     batch_size = 20
     total_chunks = len(docs)
-    print(f"📦 Bắt đầu lưu {total_chunks} chunks vào Vector Store (Batch size: {batch_size})...")
+    print(f"Starting to save {total_chunks} chunks to Vector Store (Batch size: {batch_size})...")
     
     for i in range(0, total_chunks, batch_size):
         batch = docs[i:i + batch_size]
