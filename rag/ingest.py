@@ -565,7 +565,7 @@ def run_ingest():
     print(f"\n📚 [CHUNK] Đang chia nhỏ (Chunking) {len(raw_docs)} trang tài liệu bằng Semantic Chunker...")
     rotated_embeddings = RotatedGoogleEmbeddings(model="models/gemini-embedding-001", api_keys=EMBEDDING_KEYS)
     
-    text_splitter = SemanticChunker(rotated_embeddings, breakpoint_threshold_type="percentile")
+    text_splitter = SemanticChunker(rotated_embeddings, breakpoint_threshold_type="percentile", breakpoint_threshold_amount=90)
     docs = text_splitter.split_documents(raw_docs)
     
     # [TỰ ĐỘNG THÊM OVERLAP] - Fix lỗi cắt nát ngữ cảnh
@@ -748,7 +748,7 @@ def ingest_file(file_path: str, lesson_id: int = None, document_id: int = None):
     @retry_on_429()
     def _split_docs():
         print(f"✂️ [INGEST_FILE] Đang thực hiện Semantic Chunking cho file: {os.path.basename(file_path)}")
-        text_splitter = SemanticChunker(rotated_embeddings, breakpoint_threshold_type="percentile")
+        text_splitter = SemanticChunker(rotated_embeddings, breakpoint_threshold_type="percentile", breakpoint_threshold_amount=90)
         return text_splitter.split_documents(raw_docs)
 
     docs = _split_docs()

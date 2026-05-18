@@ -1,5 +1,6 @@
 import os
 import itertools
+from datetime import datetime
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from dotenv import load_dotenv
@@ -145,7 +146,7 @@ vector_store = PGVector(
     use_jsonb=True,
 )
 
-retriever = vector_store.as_retriever(search_kwargs={"k": 3})
+retriever = vector_store.as_retriever(search_kwargs={"k": 5})
 
 # =========================
 # 3. PROMPTS
@@ -231,7 +232,7 @@ async def chat_stream_endpoint(request: ChatRequest):
             current_api_key = get_next_chat_key()
             
             # 1. TIỀN XỬ LÝ (Intent + Rewrite) - CHỈ 1 REQUEST LLM
-            llm_fast = ChatGoogleGenerativeAI(model="models/gemini-2.5-flash", temperature=0.1, google_api_key=current_api_key)
+            llm_fast = ChatGoogleGenerativeAI(model="models/gemini-3.1-flash-lite", temperature=0.1, google_api_key=current_api_key)
             from langchain_core.output_parsers import JsonOutputParser
             
             preprocess_chain = combined_preprocess_prompt | llm_fast | JsonOutputParser()
@@ -271,7 +272,7 @@ async def chat_stream_endpoint(request: ChatRequest):
                 use_jsonb=True,
             )
 
-            search_kwargs = {"k": 3}
+            search_kwargs = {"k": 5}
             if request.lesson_id:
                 search_kwargs["filter"] = {"lesson_id": request.lesson_id}
             
@@ -279,7 +280,7 @@ async def chat_stream_endpoint(request: ChatRequest):
             def _search():
                 return local_vector_store.similarity_search_with_score(
                     query=str(rewritten_question),
-                    k=search_kwargs.get("k", 3),
+                    k=search_kwargs.get("k", 5),
                     filter=search_kwargs.get("filter")
                 )
             
@@ -298,7 +299,7 @@ async def chat_stream_endpoint(request: ChatRequest):
                 retrieved_docs.append(doc)
 
             # 4. STREAM CÂU TRẢ LỜI RAG (Dùng model mạnh hơn: PRO)
-            llm_smart = ChatGoogleGenerativeAI(model="models/gemini-2.5-flash", temperature=0.3, google_api_key=current_api_key)
+            llm_smart = ChatGoogleGenerativeAI(model="models/gemini-3.1-flash-lite", temperature=0.3, google_api_key=current_api_key)
             question_answer_chain = create_stuff_documents_chain(llm_smart, qa_prompt)
 
             async for chunk in question_answer_chain.astream({
@@ -354,7 +355,10 @@ async def chat_endpoint(request: ChatRequest):
         rewritten_question = preprocess_res.get("rewritten_query", request.question)
 
         # 2. RETRIEVAL
+        print(f"📡 [EVAL] Khởi tạo Embeddings...")
         local_embeddings = RotatedGoogleEmbeddings(model="models/gemini-embedding-001", api_keys=CHAT_KEYS)
+        
+        print(f"🗄️ [EVAL] Đang kết nối Vector Store (PGVector)...")
         local_vector_store = PGVector(
             embeddings=local_embeddings,
             collection_name="my_docs",
@@ -364,15 +368,18 @@ async def chat_endpoint(request: ChatRequest):
 
         @retry_on_429()
         def _search_sync():
-            search_kwargs = {"k": 3}
+            search_kwargs = {"k": 5}
             if request.lesson_id:
                 search_kwargs["filter"] = {"lesson_id": request.lesson_id}
+            
+            print(f"🔎 [EVAL] Đang thực hiện similarity_search trên DB (k={search_kwargs.get('k')})...")
             return local_vector_store.similarity_search_with_score(
                 query=str(rewritten_question),
-                k=search_kwargs.get("k", 3),
+                k=search_kwargs.get("k", 5),
                 filter=search_kwargs.get("filter")
             )
 
+        print(f"🚀 [EVAL] Bắt đầu gọi hàm _search_sync...")
         docs_with_scores = _search_sync()
         
         source_files = set()
@@ -418,3 +425,105 @@ async def chat_endpoint(request: ChatRequest):
                 "message": str(e)
             }
         )
+@app.post("/api/chat/eval")
+async def chat_eval_endpoint(request: ChatRequest):
+    try:
+        # Sử dụng key riêng được cung cấp để test
+        current_api_key = "AIzaSyA9nYV00FYH1XBwJc_2zDrUNRlpemQ7cHY"
+        print(f"🎯 [EVAL] Câu hỏi gốc: '{request.question}'")
+        from langchain_core.output_parsers import JsonOutputParser
+        
+        # 1. TIỀN XỬ LÝ ĐỒNG BỘ
+        llm_fast = ChatGoogleGenerativeAI(model="models/gemini-2.5-flash", temperature=0.1, google_api_key=current_api_key)
+        preprocess_chain = combined_preprocess_prompt | llm_fast | JsonOutputParser()
+
+        langchain_history = []
+        for msg in request.chat_history:
+            if msg.role == "User": langchain_history.append(HumanMessage(content=msg.content))
+            elif msg.role == "AiAssistant": langchain_history.append(AIMessage(content=msg.content))
+
+        def _preprocess_sync():
+            return preprocess_chain.invoke({
+                "input": request.question,
+                "chat_history": langchain_history
+            })
+
+        preprocess_res = _preprocess_sync()
+        intent = preprocess_res.get("intent", "COURSE_QUERY")
+        print(f"🔍 [EVAL] Intent: {intent}")
+        
+        if intent != "COURSE_QUERY":
+            return {
+                "answer": preprocess_res.get("direct_response", "Chào bạn, tôi có thể giúp gì cho bài học này?"),
+                "sources": []
+            }
+
+        rewritten_question = preprocess_res.get("rewritten_query", request.question)
+        print(f"📝 [EVAL] Câu hỏi sau rewrite: '{rewritten_question}'")
+
+        # 2. RETRIEVAL
+        local_embeddings = RotatedGoogleEmbeddings(model="models/gemini-embedding-001", api_keys=CHAT_KEYS)
+        local_vector_store = PGVector(
+            embeddings=local_embeddings,
+            collection_name="my_docs",
+            connection=engine,
+            use_jsonb=True,
+        )
+
+        def _search_sync():
+            search_kwargs = {"k": 5}
+            if request.lesson_id:
+                search_kwargs["filter"] = {"lesson_id": request.lesson_id}
+            return local_vector_store.similarity_search_with_score(
+                query=str(rewritten_question),
+                k=search_kwargs.get("k", 5),
+                filter=search_kwargs.get("filter")
+            )
+
+        docs_with_scores = _search_sync()
+        print(f"📚 [EVAL] Tìm thấy {len(docs_with_scores)} tài liệu phù hợp.")
+        
+        source_files = set()
+        retrieved_docs = []
+        for doc, score in docs_with_scores:
+            filename = doc.metadata.get("filename", "Tài liệu không tên")
+            source_files.add(filename)
+            score_val = score if score is not None else 0.0
+            doc.page_content = f"[NGUỒN: {filename}] [SCORE: {score_val:.4f}]\n{doc.page_content}"
+            retrieved_docs.append(doc)
+
+        # 3. GENERATE ANSWER
+        llm_smart = ChatGoogleGenerativeAI(model="models/gemini-2.5-flash", temperature=0.3, google_api_key=current_api_key)
+        question_answer_chain = create_stuff_documents_chain(llm_smart, qa_prompt)
+
+        def _answer_sync():
+            return question_answer_chain.invoke({
+                "input": request.question,
+                "chat_history": langchain_history,
+                "context": retrieved_docs,
+            })
+
+        raw_answer = _answer_sync()
+        answer = raw_answer.content if hasattr(raw_answer, "content") else str(raw_answer)
+        print(f"✅ [EVAL] Đã có câu trả lời (Độ dài: {len(answer)} ký tự)")
+
+        # 4. LOG FOR EVALUATION
+        eval_log = {
+            "timestamp": datetime.now().isoformat(),
+            "question": request.question,
+            "rewritten_question": rewritten_question,
+            "context": [doc.page_content for doc in retrieved_docs],
+            "answer": answer,
+            "sources": list(source_files)
+        }
+        with open("eval_logs.jsonl", "a", encoding="utf-8") as f:
+            f.write(json.dumps(eval_log, ensure_ascii=False) + "\n")
+
+        return {
+            "answer": answer,
+            "sources": list(source_files)
+        }
+
+    except Exception as e:
+        print(f"? [EVAL] ERROR: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
