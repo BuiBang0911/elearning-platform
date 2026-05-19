@@ -145,7 +145,7 @@ namespace ApplicationCore.Services.Courses
                 .ToListAsync();
 
             var mappedItems = _mapper.Map<List<CourseResponse>>(items);
-            var result = new PagedList<CourseResponse>(mappedItems, totalCount, pageNumber, pageSize);
+            var result = new PagedList<CourseResponse>(mappedItems, pageNumber, pageSize, totalCount);
 
             await _cacheService.SetAsync(cacheKey, result, TimeSpan.FromMinutes(10));
 
@@ -198,7 +198,7 @@ namespace ApplicationCore.Services.Courses
                 .Take(pageSize)
                 .ToListAsync();
 
-            return new PagedList<CourseListDto>(items, totalCount, pageNumber, pageSize);
+            return new PagedList<CourseListDto>(items, pageNumber, pageSize, totalCount);
         }
 
         public async Task<CourseDetailForStudentDto?> GetCourseDetailForStudentAsync(int courseId, int? studentId)

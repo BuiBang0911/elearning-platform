@@ -56,9 +56,6 @@ export default function LandingPage() {
                 <a href="#how-it-works" className="text-sm font-medium text-gray-600 hover:text-gray-900">
                   How It Works
                 </a>
-                <Link to="/browse" className="text-sm font-medium text-gray-600 hover:text-gray-900">
-                  Browse Courses
-                </Link>
                 <a href="#footer" className="text-sm font-medium text-gray-600 hover:text-gray-900">
                   About
                 </a>
@@ -82,9 +79,6 @@ export default function LandingPage() {
               </>
             ) : (
               <>
-                <Link to="/browse" className="hidden sm:block">
-                  <Button variant="ghost">Explore</Button>
-                </Link>
                 <Link to="/register?role=instructor">
                   <Button variant="ghost" className="hidden md:inline-flex">Teach on EduMind</Button>
                 </Link>

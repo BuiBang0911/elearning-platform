@@ -1,12 +1,15 @@
 import { Brain, LogOut } from "lucide-react";
 import { Button } from "../ui/button";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import AuthApi from "../../api/auth.api";
 import { useAuth } from "../../context/AuthContext";
 
 const HeaderInstructor = () => {
   const { user, logout: clearAuth } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const activeTab = searchParams.get("tab") || "courses";
+
   const logout = async () => {
     try {
       await AuthApi.logout();
@@ -31,10 +34,20 @@ const HeaderInstructor = () => {
               </span>
             </Link>
             <nav className="hidden md:flex items-center gap-6">
-              <Link to="/instructor" className="text-sm font-medium text-blue-600">
+              <Link
+                to="/instructor?tab=courses"
+                className={`text-sm font-medium transition-colors ${
+                  activeTab === "courses" ? "text-blue-600" : "text-gray-600 hover:text-gray-900"
+                }`}
+              >
                 My Courses
               </Link>
-              <Link to="/instructor" className="text-sm font-medium text-gray-600 hover:text-gray-900">
+              <Link
+                to="/instructor?tab=analytics"
+                className={`text-sm font-medium transition-colors ${
+                  activeTab === "analytics" ? "text-blue-600" : "text-gray-600 hover:text-gray-900"
+                }`}
+              >
                 Analytics
               </Link>
             </nav>

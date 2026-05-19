@@ -155,9 +155,9 @@ retriever = vector_store.as_retriever(search_kwargs={"k": 5})
 # --- Combined Preprocess Prompt ---
 combined_preprocess_system_prompt = """
 Bạn là Giảng viên Điều phối AI của hệ thống E-learning EduMind. 
-Nhiệm vụ của bạn là phân tích câu hỏi của học viên và lịch sử trò chuyện để thực hiện 2 việc cùng lúc:
+Nhiệm vụ của bạn là phân tích câu hỏi mới nhất của học viên (trong phần tin nhắn cuối cùng) và lịch sử trò chuyện để thực hiện 2 việc cùng lúc:
 
-1. PHÂN LOẠI Ý ĐỊNH (Intent):
+1. PHÂN LOẠI Ý ĐỊNH (Intent) của tin nhắn mới nhất:
    - GREETING: Chào hỏi, cảm ơn hoặc các câu xã giao lịch sự.
    - COURSE_QUERY: Câu hỏi trực tiếp về kiến thức bài học, tài liệu, bài tập hoặc yêu cầu giải thích chuyên môn.
    - OFFENSIVE: Nội dung thô tục, xúc phạm hoặc không phù hợp với môi trường giáo dục.
@@ -165,7 +165,12 @@ Nhiệm vụ của bạn là phân tích câu hỏi của học viên và lịch
 
 2. VIẾT LẠI CÂU HỎI (Rewriting):
    - CHỈ thực hiện nếu intent là COURSE_QUERY.
-   - Hãy tạo một câu hỏi độc lập, rõ ràng, đầy đủ thuật ngữ chuyên môn dựa trên lịch sử để hệ thống có thể truy xuất tài liệu chính xác nhất.
+   - Nguyên tắc viết lại:
+     * Tạo ra MỘT câu hỏi duy nhất, độc lập, rõ ràng, đầy đủ thuật ngữ chuyên môn dựa trên câu hỏi mới nhất và lịch sử trò chuyện để hệ thống có thể truy xuất tài liệu chính xác nhất.
+     * Cực kỳ quan trọng: CHỈ viết lại câu hỏi MỚI NHẤT của học viên. Lịch sử trò chuyện chỉ dùng để bổ sung ngữ cảnh bị thiếu (ví dụ: làm rõ đại từ "nó", "cái này", "bước trên", "ở đó" hoặc thuật ngữ chuyên môn đang được thảo luận ở câu trước).
+     * TUYỆT ĐỐI KHÔNG gộp câu hỏi cũ đã được trả lời trong lịch sử vào câu hỏi mới. 
+     * Nếu học viên hỏi một chủ đề hoàn toàn mới hoặc câu hỏi mới nhất đã đầy đủ ý nghĩa độc lập, hãy giữ nguyên ý của câu hỏi mới nhất và KHÔNG kết hợp bất kỳ nội dung nào từ các câu hỏi/trả lời cũ trong lịch sử.
+     * Tránh sinh ra câu hỏi dạng ghép nhiều câu hỏi cũ và mới (ví dụ: KHÔNG viết dạng "A là gì và B là gì?"). Câu hỏi sau khi viết lại phải tập trung duy nhất vào thắc mắc hiện tại.
 
 BẮT BUỘC TRẢ VỀ ĐỊNH DẠNG JSON:
 {{
@@ -192,9 +197,10 @@ Dưới đây là các tài liệu bài học (Context) được cung cấp đ�
 
 HƯỚNG DẪN GIẢNG DẠY (BẮT BUỘC TUÂN THỦ):
 1. CĂN CỨ VÀO TÀI LIỆU: Chỉ trả lời dựa trên thông tin trong <context>. Tuyệt đối không tự bịa ra kiến thức ngoài bài học. Nếu thông tin không có trong tài liệu, hãy trả lời: "Tôi hiện chưa tìm thấy thông tin cụ thể về nội dung này trong tài liệu bài học, bạn có muốn trao đổi thêm về các chủ đề khác trong khóa học không?".
-2. CẤU TRÚC BÀI GIẢNG: Hãy trình bày rõ ràng bằng cách dùng gạch đầu dòng, tô đậm thuật ngữ quan trọng. Nếu là thuật toán, hãy giải thích từng bước (step-by-step).
-3. TRÍCH DẪN NGUỒN: Cuối câu trả lời, hãy luôn chỉ rõ nguồn từ file nào để học viên dễ dàng tra cứu (Ví dụ: "Nguồn: [Tên_file.pdf]").
-4. TƯƠNG TÁC TÍCH CỰC: Hãy bắt đầu hoặc kết thúc bằng một câu khích lệ tinh thần học tập của học viên nếu thấy phù hợp.
+2. TẬP TRUNG VÀO CÂU HỎI MỚI NHẤT: Chỉ trả lời câu hỏi mới nhất của học viên. Tuyệt đối không giải thích lại hay trả lời lại các câu hỏi cũ đã được trả lời trong lịch sử trò chuyện (chat_history), trừ khi học viên yêu cầu làm rõ thêm.
+3. CẤU TRÚC BÀI GIẢNG: Hãy trình bày rõ ràng bằng cách dùng gạch đầu dòng, tô đậm thuật ngữ quan trọng. Nếu là thuật toán, hãy giải thích từng bước (step-by-step).
+4. TRÍCH DẪN NGUỒN: Cuối câu trả lời, hãy luôn chỉ rõ nguồn từ file nào để học viên dễ dàng tra cứu (Ví dụ: "Nguồn: [Tên_file.pdf]").
+5. TƯƠNG TÁC TÍCH CỰC: Hãy bắt đầu hoặc kết thúc bằng một câu khích lệ tinh thần học tập của học viên nếu thấy phù hợp.
 """
 
 
@@ -303,7 +309,7 @@ async def chat_stream_endpoint(request: ChatRequest):
             question_answer_chain = create_stuff_documents_chain(llm_smart, qa_prompt)
 
             async for chunk in question_answer_chain.astream({
-                "input": request.question,
+                "input": rewritten_question,
                 "chat_history": langchain_history,
                 "context": retrieved_docs,
             }):
@@ -400,7 +406,7 @@ async def chat_endpoint(request: ChatRequest):
         @retry_on_429()
         def _answer_sync():
             return question_answer_chain.invoke({
-                "input": request.question,
+                "input": rewritten_question,
                 "chat_history": langchain_history,
                 "context": retrieved_docs,
             })
@@ -498,7 +504,7 @@ async def chat_eval_endpoint(request: ChatRequest):
 
         def _answer_sync():
             return question_answer_chain.invoke({
-                "input": request.question,
+                "input": rewritten_question,
                 "chat_history": langchain_history,
                 "context": retrieved_docs,
             })

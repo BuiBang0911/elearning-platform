@@ -140,9 +140,9 @@ const CreateNewCourse = ({ createCourseOpen, setCreateCourseOpen, handleCoursesC
 									<SelectValue placeholder="Select level" />
 								</SelectTrigger>
 								<SelectContent>
-									<SelectItem value="1">Beginner</SelectItem>
-									<SelectItem value="2">Intermediate</SelectItem>
-									<SelectItem value="3">Advanced</SelectItem>
+									<SelectItem value="0">Beginner</SelectItem>
+									<SelectItem value="1">Intermediate</SelectItem>
+									<SelectItem value="2">Advanced</SelectItem>
 								</SelectContent>
 							</Select>
 						</div>

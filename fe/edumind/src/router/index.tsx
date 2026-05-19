@@ -21,6 +21,7 @@ import ProtectedRoute from "../components/auth/ProtectedRoute";
 import { UserRole } from "../interfaces/auth";
 import ApplyInstructor from "../pages/student/ApplyInstructor";
 
+
 export const router = createBrowserRouter([
   {
     path: "/",
@@ -29,6 +30,7 @@ export const router = createBrowserRouter([
       { index: true, Component: LandingPage },
       { path: "login", Component: Login },
       { path: "register", Component: Register },
+
       {
         path: "admin",
         element: (

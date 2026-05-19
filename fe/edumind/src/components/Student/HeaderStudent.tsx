@@ -35,21 +35,10 @@ const HeaderStudent = () => {
                             <Link to="/student" className="text-sm font-medium text-blue-600">
                                 My Learning
                             </Link>
-                            <Link to="/browse" className="text-sm font-medium text-gray-600 hover:text-gray-900">
-                                Browse Courses
-                            </Link>
                         </nav>
                     </div>
 
                     <div className="flex items-center gap-4">
-                        {/* <Button
-                            variant={showAIChat ? "default" : "outline"}
-                            onClick={() => setShowAIChat(!showAIChat)}
-                            className="gap-2"
-                        >
-                            <Brain className="w-4 h-4" />
-                            <span className="hidden sm:inline">AI Assistant</span>
-                        </Button> */}
                         <div className="flex items-center gap-3">
                             <div className="hidden sm:block text-right">
                                 <p className="text-sm font-medium">{user?.fullName}</p>
@@ -69,14 +58,6 @@ const HeaderStudent = () => {
                         >
                             <LogOut className="w-4 h-4" />
                         </Button>
-                        {/* <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                            className="md:hidden"
-                        >
-                            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-                        </Button> */}
                     </div>
                 </div>
             </div>

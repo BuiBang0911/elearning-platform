@@ -259,12 +259,11 @@ namespace Web.Controllers
         }
 
         [HttpPost("get-all-course-for-student")]
-        [Authorize(Roles = $"{nameof(UserRole.Student)}")]
+        [AllowAnonymous]
         [EnableRateLimiting("SearchPolicy")]
         public async Task<IActionResult> GetAllCoursesForStudentAsync([FromBody] PagingRequest pagingRequest, [FromQuery] string? search)
         {
             var userId = _authService?.UserId;
-            if (userId == null) return Unauthorized();
             var courses = await _courseService.GetAllCoursesForStudentAsync(userId, search, pagingRequest.PageIndex, pagingRequest.PageSize);
 
             return Ok(courses);

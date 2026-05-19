@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
@@ -58,6 +59,12 @@ const formatCurrency = (amount: number) => {
 
 export default function InstructorDashboard() {
 	const queryClient = useQueryClient();
+	const [searchParams, setSearchParams] = useSearchParams();
+	const activeTab = searchParams.get("tab") || "courses";
+
+	const handleTabChange = (value: string) => {
+		setSearchParams({ tab: value });
+	};
 
 	const [editCourseOpen, setEditCourseOpen] = useState(false);
 	const [selectedCourse, setSelectedCourse] = useState<CourseResponseInstructorDashboard | null>(null);
@@ -180,7 +187,7 @@ export default function InstructorDashboard() {
 				</div>
 
 				{/* Main Content Tabs */}
-				<Tabs defaultValue="courses" className="space-y-6">
+				<Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
 					<TabsList>
 						<TabsTrigger value="courses">My Courses</TabsTrigger>
 						<TabsTrigger value="materials">Learning Materials</TabsTrigger>
