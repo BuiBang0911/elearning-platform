@@ -29,16 +29,16 @@ export default function Header() {
                 {/* Actions */}
                 <div className="flex items-center">
                     {user?.role === 1 && ( // Student
-                        <button 
+                        <button
                             className="ml-7.25 text-[#1B1B1B] cursor-pointer hover:text-orange-500 transition-colors"
                             onClick={() => navigate("/apply-instructor")}
                         >
                             Become Instructor
                         </button>
                     )}
-                    
+
                     {user?.role === 2 && ( // Instructor
-                        <button 
+                        <button
                             className="ml-7.25 text-[#1B1B1B] cursor-pointer hover:text-orange-500 transition-colors"
                             onClick={() => navigate("/instructor")}
                         >
@@ -49,15 +49,15 @@ export default function Header() {
                     <button className="p-2 rounded-lg cursor-pointer ml-5.5">
                         <FaShoppingCart className="w-5 h-5 text-[#1B1B1B]" />
                     </button>
-                    
+
                     {user ? (
                         <div className="flex items-center ml-[17.5px] gap-3">
                             <div className="flex items-center gap-2 cursor-pointer group relative">
                                 <FaUserCircle className="w-8 h-8 text-gray-600" />
                                 <span className="text-sm font-medium">{user.fullName}</span>
-                                
+
                                 <div className="absolute top-full right-0 mt-2 w-48 bg-white shadow-lg rounded-md overflow-hidden hidden group-hover:block border z-50">
-                                    <button 
+                                    <button
                                         onClick={logout}
                                         className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
                                     >

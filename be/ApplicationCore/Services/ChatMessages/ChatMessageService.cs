@@ -37,8 +37,8 @@ namespace ApplicationCore.Services.ChatMessages
                 var session = await _chatSessionRepository.GetByIdAsync(SessionId);
                 if (session != null && (string.IsNullOrEmpty(session.Title) || session.Title == "New Chat"))
                 {
-                    // Lấy khoảng 50 ký tự đầu làm title
-                    string newTitle = Content.Length > 50 ? Content.Substring(0, 47) + "..." : Content;
+                    // Lấy khoảng 40 ký tự đầu làm title
+                    string newTitle = Content.Length > 40 ? Content.Substring(0, 37) + "..." : Content;
                     session.Title = newTitle;
                     await _chatSessionRepository.UpdateAsync(session);
                 }

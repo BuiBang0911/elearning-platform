@@ -119,7 +119,7 @@ const ApplyInstructor: React.FC = () => {
             <div className="max-w-4xl w-full bg-white shadow-2xl rounded-3xl overflow-hidden flex flex-col md:flex-row border border-white/20 backdrop-blur-sm">
                 <div className="md:w-1/3 bg-gradient-to-br from-blue-600 to-purple-700 p-10 text-white flex flex-col justify-center relative overflow-hidden">
                     {/* Home Button */}
-                    <button 
+                    <button
                         onClick={() => navigate("/")}
                         className="absolute top-6 left-6 flex items-center gap-2 text-white/80 hover:text-white transition-colors z-20 group text-sm font-medium"
                     >

@@ -1,7 +1,7 @@
 import { Link, useNavigate } from "react-router";
 import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
-import { BookOpen, Brain, Users, TrendingUp, Sparkles, GraduationCap } from "lucide-react";
+import { BookOpen, Brain, Users, TrendingUp, GraduationCap } from "lucide-react";
 import { useEffect, useState } from "react";
 import { UserRole, type UserResponse } from "../interfaces/auth";
 import AuthApi from "../api/auth.api";
@@ -21,7 +21,7 @@ export default function LandingPage() {
       if (user.role === UserRole.ADMIN) {
         navigate("/admin");
       }
-      
+
       // Fetch instructor request status if student
       if (user.role === UserRole.STUDENT) {
         instructorRequestApi.getMyStatus()
@@ -98,10 +98,7 @@ export default function LandingPage() {
       <section className="relative bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto">
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/80 backdrop-blur-sm rounded-full mb-6 shadow-sm">
-              <Sparkles className="w-4 h-4 text-purple-600" />
-              <span className="text-sm font-medium text-gray-700">AI-Powered Learning Platform</span>
-            </div>
+            <div className="h-9 mb-6" />
             <h1 className="text-5xl font-bold text-gray-900 mb-6">
               Learn Smarter with{" "}
               <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
@@ -118,7 +115,7 @@ export default function LandingPage() {
                   {isAuthenticated ? (user?.role === UserRole.INSTRUCTOR ? "Manage Courses" : "Start Learning") : "Join Now"}
                 </Button>
               </Link>
-              
+
               {/* Logic cho nút Đăng ký giảng viên */}
               {(!isAuthenticated || user?.role === UserRole.STUDENT) && (
                 <Link to={!isAuthenticated ? "/register?role=instructor" : "/apply-instructor"}>
@@ -128,7 +125,7 @@ export default function LandingPage() {
                   </Button>
                 </Link>
               )}
-              
+
               {isAuthenticated && user?.role === UserRole.INSTRUCTOR && (
                 <Link to="/instructor">
                   <Button size="lg" variant="outline" className="gap-2 w-full sm:w-auto border-blue-200 text-blue-700 hover:bg-blue-50">

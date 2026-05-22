@@ -29,35 +29,35 @@ const Login = () => {
     const validate = () => {
         let valid = true;
         const newErrors = { username: "", password: "" };
- 
+
         if (!username.trim()) {
             newErrors.username = "Username is required";
             valid = false;
         }
- 
+
         if (!password) {
             newErrors.password = "Password is required";
             valid = false;
         }
- 
+
         setErrors(newErrors);
         return valid;
     };
 
     const handleSubmit = async () => {
         if (!validate()) return;
- 
+
         try {
             setIsLoading(true);
- 
+
             // Fetch user role from context after successful login
             await AuthApi.login({ email: username, password, role: UserRole.STUDENT }); // Backend ignores role anyway but interface expects it
- 
+
             const userData = await AuthApi.getMe();
             await refreshUser(); // Ensure context is updated
- 
+
             toast.success("Login successful!");
- 
+
             // Dynamic redirection based on user role
             if (userData.role === UserRole.ADMIN) {
                 navigate("/admin", { replace: true });
@@ -67,10 +67,10 @@ const Login = () => {
         } catch (err: any) {
             console.error("Login failed:", err);
             setIsLoading(false);
- 
+
             const errorData = err.response?.data;
             let errorMessage = "Login failed. Please check your credentials.";
- 
+
             if (typeof errorData === "string") {
                 errorMessage = errorData;
             } else if (errorData?.errors) {
@@ -78,7 +78,7 @@ const Login = () => {
             } else if (errorData?.title) {
                 errorMessage = errorData.title;
             }
- 
+
             toast.error(errorMessage);
         }
     };
@@ -138,8 +138,8 @@ const Login = () => {
                         />
                         {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password}</p>}
                     </div>
-                    <Button 
-                        type="submit" 
+                    <Button
+                        type="submit"
                         loading={isLoading}
                         className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:opacity-90 transition-opacity h-12 text-lg font-bold shadow-lg shadow-blue-200"
                     >

@@ -5,7 +5,7 @@ import FormatMarkdown from '../FormatString/FormatMarkdown';
 import FullPageLoader from '../PostLoading/FullPageLoader';
 import ChatSessionApi from '../../api/ChatSession.api';
 import chatMessageApi from '../../api/ChatMessage.api';
-import { BookOpen, ChevronDown, Maximize2, Menu, Minimize2, Paperclip, Pencil, Send, Sparkles, Trash2, Wand2, X } from 'lucide-react';
+import { BookOpen, ChevronDown, Maximize2, Menu, Minimize2, Pencil, Send, Sparkles, Trash2, Wand2, X } from 'lucide-react';
 import enrrollementApi from '../../api/Enrollment';
 import lessonApi from '../../api/Lesson.api';
 import type { CourseResponse } from '../../interfaces/Course';
@@ -41,6 +41,9 @@ const Chatbot = ({ open, onClose }: ChatbotProps) => {
   const [selectedCourseId, setSelectedCourseId] = useState<number | "all">("all");
   const [selectedLessonId, setSelectedLessonId] = useState<number | "all">("all");
 
+  const currentSession = liChatSessions.find(s => s.id === currentSessionId);
+  const isLessonFixed = !!(currentSessionId && currentSession?.lessonId);
+
 
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
@@ -57,23 +60,22 @@ const Chatbot = ({ open, onClose }: ChatbotProps) => {
     if (open) fetchCourses();
   }, [open]);
 
-  useEffect(() => {
-    const fetchLessons = async () => {
-      if (typeof selectedCourseId === 'number') {
-        try {
-          const res = await lessonApi.getByCourseId(selectedCourseId);
-          setLessons(res);
-          setSelectedLessonId("all"); // Reset lesson khi đổi khóa học
-        } catch (err) {
-          console.error("Failed to fetch lessons:", err);
-        }
-      } else {
+  const loadLessonsForCourse = async (courseId: number | "all", targetLessonId: number | "all" = "all") => {
+    if (typeof courseId === 'number') {
+      try {
+        const res = await lessonApi.getByCourseId(courseId);
+        setLessons(res);
+        setSelectedLessonId(targetLessonId);
+      } catch (err) {
+        console.error("Failed to fetch lessons:", err);
         setLessons([]);
         setSelectedLessonId("all");
       }
-    };
-    fetchLessons();
-  }, [selectedCourseId]);
+    } else {
+      setLessons([]);
+      setSelectedLessonId("all");
+    }
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -106,8 +108,18 @@ const Chatbot = ({ open, onClose }: ChatbotProps) => {
       // Auto-select course and lesson based on session context
       const session = liChatSessions.find(s => s.id === id);
       if (session) {
-        if (session.courseId) setSelectedCourseId(session.courseId);
-        if (session.lessonId) setSelectedLessonId(session.lessonId);
+        if (session.courseId) {
+          setSelectedCourseId(session.courseId);
+          await loadLessonsForCourse(session.courseId, session.lessonId || "all");
+        } else {
+          setSelectedCourseId("all");
+          setSelectedLessonId("all");
+          setLessons([]);
+        }
+      } else {
+        setSelectedCourseId("all");
+        setSelectedLessonId("all");
+        setLessons([]);
       }
 
       setIsLoading(false);
@@ -176,7 +188,7 @@ const Chatbot = ({ open, onClose }: ChatbotProps) => {
     // Cập nhật title cục bộ và server cho session mới nếu đây là câu hỏi đầu tiên
     const currentSession = liChatSessions.find(s => s.id === sessionId);
     if (currentSession && (!currentSession.title || currentSession.title === "New Chat")) {
-      const newTitle = text.length > 50 ? text.substring(0, 47) + "..." : text;
+      const newTitle = text.length > 40 ? text.substring(0, 37) + "..." : text;
       setLiChatSessions(prev => prev.map(s =>
         s.id === sessionId ? { ...s, title: newTitle } : s
       ));
@@ -402,15 +414,13 @@ const Chatbot = ({ open, onClose }: ChatbotProps) => {
           <div className="bg-white border-b border-gray-100 p-2 flex gap-2 overflow-x-auto">
             <div className="relative shrink-0 min-w-[140px]">
               <select
-                className="w-full h-8 pl-8 pr-6 text-xs bg-gray-50 border border-gray-200 rounded-lg appearance-none outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
+                className="w-full h-8 pl-8 pr-6 text-xs bg-gray-50 border border-gray-200 rounded-lg appearance-none outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 value={selectedCourseId}
+                disabled={isLessonFixed}
                 onChange={(e) => {
                   const val = e.target.value === "all" ? "all" : Number(e.target.value);
                   setSelectedCourseId(val);
-                  // Khi đổi khóa học ở session hiện tại, reset lessonId trong DB nếu cần
-                  /* if (currentSessionId && val === "all") {
-                    ChatSessionApi.update(currentSessionId, { userId: user?.id || 0, title: "", lessonId: undefined });
-                  } */
+                  loadLessonsForCourse(val, "all");
                 }}
               >
                 <option value="all">Tất cả khóa học</option>
@@ -422,9 +432,9 @@ const Chatbot = ({ open, onClose }: ChatbotProps) => {
 
             <div className="relative shrink-0 min-w-[140px]">
               <select
-                className="w-full h-8 pl-8 pr-6 text-xs bg-gray-50 border border-gray-200 rounded-lg appearance-none outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer disabled:opacity-50"
+                className="w-full h-8 pl-8 pr-6 text-xs bg-gray-50 border border-gray-200 rounded-lg appearance-none outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 value={selectedLessonId}
-                disabled={selectedCourseId === "all"}
+                disabled={selectedCourseId === "all" || isLessonFixed}
                 onChange={(e) => {
                   const lessonId = e.target.value === "all" ? "all" : Number(e.target.value);
                   setSelectedLessonId(lessonId);
@@ -521,12 +531,6 @@ const Chatbot = ({ open, onClose }: ChatbotProps) => {
                 />
               </div>
               <div className="absolute right-1 bottom-1 flex items-center">
-                <button
-                  className="p-1.5 text-gray-400 hover:text-blue-600 transition-colors disabled:opacity-50"
-                  disabled={isGenerating || selectedLessonId === "all"}
-                >
-                  <Paperclip size={16} />
-                </button>
                 <button
                   className="p-1.5 bg-blue-600 text-white rounded-lg ml-1 hover:bg-blue-700 transition-colors disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
                   onClick={() => handleSend()}
