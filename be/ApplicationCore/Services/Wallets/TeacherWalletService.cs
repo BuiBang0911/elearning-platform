@@ -143,7 +143,7 @@ namespace ApplicationCore.Services.Wallets
         {
             var wallet = await GetOrCreateWalletAsync(teacherId);
 
-            var minWithdrawal = _configuration.GetValue<decimal>("Revenue:MinWithdrawalAmount", 2000000);
+            var minWithdrawal = _configuration.GetValue<decimal>("Revenue:MinWithdrawalAmount", 2000);
 
             if (request.Amount < minWithdrawal)
                 throw new Exception($"Số tiền rút tối thiểu là {minWithdrawal:N0}đ.");
