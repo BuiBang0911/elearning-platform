@@ -15,6 +15,9 @@ export interface AdminDashboardStats {
   aiUsage: {
     totalQuestions: number;
     avgResponseTimeSeconds: number;
+    engagementRate: number;
+    avgConversationDepth: number;
+    activeUsersRatio: number;
   };
 }
 

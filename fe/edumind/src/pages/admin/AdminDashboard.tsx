@@ -194,35 +194,35 @@ const AdminDashboard = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           <div className="space-y-4">
             <div className="flex items-center justify-between mb-1">
-              <span className="text-sm font-medium text-slate-600">Accuracy Rate</span>
-              <span className="text-sm font-bold text-blue-600">96.8%</span>
+              <span className="text-sm font-medium text-slate-600">Student Engagement Rate</span>
+              <span className="text-sm font-bold text-blue-600">{stats.aiUsage.engagementRate}%</span>
             </div>
             <div className="w-full bg-slate-100 rounded-full h-2">
-              <div className="bg-blue-500 h-2 rounded-full" style={{ width: '96.8%' }} />
+              <div className="bg-blue-500 h-2 rounded-full" style={{ width: `${stats.aiUsage.engagementRate}%` }} />
             </div>
-            <p className="text-xs text-slate-400">Based on user thumb-up feedback across all sessions.</p>
+            <p className="text-xs text-slate-400">Percentage of enrollments with active AI chat interactions.</p>
           </div>
 
           <div className="space-y-4">
             <div className="flex items-center justify-between mb-1">
-              <span className="text-sm font-medium text-slate-600">Uptime Reliability</span>
-              <span className="text-sm font-bold text-green-600">99.9%</span>
+              <span className="text-sm font-medium text-slate-600">Avg Conversation Depth</span>
+              <span className="text-sm font-bold text-green-600">{stats.aiUsage.avgConversationDepth} msgs/session</span>
             </div>
             <div className="w-full bg-slate-100 rounded-full h-2">
-              <div className="bg-green-500 h-2 rounded-full" style={{ width: '99.9%' }} />
+              <div className="bg-green-500 h-2 rounded-full" style={{ width: `${Math.min(100, (stats.aiUsage.avgConversationDepth / 10) * 100)}%` }} />
             </div>
-            <p className="text-xs text-slate-400">Server availability for LLM inference nodes.</p>
+            <p className="text-xs text-slate-400">Average number of user questions per chat session.</p>
           </div>
 
           <div className="space-y-4">
             <div className="flex items-center justify-between mb-1">
-              <span className="text-sm font-medium text-slate-600">Response Consistency</span>
-              <span className="text-sm font-bold text-purple-600">94.2%</span>
+              <span className="text-sm font-medium text-slate-600">Active AI Users Ratio</span>
+              <span className="text-sm font-bold text-purple-600">{stats.aiUsage.activeUsersRatio}%</span>
             </div>
             <div className="w-full bg-slate-100 rounded-full h-2">
-              <div className="bg-purple-500 h-2 rounded-full" style={{ width: '94.2%' }} />
+              <div className="bg-purple-500 h-2 rounded-full" style={{ width: `${stats.aiUsage.activeUsersRatio}%` }} />
             </div>
-            <p className="text-xs text-slate-400">Variation in latency during peak usage hours.</p>
+            <p className="text-xs text-slate-400">Percentage of registered students who have used the AI assistant.</p>
           </div>
         </div>
       </Card>

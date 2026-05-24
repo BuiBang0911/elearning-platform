@@ -151,10 +151,46 @@ namespace ApplicationCore.Services.Dashboard
                 .DefaultIfEmpty(0)
                 .Average();
 
+            // Calculate session and user counts from database
+            var sessionCount = await messagesQuery.Select(m => m.SessionId).Distinct().CountAsync();
+            var activeUsers = await messagesQuery.Select(m => m.Session.UserId).Distinct().CountAsync();
+
+            int totalEnrollments = 0;
+            int totalStudents = 0;
+            if (instructorId.HasValue)
+            {
+                totalEnrollments = await _context.Enrollments.CountAsync(e => e.Course.LecturerId == instructorId);
+                totalStudents = await _context.Enrollments
+                    .Where(e => e.Course.LecturerId == instructorId)
+                    .Select(e => e.UserId)
+                    .Distinct()
+                    .CountAsync();
+            }
+            else
+            {
+                totalEnrollments = await _context.Enrollments.CountAsync();
+                totalStudents = await _context.Users.CountAsync(u => u.Role == UserRole.Student);
+            }
+
+            double engagementRate = totalEnrollments > 0 
+                ? Math.Min(100.0, ((double)sessionCount / totalEnrollments) * 100) 
+                : 0;
+
+            double avgConversationDepth = sessionCount > 0 
+                ? (double)totalQuestions / sessionCount 
+                : 0;
+
+            double activeUsersRatio = totalStudents > 0 
+                ? Math.Min(100.0, ((double)activeUsers / totalStudents) * 100) 
+                : 0;
+
             return new AiUsageDto
             {
                 TotalQuestions = totalQuestions,
-                AvgResponseTimeSeconds = Math.Round(avgTime, 1)
+                AvgResponseTimeSeconds = Math.Round(avgTime, 1),
+                EngagementRate = Math.Round(engagementRate, 1),
+                AvgConversationDepth = Math.Round(avgConversationDepth, 1),
+                ActiveUsersRatio = Math.Round(activeUsersRatio, 1)
             };
         }
 

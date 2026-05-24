@@ -6,7 +6,6 @@ import {
   BookOpen, 
   Settings, 
   LogOut, 
-  Brain,
   Menu,
   ChevronRight,
   Banknote,
@@ -40,9 +39,7 @@ const AdminLayout = () => {
       {/* Sidebar */}
       <aside className="w-64 bg-slate-900 text-white flex flex-col h-full shadow-2xl">
         <div className="p-6 flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-            <Brain className="w-6 h-6 text-white" />
-          </div>
+          <img src="/assets/images/logo.png" alt="EduMind" className="w-10 h-10 object-contain" />
           <span className="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
             Admin Panel
           </span>

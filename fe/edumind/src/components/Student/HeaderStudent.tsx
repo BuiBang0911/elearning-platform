@@ -1,4 +1,4 @@
-import { Brain, LogOut } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "../ui/button";
 import authApi from "../../api/auth.api";

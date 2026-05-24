@@ -28,6 +28,9 @@ namespace ApplicationCore.DTOs
     {
         public int TotalQuestions { get; set; }
         public double AvgResponseTimeSeconds { get; set; }
+        public double EngagementRate { get; set; }
+        public double AvgConversationDepth { get; set; }
+        public double ActiveUsersRatio { get; set; }
     }
 
     public class RecentReviewDto
