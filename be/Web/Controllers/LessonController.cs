@@ -50,6 +50,7 @@ namespace Web.Controllers
         [HttpPost]
         [Authorize(Roles = $"{nameof(UserRole.Instructor)}")]
         [EnableRateLimiting("UploadPolicy")]
+        [RequestSizeLimit(104857600)]
         public override async Task<ActionResult<LessonResponse>> Create([FromForm] LessonUpdateRequest rq)
         {
             var userId = _authService.UserId;
@@ -94,6 +95,7 @@ namespace Web.Controllers
         [HttpPut("{id}")]
         [Authorize(Roles = $"{nameof(UserRole.Instructor)}")]
         [EnableRateLimiting("UploadPolicy")]
+        [RequestSizeLimit(104857600)]
         public override async Task<IActionResult> Update(int id, [FromForm] LessonUpdateRequest rq)
         {
             var userId = _authService.UserId;
