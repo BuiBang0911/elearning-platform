@@ -117,7 +117,7 @@ const LearningScreen = () => {
                                     {lesson.isCompleted ? <CheckCircle className="w-5 h-5 text-green-500" /> : <Circle className="w-5 h-5 text-slate-300" />}
                                 </button>
                                 <div className="flex-1">
-                                    <div className={`text-sm font-semibold leading-tight ${isActive ? 'text-blue-600' : 'text-slate-700'}`}>
+                                    <div className={`text-sm font-semibold leading-tight break-words ${isActive ? 'text-blue-600' : 'text-slate-700'}`}>
                                         {idx + 1}. {lesson.title}
                                     </div>
                                     <div className="flex items-center gap-1.5 text-[10px] text-slate-400 mt-1 uppercase font-bold tracking-wider">
@@ -138,7 +138,7 @@ const LearningScreen = () => {
                         <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 hover:bg-slate-50 rounded-lg">
                             <Menu className="w-5 h-5" />
                         </button>
-                        <h1 className="font-bold text-lg">{activeLesson?.title || 'Loading...'}</h1>
+                        <h1 className="font-bold text-lg break-words line-clamp-1">{activeLesson?.title || 'Loading...'}</h1>
                     </div>
                     <Button variant="outline" size="sm" onClick={() => navigate(`/student/course/${course.id}`)}>
                         <ChevronLeft className="w-4 h-4 mr-2" /> Course Home

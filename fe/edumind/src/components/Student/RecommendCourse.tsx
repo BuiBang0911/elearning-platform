@@ -45,8 +45,8 @@ const RecommendCourse = () => {
                         />
                         <div className="p-4">
                             <Badge className="mb-2">{course.categoryName}</Badge>
-                            <h3 className="font-semibold mb-2 line-clamp-1">{course.title}</h3>
-                            <p className="text-sm text-gray-600 mb-3 line-clamp-2">
+                            <h3 className="font-semibold mb-2 line-clamp-1 break-words">{course.title}</h3>
+                            <p className="text-sm text-gray-600 mb-3 line-clamp-2 break-words whitespace-pre-wrap">
                                 {course.description}
                             </p>
                             <div className="flex items-center justify-between text-sm text-gray-500 mb-3">

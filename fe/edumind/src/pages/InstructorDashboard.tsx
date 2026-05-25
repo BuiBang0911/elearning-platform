@@ -208,8 +208,8 @@ export default function InstructorDashboard() {
 									<div className="flex-1">
 										<div className="flex items-start justify-between mb-3">
 											<div>
-												<h3 className="text-xl font-semibold mb-2">{course.title}</h3>
-												<p className="text-gray-600 mb-2 line-clamp-2">{course.description}</p>
+												<h3 className="text-xl font-semibold mb-2 break-words">{course.title}</h3>
+												<p className="text-gray-600 mb-2 line-clamp-2 break-words whitespace-pre-wrap">{course.description}</p>
 												<div className="flex items-center gap-3">
 													<Badge>{course.categoryName}</Badge>
 													<Badge variant="outline">{getCourseLevelName(course.level)}</Badge>
@@ -496,9 +496,9 @@ export default function InstructorDashboard() {
 														</div>
 													</div>
 												</div>
-												<Button 
-													variant="ghost" 
-													size="sm" 
+												<Button
+													variant="ghost"
+													size="sm"
 													className="opacity-0 group-hover:opacity-100 transition-opacity text-blue-600 hover:text-blue-700 hover:bg-blue-100/50"
 													onClick={() => handleOpenAnalytics(course.id, course.title)}
 												>
@@ -517,7 +517,7 @@ export default function InstructorDashboard() {
 									<div className="bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl p-4 text-white shadow-lg shadow-blue-200/50">
 										<p className="text-xs font-medium opacity-80 uppercase tracking-wider mb-1">Growth Tip</p>
 										<p className="text-sm font-medium leading-relaxed">
-											Your top course has <strong>{stats.topCourses[0]?.studentCount || 0}</strong> students. 
+											Your top course has <strong>{stats.topCourses[0]?.studentCount || 0}</strong> students.
 											Keep promoting it to reach even more learners! 🚀
 										</p>
 									</div>

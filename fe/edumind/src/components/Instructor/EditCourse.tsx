@@ -60,10 +60,12 @@ const EditCourse = ({
 	const [courseLessons, setCourseLessons] = useState<LessonResponse[]>([]);
 	const [addLessonOpen, setAddLessonOpen] = useState(false);
 	const [editLessonOpen, setEditLessonOpen] = useState(false);
+	const [selectedLesson, setSelectedLesson] = useState<LessonResponse | null>(null);
 
 	const [courseDocuments, setCourseDocuments] = useState<DocumentResponse[]>([]);
 	const [uploadDocumentOpen, setUploadDocumentOpen] = useState(false);
 	const [editDocumentOpen, setEditDocumentOpen] = useState(false);
+	const [selectedDocument, setSelectedDocument] = useState<DocumentResponse | null>(null);
 	const [selectedLessonForUpload, setSelectedLessonForUpload] = useState<number | undefined>(undefined);
 
 	const [categories, setCategories] = useState<CategoryResponse[]>([]);
@@ -205,6 +207,26 @@ const EditCourse = ({
 	const handleSaveEdit = async (e: React.FormEvent) => {
 		e.preventDefault();
 
+		if (!editForm.title.trim() || editForm.title.trim().length < 10) {
+			toast.error("Course title must be at least 10 characters.");
+			return;
+		}
+
+		if (editForm.title.length > 255) {
+			toast.error("Course title must not exceed 255 characters.");
+			return;
+		}
+
+		if (!editForm.description.trim() || editForm.description.trim().length < 50) {
+			toast.error("Description must be at least 50 characters.");
+			return;
+		}
+
+		if (editForm.description.length > 5000) {
+			toast.error("Description must not exceed 5000 characters.");
+			return;
+		}
+
 		if (editForm.price > 0 && editForm.price < 2000) {
 			toast.error("Price must be 0 (Free) or at least 2,000 VND.");
 			return;
@@ -260,7 +282,11 @@ const EditCourse = ({
 										value={editForm.title}
 										onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
 										disabled={isSaving}
+										maxLength={255}
 									/>
+									<span className="text-[10px] text-slate-400 mt-1 block">
+										{editForm.title.length}/255 characters (minimum 10 characters)
+									</span>
 								</div>
 								<div>
 									<Label htmlFor="edit-description">Description</Label>
@@ -270,7 +296,11 @@ const EditCourse = ({
 										value={editForm.description}
 										onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
 										disabled={isSaving}
+										maxLength={5000}
 									/>
+									<span className="text-[10px] text-slate-400 mt-1 block">
+										{editForm.description.length}/5000 characters (minimum 50 characters)
+									</span>
 								</div>
 								<div className="grid sm:grid-cols-2 gap-4">
 									<div>
@@ -387,52 +417,22 @@ const EditCourse = ({
 														</div>
 													</div>
 													<div className="flex-1 min-w-0">
-														<div className="flex items-start justify-between mb-2">
-															<div className="flex-1">
-																<h4 className="font-medium mb-1">{lesson.title}</h4>
-																<p className="text-sm text-gray-600 mb-2">{lesson.description}</p>
-																{/* <div className="flex items-center gap-3 text-sm text-gray-500">
-																{lesson.videoUrl && (
-																	<>
-																		<div className="flex items-center gap-1">
-																			<Play className="w-4 h-4" />
-																			<span>Video</span>
-																		</div>
-																		<span>•</span>
-																	</>
-																)}
-																<span>{lesson.duration}</span>
-															</div> */}
+														<div className="flex items-start justify-between gap-4">
+															<div className="flex-1 min-w-0">
+																<h4 className="font-medium break-all">{lesson.title}</h4>
 															</div>
-															<div className="flex items-center gap-2 ml-4">
+															<div className="flex items-center gap-2 flex-shrink-0">
 																<Button
 																	variant="ghost"
 																	size="icon"
 																	onClick={() => {
-																		setSelectedLessonForUpload(lesson.id);
-																		setUploadDocumentOpen(true);
+																		setSelectedLesson(lesson);
+																		setEditLessonOpen(true);
 																	}}
-																	title="Add material to this lesson"
-																	className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-																>
-																	<Plus className="w-4 h-4" />
-																</Button>
-																<Button
-																	variant="ghost"
-																	size="icon"
-																	onClick={() => setEditLessonOpen(true)}
 																	title="Edit lesson"
 																>
 																	<Edit className="w-4 h-4" />
 																</Button>
-																<EditLesson
-																	key={lesson.id}
-																	editLessonOpen={editLessonOpen}
-																	setEditLessonOpen={setEditLessonOpen}
-																	selectedLesson={lesson}
-																	courseId={selectedCourse.id}
-																	onSave={handleUpdateLesson}
-																/>
 
 																<Button
 																	variant="ghost"
@@ -445,11 +445,25 @@ const EditCourse = ({
 																</Button>
 															</div>
 														</div>
+														<p className="text-sm text-gray-600 whitespace-pre-wrap break-all">{lesson.description}</p>
 													</div>
 												</div>
 											</Card>
 										))}
 								</div>
+							)}
+							{selectedLesson && (
+								<EditLesson
+									key={selectedLesson.id}
+									editLessonOpen={editLessonOpen}
+									setEditLessonOpen={setEditLessonOpen}
+									selectedLesson={selectedLesson}
+									courseId={selectedCourse.id}
+									onSave={(updated) => {
+										handleUpdateLesson(updated);
+										setSelectedLesson(null);
+									}}
+								/>
 							)}
 						</TabsContent>
 
@@ -537,17 +551,14 @@ const EditCourse = ({
 													<Button
 														variant="ghost"
 														size="icon"
-														onClick={() => setEditDocumentOpen(true)}
+														onClick={() => {
+															setSelectedDocument(doc);
+															setEditDocumentOpen(true);
+														}}
 														title="Edit document"
 													>
 														<Edit className="w-4 h-4" />
 													</Button>
-													<EditDocument
-														editDocumentOpen={editDocumentOpen}
-														setEditDocumentOpen={setEditDocumentOpen}
-														document={doc}
-														onSave={handleUpdateDocument}
-													/>
 													<Button
 														variant="ghost"
 														size="icon"
@@ -570,6 +581,18 @@ const EditCourse = ({
 										</Card>
 									))}
 								</div>
+							)}
+							{selectedDocument && (
+								<EditDocument
+									key={selectedDocument.id}
+									editDocumentOpen={editDocumentOpen}
+									setEditDocumentOpen={setEditDocumentOpen}
+									document={selectedDocument}
+									onSave={(updated) => {
+										handleUpdateDocument(updated);
+										setSelectedDocument(null);
+									}}
+								/>
 							)}
 						</TabsContent>
 					</Tabs>

@@ -35,7 +35,7 @@ export default function Course({ course }: { course: ICourse }) {
                                 {instructor}
                             </span>
                         </div>
-                        <p className="mt-2 text-[14px] text-[#1B1B1B]">
+                        <p className="mt-2 text-[14px] text-[#1B1B1B] break-words whitespace-pre-wrap">
                             {description}
                         </p>
                         <div className="mt-2 flex items-center gap-2">

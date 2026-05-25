@@ -48,15 +48,28 @@ const CreateNewCourse = ({ createCourseOpen, setCreateCourseOpen, handleCoursesC
 	const handleCreateCourse = async (e: React.FormEvent) => {
 		e.preventDefault();
 
-		if (courseForm.price > 0 && courseForm.price < 2000) {
-			toast.error("Price must be 0 (Free) or at least 2,000 VND.");
+		if (!courseForm.title.trim() || courseForm.title.trim().length < 10) {
+			toast.error("Course title must be at least 10 characters.");
 			return;
 		}
 
+		if (courseForm.title.length > 255) {
+			toast.error("Course title must not exceed 255 characters.");
+			return;
+		}
 
+		if (!courseForm.description.trim() || courseForm.description.trim().length < 50) {
+			toast.error("Course description must be at least 50 characters.");
+			return;
+		}
 
-		if (!courseForm.title.trim() || courseForm.title.length < 10) {
-			toast.error("Course title must be at least 10 characters.");
+		if (courseForm.description.length > 5000) {
+			toast.error("Course description must not exceed 5000 characters.");
+			return;
+		}
+
+		if (courseForm.price > 0 && courseForm.price < 2000) {
+			toast.error("Price must be 0 (Free) or at least 2,000 VND.");
 			return;
 		}
 
@@ -114,7 +127,11 @@ const CreateNewCourse = ({ createCourseOpen, setCreateCourseOpen, handleCoursesC
 							onChange={(e) => setCourseForm({ ...courseForm, title: e.target.value })}
 							disabled={isLoading}
 							required
+							maxLength={255}
 						/>
+						<span className="text-[10px] text-slate-400 mt-1 block">
+							{courseForm.title.length}/255 characters (minimum 10 characters)
+						</span>
 					</div>
 					<div>
 						<Label htmlFor="course-description">Description</Label>
@@ -126,7 +143,11 @@ const CreateNewCourse = ({ createCourseOpen, setCreateCourseOpen, handleCoursesC
 							onChange={(e) => setCourseForm({ ...courseForm, description: e.target.value })}
 							disabled={isLoading}
 							required
+							maxLength={5000}
 						/>
+						<span className="text-[10px] text-slate-400 mt-1 block">
+							{courseForm.description.length}/5000 characters (minimum 50 characters)
+						</span>
 					</div>
 					<div className="grid sm:grid-cols-2 gap-4">
 						<div>

@@ -29,7 +29,7 @@ const CourseDetail = () => {
     const { id = "" } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const { user: currentUser } = useAuth();
-    
+
     // Replace state with useQuery
     const { data: course, isLoading: isLoadingData } = useQuery({
         queryKey: ["course", id],
@@ -94,8 +94,8 @@ const CourseDetail = () => {
                             <Badge className="bg-blue-600 hover:bg-blue-500">{course.categoryName}</Badge>
                             <Badge variant="outline" className="text-slate-300 border-slate-600">{levelName}</Badge>
                         </div>
-                        <h1 className="text-4xl md:text-5xl font-bold leading-tight">{course.title}</h1>
-                        <p className="text-lg text-slate-300 max-w-2xl">{course.description}</p>
+                        <h1 className="text-4xl md:text-5xl font-bold leading-tight break-words">{course.title}</h1>
+                        <p className="text-lg text-slate-300 max-w-2xl whitespace-pre-wrap break-words">{course.description}</p>
 
                         <div className="flex flex-wrap items-center gap-6 text-sm text-slate-300 pt-4">
                             <div className="flex items-center gap-1">
@@ -158,7 +158,7 @@ const CourseDetail = () => {
                                                 </span>
                                             </div>
                                         </AccordionTrigger>
-                                        <AccordionContent className="px-4 pt-2 text-slate-600">
+                                        <AccordionContent className="px-4 pt-2 text-slate-600 whitespace-pre-wrap break-words">
                                             {lesson.description || "No description provided for this lesson."}
                                         </AccordionContent>
                                     </AccordionItem>
