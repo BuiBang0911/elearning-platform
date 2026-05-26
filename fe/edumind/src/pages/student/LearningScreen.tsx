@@ -42,13 +42,19 @@ const LearningScreen = () => {
         if (!activeLesson) return null;
         
         // Priority 1: Direct videoUrl from lesson (new flow)
-        if (activeLesson.videoUrl) return activeLesson.videoUrl;
+        if (activeLesson.videoUrl) {
+            return `${import.meta.env.VITE_API_BASE_URL}/Lesson/video/${activeLesson.id}`;
+        }
 
         // Priority 2: Video in documents (legacy support)
         const videoFromDocs = activeLesson.documents?.find(doc =>
             doc.filePath.toLowerCase().match(/\.(mp4|mov|webm|ogg)$/)
         );
-        return videoFromDocs?.filePath || null;
+        if (videoFromDocs) {
+            return `${import.meta.env.VITE_API_BASE_URL}/Document/download/${videoFromDocs.id}`;
+        }
+
+        return null;
     }, [activeLesson]);
 
     const otherDocuments = useMemo(() => {
@@ -163,6 +169,7 @@ const LearningScreen = () => {
                                             controls
                                             className="w-full h-full object-contain"
                                             poster={course.thumbnail}
+                                            crossOrigin="use-credentials"
                                         >
                                             <source src={videoUrl} type="video/mp4" />
                                             Your browser does not support the video tag.

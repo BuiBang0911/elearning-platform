@@ -1,3 +1,4 @@
+using ApplicationCore.Services.Enrollments;
 using ApplicationCore.DTO;
 using ApplicationCore.Services.Auth;
 using ApplicationCore.Services.Courses;
@@ -27,14 +28,16 @@ namespace Web.Controllers
         private readonly ICourseService _courseService;
         private readonly IUserLessonService _userLessonService;
         private readonly IStorageService _storageService;
+        private readonly IEnrollmentService _enrollmentService;
 
-        public LessonController(ILessonService lessonService, IAuthService authService, ICourseService courseService, IUserLessonService userLessonService, IMapper mapper, IStorageService storageService) : base(lessonService, mapper) {
+        public LessonController(ILessonService lessonService, IAuthService authService, ICourseService courseService, IUserLessonService userLessonService, IMapper mapper, IStorageService storageService, IEnrollmentService enrollmentService) : base(lessonService, mapper) {
             _authService = authService;
             _mapper = mapper;
             _lessonService = lessonService;
             _courseService = courseService;
             _userLessonService = userLessonService;
             _storageService = storageService;
+            _enrollmentService = enrollmentService;
         }
 
         [HttpGet("get-lessons-in-course/{id}")]
@@ -166,6 +169,49 @@ namespace Web.Controllers
             await _userLessonService.UncompleteLessonAsync(userId.Value, lessonId);
 
             return Ok();
+        }
+
+        [HttpGet("video/{id}")]
+        public async Task<IActionResult> StreamLessonVideo(int id)
+        {
+            var userId = _authService.UserId;
+            if (userId == null) return Unauthorized("Invalid token");
+
+            var lesson = await _lessonService.FirstOrDefaultAsync(x => x.Id == id, earlyLoad: [x => x.Course]);
+            if (lesson == null) return NotFound("Lesson not found");
+            if (string.IsNullOrEmpty(lesson.VideoUrl)) return NotFound("Video url is empty for this lesson");
+
+            bool isAuthorized = false;
+
+            if (User.IsInRole(nameof(UserRole.Admin)))
+            {
+                isAuthorized = true;
+            }
+            else if (User.IsInRole(nameof(UserRole.Instructor)))
+            {
+                isAuthorized = lesson.Course.LecturerId == userId.Value;
+            }
+            else
+            {
+                isAuthorized = await _enrollmentService.IsApprovedAsync(userId.Value, lesson.CourseId);
+            }
+
+            if (!isAuthorized)
+            {
+                return Forbid("You do not have permission to view this video.");
+            }
+
+            try
+            {
+                var stream = await _storageService.GetFileStreamAsync(lesson.VideoUrl);
+                var contentType = "video/mp4";
+                
+                return File(stream, contentType, enableRangeProcessing: true);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest($"Error streaming video: {ex.Message}");
+            }
         }
     }
 }
