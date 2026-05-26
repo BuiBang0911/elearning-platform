@@ -189,7 +189,7 @@ namespace Web.Controllers
             }
 
             var user = await _userService.FirstOrDefaultAsync(x => x.Email == request.Email);
-            if (user != null) return BadRequest(new { message = "Email already existed!" });
+            if (user != null) return BadRequest(new { message = "Username already existed!" });
 
             var passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
 

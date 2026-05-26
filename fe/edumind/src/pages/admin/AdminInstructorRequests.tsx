@@ -15,6 +15,15 @@ import { Badge } from "../../components/ui/badge";
 import FullPageLoader from "../../components/PostLoading/FullPageLoader";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../../components/ui/dialog";
+import { Textarea } from "../../components/ui/textarea";
 
 interface Request {
   id: number;
@@ -32,6 +41,12 @@ const AdminInstructorRequests = () => {
   const [requests, setRequests] = useState<Request[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<number | null>(null);
+  
+  // Custom dialog states
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [actionType, setActionType] = useState<"approve" | "reject" | null>(null);
+  const [targetRequestId, setTargetRequestId] = useState<number | null>(null);
+  const [rejectionReason, setRejectionReason] = useState("");
 
   const fetchRequests = async () => {
     try {
@@ -49,19 +64,30 @@ const AdminInstructorRequests = () => {
     fetchRequests();
   }, []);
 
-  const handleProcess = async (id: number, status: number) => {
-    const adminNote = status === 2 ? prompt("Enter rejection reason:") : "";
-    if (status === 2 && adminNote === null) return;
+  const initiateProcess = (id: number, status: number) => {
+    setTargetRequestId(id);
+    setActionType(status === 1 ? "approve" : "reject");
+    setRejectionReason("");
+    setDialogOpen(true);
+  };
+
+  const handleProcess = async () => {
+    if (!targetRequestId || !actionType) return;
+    const note = actionType === "reject" ? rejectionReason : "";
 
     try {
-      setProcessingId(id);
-      await instructorRequestApi.process(id, status, adminNote || "");
-      toast.success(status === 1 ? "Instructor approved!" : "Application rejected.");
+      setProcessingId(targetRequestId);
+      setDialogOpen(false);
+      await instructorRequestApi.process(targetRequestId, actionType === "approve" ? 1 : 2, note);
+      toast.success(actionType === "approve" ? "Instructor approved!" : "Application rejected.");
       fetchRequests();
     } catch (err) {
       toast.error("Process failed");
     } finally {
       setProcessingId(null);
+      setTargetRequestId(null);
+      setActionType(null);
+      setRejectionReason("");
     }
   };
 
@@ -108,9 +134,9 @@ const AdminInstructorRequests = () => {
                       <User className="w-3 h-3" />
                       Portfolio
                     </p>
-                    <a 
-                      href={req.portfolioUrl} 
-                      target="_blank" 
+                    <a
+                      href={req.portfolioUrl}
+                      target="_blank"
                       rel="noopener noreferrer"
                       className="text-sm font-medium text-blue-600 hover:underline flex items-center gap-1"
                     >
@@ -127,23 +153,23 @@ const AdminInstructorRequests = () => {
                 </div>
 
                 <div className="text-xs text-slate-400 flex items-center gap-1 italic">
-                   Submitted on {format(new Date(req.createdAt), "PPP")}
+                  Submitted on {format(new Date(req.createdAt), "PPP")}
                 </div>
               </div>
 
               <div className="flex flex-col justify-center gap-3 min-w-[180px]">
-                <Button 
-                  onClick={() => handleProcess(req.id, 1)}
+                <Button
+                  onClick={() => initiateProcess(req.id, 1)}
                   loading={processingId === req.id}
                   className="w-full bg-green-600 hover:bg-green-700 text-white gap-2 font-bold"
                 >
                   <CheckCircle className="w-4 h-4" />
                   Approve
                 </Button>
-                <Button 
+                <Button
                   variant="outline"
                   loading={processingId === req.id}
-                  onClick={() => handleProcess(req.id, 2)}
+                  onClick={() => initiateProcess(req.id, 2)}
                   className="w-full border-red-200 text-red-600 hover:bg-red-50 gap-2 font-bold"
                 >
                   <XCircle className="w-4 h-4" />
@@ -166,6 +192,51 @@ const AdminInstructorRequests = () => {
           </div>
         )}
       </div>
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {actionType === "approve" ? "Approve Application" : "Reject Application"}
+            </DialogTitle>
+            <DialogDescription>
+              {actionType === "approve"
+                ? "Are you sure you want to approve this candidate to become an instructor? They will gain teaching permissions on the platform."
+                : "Please provide a reason for rejecting this candidate's application. This feedback will be visible to the student."}
+            </DialogDescription>
+          </DialogHeader>
+
+          {actionType === "reject" && (
+            <div className="py-2">
+              <Textarea
+                placeholder="Enter rejection reason (e.g. Portfolio link is invalid, not enough experience)..."
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                className="w-full min-h-[100px]"
+              />
+            </div>
+          )}
+
+          <DialogFooter className="flex gap-2 sm:justify-end">
+            <button
+              onClick={() => setDialogOpen(false)}
+              className="px-4 py-2 border border-gray-200 rounded-lg text-gray-700 hover:bg-gray-50 text-sm font-medium transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleProcess}
+              className={`px-4 py-2 rounded-lg text-white text-sm font-medium transition-colors ${
+                actionType === "approve"
+                  ? "bg-green-600 hover:bg-green-700"
+                  : "bg-red-600 hover:bg-red-700"
+              }`}
+            >
+              Confirm
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

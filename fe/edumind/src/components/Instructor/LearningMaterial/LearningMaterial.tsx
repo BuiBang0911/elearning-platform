@@ -41,7 +41,7 @@ const LearningMaterial = () => {
 		const fetchDocuments = async () => {
 			try {
 				setIsLoading(true);
-				const res = await documentApi.getByInstructorId({ pageIndex: materialPage, pageSize: 12 });
+				const res = await documentApi.getByInstructorId({ pageIndex: materialPage - 1, pageSize: 12 });
 				setCourseDocuments(res);
 			} catch (error) {
 				console.error("Error fetching documents:", error);

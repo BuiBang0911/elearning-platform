@@ -56,6 +56,10 @@ export default function RegisterPage() {
 
 			if (typeof errorData === "string") {
 				errorMessage = errorData;
+			} else if (errorData?.message) {
+				errorMessage = errorData.message === "Username already existed!"
+					? "Username already exists!"
+					: errorData.message;
 			} else if (errorData?.errors) {
 				errorMessage = Object.values(errorData.errors).flat().join(", ");
 			} else if (errorData?.title) {

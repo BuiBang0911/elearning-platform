@@ -46,7 +46,7 @@ namespace ApplicationCore.Services.Documents
                 Status = x.Status
             });
 
-            var res = new PagedList<DocumentResponse>(query, pageIndex, pageSize, query.Count());
+            var res = new PagedList<DocumentResponse>(query, pageIndex, pageSize);
 
             return res;
 
