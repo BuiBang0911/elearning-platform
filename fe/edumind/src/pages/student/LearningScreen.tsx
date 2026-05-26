@@ -9,6 +9,7 @@ import lessonApi from "../../api/Lesson.api";
 import { toast } from "sonner";
 import { Button } from "../../components/ui/button";
 import { Progress } from "../../components/ui/progress";
+import documentApi from "../../api/Document.api";
 
 const LearningScreen = () => {
     const queryClient = useQueryClient();
@@ -86,6 +87,11 @@ const LearningScreen = () => {
         } finally {
             setIsCompleting(false);
         }
+    };
+
+    const handleDownloadDocument = (id: number) => {
+        const url = `${import.meta.env.VITE_API_BASE_URL}/Document/download/${id}`;
+        window.open(url, '_blank');
     };
 
     if (isLoading) return <FullPageLoader />;
@@ -187,12 +193,10 @@ const LearningScreen = () => {
                                         </h3>
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                             {otherDocuments.map(doc => (
-                                                <a
+                                                <div
                                                     key={doc.id}
-                                                    href={doc.filePath}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="flex items-center justify-between p-4 bg-white border border-slate-200 rounded-xl hover:border-blue-300 hover:shadow-md transition-all group"
+                                                    onClick={() => handleDownloadDocument(doc.id)}
+                                                    className="flex items-center justify-between p-4 bg-white border border-slate-200 rounded-xl hover:border-blue-300 hover:shadow-md transition-all group cursor-pointer"
                                                 >
                                                     <div className="flex items-center gap-3 overflow-hidden">
                                                         <div className="w-9 h-9 bg-red-50 text-red-600 rounded-lg flex items-center justify-center shrink-0">
@@ -204,7 +208,7 @@ const LearningScreen = () => {
                                                         </div>
                                                     </div>
                                                     <ExternalLink className="w-4 h-4 text-slate-300 group-hover:text-blue-500" />
-                                                </a>
+                                                </div>
                                             ))}
                                         </div>
                                     </div>

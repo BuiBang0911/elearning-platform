@@ -72,24 +72,9 @@ const LearningMaterial = () => {
 		}
 	}
 
-	const handleDownload = async (url: string, fileName: string) => {
-		try {
-			const response = await fetch(url);
-			if (!response.ok) throw new Error("Download failed");
-			const blob = await response.blob();
-			const blobUrl = window.URL.createObjectURL(blob);
-			const link = document.createElement('a');
-			link.href = blobUrl;
-			link.download = fileName;
-			document.body.appendChild(link);
-			link.click();
-			document.body.removeChild(link);
-			window.URL.revokeObjectURL(blobUrl);
-		} catch (error) {
-			console.error("Download error:", error);
-			// Fallback: Mở trong tab mới nếu fetch bị chặn
-			window.open(url, '_blank');
-		}
+	const handleDownload = (id: number) => {
+		const url = `${import.meta.env.VITE_API_BASE_URL}/Document/download/${id}?download=true`;
+		window.open(url, '_blank');
 	}
 
 	const filteredItems = useMemo(() => {
@@ -157,7 +142,7 @@ const LearningMaterial = () => {
 										</Badge>
 										<div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
 											<button 
-												onClick={() => handleDownload(doc.filePath, doc.fileName)}
+												onClick={() => handleDownload(doc.id)}
 												className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
 											>
 												<Download className="w-4 h-4" />

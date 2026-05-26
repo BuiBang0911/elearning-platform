@@ -1,7 +1,8 @@
-﻿using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -29,8 +30,8 @@ namespace ApplicationCore.Services.Storage
             var blobServiceClient = new BlobServiceClient(_connectionString);
             var containerClient = blobServiceClient.GetBlobContainerClient(_containerName);
 
-            // Ensure the container exists (create it if it does not exist with public blob access)
-            await containerClient.CreateIfNotExistsAsync(PublicAccessType.Blob);
+            // Ensure the container exists (create it if it does not exist with private access)
+            await containerClient.CreateIfNotExistsAsync(PublicAccessType.None);
 
             // Generate a unique file name to avoid overwriting existing files
             string fileName = $"{Guid.NewGuid()}{Path.GetExtension(file.FileName)}";
@@ -57,6 +58,27 @@ namespace ApplicationCore.Services.Storage
 
             var blobClient = containerClient.GetBlobClient(fileName);
             return await blobClient.DeleteIfExistsAsync();
+        }
+
+        public async Task<Stream> GetFileStreamAsync(string fileUrl)
+        {
+            var blobServiceClient = new BlobServiceClient(_connectionString);
+            var containerClient = blobServiceClient.GetBlobContainerClient(_containerName);
+            
+            string fileName;
+            if (Uri.TryCreate(fileUrl, UriKind.Absolute, out var uri))
+            {
+                fileName = Path.GetFileName(uri.LocalPath);
+            }
+            else
+            {
+                fileName = Path.GetFileName(fileUrl);
+            }
+
+            var blobClient = containerClient.GetBlobClient(fileName);
+
+            var response = await blobClient.DownloadStreamingAsync();
+            return response.Value.Content;
         }
     }
 }

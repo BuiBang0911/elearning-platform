@@ -6,6 +6,7 @@ using ApplicationCore.Services.Documents;
 using ApplicationCore.Services.Lessons;
 using ApplicationCore.Services.Rag;
 using ApplicationCore.Services.Storage;
+using ApplicationCore.Services.Enrollments;
 using AutoMapper;
 using Azure.Core;
 using Infrastructure.Entities;
@@ -30,8 +31,9 @@ namespace Web.Controllers
         private readonly IDocumentService _documentService;
         private readonly ILessonService _lessonService;
         private readonly IStorageService _storageService;
+        private readonly IEnrollmentService _enrollmentService;
 
-        public DocumentController(IDocumentService documentService, ILessonService lessonService, IStorageService storageService, IAuthService authService, ICeleryService celeryService, IMapper mapper) : base(documentService, mapper)
+        public DocumentController(IDocumentService documentService, ILessonService lessonService, IStorageService storageService, IAuthService authService, ICeleryService celeryService, IMapper mapper, IEnrollmentService enrollmentService) : base(documentService, mapper)
         {
             _documentService = documentService;
             _lessonService = lessonService;
@@ -39,6 +41,7 @@ namespace Web.Controllers
             _authService = authService;
             _celeryService = celeryService;
             _mapper = mapper;
+            _enrollmentService = enrollmentService;
         }
 
         [HttpPost]
@@ -132,6 +135,68 @@ namespace Web.Controllers
             );
 
             return Ok((object)result);
+        }
+
+        [HttpGet("download/{id}")]
+        public async Task<IActionResult> DownloadDocument(int id, [FromQuery] bool download = false)
+        {
+            var userId = _authService.UserId;
+            if (userId == null) return Unauthorized("Invalid token");
+
+            var doc = await _documentService.FirstOrDefaultAsync(x => x.Id == id, earlyLoad: [x => x.Lesson.Course]);
+            if (doc == null) return NotFound("Document not found");
+
+            bool isAuthorized = false;
+
+            if (User.IsInRole(nameof(UserRole.Admin)))
+            {
+                isAuthorized = true;
+            }
+            else if (User.IsInRole(nameof(UserRole.Instructor)))
+            {
+                isAuthorized = doc.Lesson.Course.LecturerId == userId.Value;
+            }
+            else
+            {
+                isAuthorized = await _enrollmentService.IsApprovedAsync(userId.Value, doc.Lesson.CourseId);
+            }
+
+            if (!isAuthorized)
+            {
+                return Forbid("You do not have permission to download this document.");
+            }
+
+            try
+            {
+                var stream = await _storageService.GetFileStreamAsync(doc.FilePath);
+                var contentType = "application/octet-stream";
+                string ext = Path.GetExtension(doc.FilePath);
+
+                if (doc.FileName.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase) ||
+                    doc.FilePath.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
+                {
+                    contentType = "application/pdf";
+                }
+
+                string downloadName = doc.FileName;
+                if (!string.IsNullOrEmpty(ext) && !downloadName.EndsWith(ext, StringComparison.OrdinalIgnoreCase))
+                {
+                    downloadName += ext;
+                }
+
+                if (download)
+                {
+                    return File(stream, contentType, downloadName);
+                }
+                else
+                {
+                    return File(stream, contentType);
+                }
+            }
+            catch (Exception ex)
+            {
+                return BadRequest($"Error retrieving file: {ex.Message}");
+            }
         }
 
         [HttpDelete("{id}")]

@@ -65,6 +65,13 @@ const documentApi = {
     getByInstructorId: async (pagingRequest: PagingRequest): Promise<PagedList<DocumentResponse>> => {
         const res = await api.post(`/Document/get-in-instructor`, pagingRequest);
         return res.data;
+    },
+
+    download: async (id: number): Promise<Blob> => {
+        const res = await api.get(`/Document/download/${id}`, {
+            responseType: "blob"
+        });
+        return res.data;
     }
 };
 

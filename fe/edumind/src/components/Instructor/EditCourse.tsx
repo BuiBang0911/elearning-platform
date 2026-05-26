@@ -167,23 +167,14 @@ const EditCourse = ({
 		}
 	};
 
-	const handleDownload = async (url: string, fileName: string) => {
-		try {
-			const response = await fetch(url);
-			if (!response.ok) throw new Error("Download failed");
-			const blob = await response.blob();
-			const blobUrl = window.URL.createObjectURL(blob);
-			const link = document.createElement('a');
-			link.href = blobUrl;
-			link.download = fileName;
-			document.body.appendChild(link);
-			link.click();
-			document.body.removeChild(link);
-			window.URL.revokeObjectURL(blobUrl);
-		} catch (error) {
-			console.error("Download error:", error);
-			window.open(url, '_blank');
-		}
+	const handleDownload = (id: number) => {
+		const url = `${import.meta.env.VITE_API_BASE_URL}/Document/download/${id}?download=true`;
+		window.open(url, '_blank');
+	};
+
+	const handleViewDocument = (id: number) => {
+		const url = `${import.meta.env.VITE_API_BASE_URL}/Document/download/${id}`;
+		window.open(url, '_blank');
 	};
 
 	const handleAddLesson = (newLesson: LessonResponse) => {
@@ -543,7 +534,7 @@ const EditCourse = ({
 													<Button
 														variant="ghost"
 														size="icon"
-														onClick={() => window.open(doc.filePath, '_blank', 'noopener,noreferrer')}
+														onClick={() => handleViewDocument(doc.id)}
 														title="View document"
 													>
 														<Eye className="w-4 h-4" />
@@ -563,7 +554,7 @@ const EditCourse = ({
 														variant="ghost"
 														size="icon"
 														title="Download document"
-														onClick={() => handleDownload(doc.filePath, doc.fileName)}
+														onClick={() => handleDownload(doc.id)}
 													>
 														<Download className="w-4 h-4" />
 													</Button>
